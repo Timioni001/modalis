@@ -13,3 +13,4 @@ contracts/lib/
 # Supabase / misc
 supabase/.temp/
 .DS_Store
+contracts/deployments/
