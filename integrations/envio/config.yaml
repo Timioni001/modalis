@@ -1,0 +1,63 @@
+# MODALIS — Envio HyperIndex
+#
+# Indexes the portfolio's on-chain history so the app never reconstructs it from RPC.
+# Schema validated against the `envio` package's own evm.schema.json.
+#
+# ABIs in ./abis are generated from the COMPILED contracts by
+# `pnpm --filter @modalis/chain sync-abis`, so the indexer and the app always agree with what is
+# deployed. Do not hand-edit them.
+name: modalis
+description: Goal-based wealth management on Monad — portfolio, mandate and risk history.
+ecosystem: evm
+schema: ./schema.graphql
+handlers: ./src/handlers
+
+# Addresses come from the environment so one config serves testnet and mainnet.
+# Set these from the deploy script's output (contracts/deployments/<chainId>.json).
+contracts:
+  - name: PortfolioMandate
+    abi_file_path: ./abis/PortfolioMandate.json
+    events:
+      - event: MandateUpdated
+      - event: AllocationSet
+      - event: MandateActiveSet
+      - event: ManagerSet
+  - name: PortfolioVault
+    abi_file_path: ./abis/PortfolioVault.json
+    events:
+      - event: Deposited
+      - event: Withdrawn
+      - event: TradeSettled
+      - event: EmergencyWithdrawn
+  - name: RebalanceExecutor
+    abi_file_path: ./abis/RebalanceExecutor.json
+    events:
+      - event: Rebalanced
+      - event: AllocationSnapshot
+  - name: RiskSignalReceiver
+    abi_file_path: ./abis/RiskSignalReceiver.json
+    events:
+      - event: RiskStateUpdated
+      - event: RebalanceRequired
+
+chains:
+  - id: 10143 # Monad testnet
+    start_block: ${ENVIO_START_BLOCK}
+    rpc:
+      - url: ${MONAD_TESTNET_RPC_URL}
+    contracts:
+      - name: PortfolioMandate
+        address: ${NEXT_PUBLIC_PORTFOLIO_MANDATE_ADDRESS}
+      - name: PortfolioVault
+        address: ${NEXT_PUBLIC_PORTFOLIO_VAULT_ADDRESS}
+      - name: RebalanceExecutor
+        address: ${NEXT_PUBLIC_REBALANCE_EXECUTOR_ADDRESS}
+      - name: RiskSignalReceiver
+        address: ${NEXT_PUBLIC_RISK_SIGNAL_RECEIVER_ADDRESS}
+
+# A rebalance that gets reorged away must not stay in the portfolio's history.
+rollback_on_reorg: true
+field_selection:
+  transaction_fields:
+    - hash
+    - from

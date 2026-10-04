@@ -1,0 +1,15 @@
+{
+  "schedule": "0 0/5 * * * *",
+  "chain": "monad-testnet",
+  "rebalanceExecutor": "0x0000000000000000000000000000000000000000",
+  "portfolioMandate": "0x0000000000000000000000000000000000000000",
+  "assetRegistry": "0x0000000000000000000000000000000000000000",
+  "riskSignalReceiver": "0x0000000000000000000000000000000000000000",
+  "owners": [],
+  "gasLimit": "1500000",
+  "report": {
+    "encoderName": "evm",
+    "signingAlgo": "ecdsa",
+    "hashingAlgo": "keccak256"
+  }
+}

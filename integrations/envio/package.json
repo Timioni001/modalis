@@ -1,0 +1,20 @@
+{
+  "name": "@modalis/envio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "codegen": "envio codegen",
+    "dev": "envio dev",
+    "start": "envio start",
+    "deploy": "envio deploy",
+    "validate": "python3 scripts/validate-config.py"
+  },
+  "dependencies": {
+    "envio": "^3.12.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

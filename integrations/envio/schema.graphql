@@ -1,0 +1,140 @@
+# MODALIS — indexed portfolio history.
+#
+# This schema mirrors on-chain events only. Nothing here is application state: goals, interview
+# answers and AI explanations live in Postgres (supabase/migrations), because they were never
+# on-chain to begin with. The split matters — this is the auditable half.
+
+enum TxType {
+  DEPOSIT
+  WITHDRAW
+  EMERGENCY_WITHDRAW
+  REBALANCE
+}
+
+enum RiskStatus {
+  OK
+  DRIFT
+  BREACH
+}
+
+"""A portfolio owner. The id is the lowercase wallet address."""
+type User {
+  id: ID!
+  "Authorised manager, which may submit rebalance proposals and nothing else."
+  manager: String
+  "Current mandate version. 0 means no mandate."
+  currentMandateVersion: Int!
+  firstSeenBlock: BigInt!
+  lastActivityBlock: BigInt!
+  mandates: [Mandate!]! @derivedFrom(field: "owner")
+  positions: [Position!]! @derivedFrom(field: "owner")
+  transactions: [Transaction!]! @derivedFrom(field: "owner")
+  rebalances: [Rebalance!]! @derivedFrom(field: "owner")
+  riskEvents: [RiskEvent!]! @derivedFrom(field: "owner")
+  goalSnapshots: [GoalSnapshot!]! @derivedFrom(field: "owner")
+}
+
+"""
+One version of a user's investment policy. Mandates are immutable once written: changing the
+policy creates a new version, which is what makes the user's financial rules auditable over time.
+"""
+type Mandate {
+  id: ID! # owner-version
+  owner: User!
+  version: Int!
+  targetValue: BigInt! # USD 1e18
+  targetDate: BigInt! # unix seconds
+  maxDrawdownBps: Int!
+  minLiquidityBps: Int!
+  rebalanceThresholdBps: Int!
+  maxSingleAssetBps: Int!
+  maxSlippageBps: Int!
+  active: Boolean!
+  createdAtBlock: BigInt!
+  createdAtTimestamp: BigInt!
+  txHash: String!
+  allocations: [MandateAllocation!]! @derivedFrom(field: "mandate")
+}
+
+"""Per-asset target and permitted range inside one mandate version."""
+type MandateAllocation {
+  id: ID! # owner-version-token
+  mandate: Mandate!
+  token: String!
+  targetBps: Int!
+  minBps: Int!
+  maxBps: Int!
+}
+
+"""Current holding of one asset, maintained from deposits, withdrawals and settled trades."""
+type Position {
+  id: ID! # owner-token
+  owner: User!
+  token: String!
+  amount: BigInt! # base units
+  lastUpdatedBlock: BigInt!
+}
+
+"""Every portfolio action, with the transaction that settled it."""
+type Transaction {
+  id: ID! # txHash-logIndex
+  owner: User!
+  type: TxType!
+  token: String
+  amount: BigInt
+  txHash: String!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+"""
+A settled rebalance. Carries the before/after allocation the executor emitted, so the portfolio's
+state transition is part of the record rather than something the app reconstructs.
+"""
+type Rebalance {
+  id: ID! # owner-nonce
+  owner: User!
+  mandateVersion: Int!
+  nonce: BigInt!
+  adapter: String!
+  tokenIn: String!
+  tokenOut: String!
+  amountIn: BigInt!
+  amountOut: BigInt!
+  "keccak256 of the explanation shown to the user; the stored text is checkable against this."
+  reasonHash: String!
+  tokens: [String!]
+  bpsBefore: [Int!]
+  bpsAfter: [Int!]
+  txHash: String!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+"""Risk state published by the Chainlink CRE monitoring workflow."""
+type RiskEvent {
+  id: ID! # txHash-logIndex
+  owner: User!
+  status: RiskStatus!
+  mandateVersion: Int!
+  maxDriftBps: BigInt!
+  totalValue: BigInt!
+  reasonHash: String!
+  "True when the signal asked for a rebalance (status was not OK)."
+  rebalanceRequired: Boolean!
+  txHash: String!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+"""Portfolio value against the goal, recorded whenever a risk signal reports a total value."""
+type GoalSnapshot {
+  id: ID! # txHash-logIndex
+  owner: User!
+  totalValue: BigInt! # USD 1e18
+  targetValue: BigInt! # USD 1e18, from the mandate at that time
+  "Progress in bps of the target, so no floats are stored."
+  progressBps: Int!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
