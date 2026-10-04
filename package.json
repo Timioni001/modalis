@@ -3,13 +3,35 @@
   "private": true,
   "version": "0.1.0",
   "description": "Goal-based wealth management, programmed on Monad.",
-  "packageManager": "pnpm@9.12.0",
+  "packageManager": "pnpm@10.28.0",
   "engines": { "node": ">=22" },
   "scripts": {
-    "test:portfolio": "pnpm --filter @modalis/portfolio test",
-    "test:contracts": "cd contracts && forge test -vv",
-    "build:contracts": "cd contracts && forge build",
-    "deploy:testnet": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url monad_testnet --broadcast",
+    "setup": "bash scripts/setup.sh",
+    "verify": "bash scripts/verify.sh",
+    "demo": "bash scripts/demo-local.sh",
+
+    "dev": "pnpm --filter @modalis/web dev",
+    "build": "pnpm --filter @modalis/web build",
+    "start": "pnpm --filter @modalis/web start",
+
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test -vv",
+    "contracts:deploy:local": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url http://127.0.0.1:8545 --broadcast",
+    "contracts:deploy:testnet": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url monad_testnet --broadcast",
+    "contracts:sync-abis": "pnpm --filter @modalis/chain sync-abis",
+
+    "test": "pnpm -r --filter './packages/*' test",
+    "typecheck": "pnpm -r typecheck",
+
+    "risk-monitor": "pnpm --filter @modalis/risk-monitor start",
+    "risk-monitor:once": "pnpm --filter @modalis/risk-monitor once",
+    "loop": "pnpm --filter @modalis/demo loop",
+
+    "envio:validate": "pnpm --filter @modalis/envio validate",
+    "envio:codegen": "pnpm --filter @modalis/envio codegen",
+    "envio:dev": "pnpm --filter @modalis/envio dev",
+    "cre:simulate": "pnpm --filter @modalis/cre-risk-monitor simulate",
+
     "db:migrate": "psql \"$SUPABASE_DB_URL\" -f supabase/migrations/0001_init.sql"
   }
 }

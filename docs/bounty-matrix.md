@@ -1,0 +1,138 @@
+# Sponsor integration matrix
+
+The rule from the brief: **only claim an integration if the product visibly and technically uses
+it.** This table says what is built, what is proven by something you can run, and what still needs
+credentials or network access this build environment does not have.
+
+`/api/status` reports the same thing at runtime, and the landing page renders it — an unconfigured
+integration shows as "Not configured" rather than as a logo.
+
+| Sponsor | What Modalis uses it for | Built | Verified by execution |
+|---|---|---|---|
+| **Monad** | Portfolio state, mandate enforcement, settlement | Yes | **Yes** — 47 contract tests; full loop run on a real EVM node |
+| **Dynamic** | Email / social login, embedded Monad wallet, signing | Yes | Partly — built against the real SDK and typechecks; needs an environment id to sign |
+| **Kuru** | Orderbook execution venue for rebalances | Yes | Partly — 11 adapter tests through the full executor → vault → adapter → router path; no live market |
+| **Chainlink CRE** | DON-signed portfolio risk monitoring | Yes | Partly — report encoding proven against the receiving contract; workflow not simulated |
+| **Alchemy** | Monad RPC + WebSocket event streams | Yes | Partly — transports and URL construction built; needs an API key |
+| **Envio** | Indexed portfolio and mandate history | Yes | Partly — config validated against Envio's own JSON schema; codegen needs Docker |
+| **Perpl** | Capped tactical sleeve | **No** | — |
+
+---
+
+## Monad — core, required
+
+Not a deployment target. The product's financial state lives here.
+
+- Five contracts: `AssetRegistry`, `PortfolioMandate`, `PortfolioVault`, `RebalanceExecutor`,
+  `RiskSignalReceiver`, plus `KuruAdapter`.
+- Chain definitions come from viem's registry (mainnet 143, testnet 10143) rather than
+  hand-written endpoints.
+- `evm_version = "cancun"` deliberately: Cancun bytecode runs on a Prague chain, not the reverse.
+
+**Proven:** 47 forge tests. The complete loop — goal → mandate → deposit → breach → proposal →
+rejection → execution → settlement → updated state — runs against a real EVM node, twice,
+idempotently, with 13 real transactions.
+
+```bash
+bash scripts/demo-local.sh
+```
+
+## Dynamic — required
+
+Email / social login and an embedded Monad wallet, so a first-time user never sees "connect
+wallet". External wallets stay supported.
+
+- `DynamicContextProvider` with `EthereumWalletConnectors`, pinned to the configured Monad network
+  so a user cannot sign a portfolio action on the wrong chain.
+- `isEthereumWallet` + `getWalletClient` bridges Dynamic's wallet to a viem `WalletClient`.
+- The user's wallet signs every owner action: `setMandate`, `setManager`, deposit, withdraw,
+  revoke, pause, emergency withdraw.
+
+**Dynamic handles wallet UX; it does not handle financial permissions.** Being signed in grants no
+authority over any portfolio — the contracts key every action off `msg.sender`.
+
+*Needs:* `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`. Without it the app renders and says wallet
+onboarding is unconfigured rather than showing a button that cannot work.
+
+## Kuru — required / high
+
+Modalis is the portfolio manager; Kuru is the execution venue. Modalis does not build an exchange.
+
+The adapter calls the **real** `Router.anyToAnySwap`, transcribed from the Router ABI shipped in
+`@kuru-labs/kuru-sdk` 0.0.95 and vendored unmodified at `integrations/kuru/abi/Router.json`.
+Routes come from the SDK's own `PathFinder`. **No ABI is invented.**
+
+**Proven:** 11 tests drive the full `RebalanceExecutor → PortfolioVault → KuruAdapter → router`
+path against a mock router implementing the real signature, asserting the route round-trips
+unchanged into the router's calldata, that post-trade mandate validation still bites, that
+unvetted markets are refused, and that a partial fill cannot strand funds.
+
+*Needs:* `KURU_ROUTER_ADDRESS`, `KURU_MARKET_ADDRESSES`, `KURU_API_URL`. `selectVenue` picks Kuru
+only when an adapter address, an API URL and an RPC URL are all present, and otherwise names the
+missing variable — it never reports Kuru execution without a Kuru adapter to settle through.
+
+See `integrations/kuru/README.md`.
+
+## Chainlink CRE — required / high
+
+A cron workflow reads each portfolio from Monad through the EVM capability, computes its risk
+state with the same deterministic engine the app uses, and writes a DON-signed signal to
+`RiskSignalReceiver`.
+
+Determinism is the point: identical contract reads with no clocks, randomness or private data mean
+every node reaches the same answer, so the published risk state carries consensus rather than our
+assertion.
+
+**Scope, deliberately narrow:** this writes a *signal*. `RiskSignalReceiver` holds no balances and
+has no reference to the vault or executor; a rebalance still requires a proposal that passes the
+executor's validation. Nothing here claims autonomous fund movement.
+
+**Proven:** `contracts/test/RiskSignalReceiver.t.sol` embeds a payload generated by the workflow's
+own `encodeRiskReport` and asserts the contract decodes every field. If the workflow's encoding and
+the contract's decoding drift apart, that test fails — the only way to catch it without a live DON.
+
+*Needs:* CRE CLI ≥ 1.29.0, `cre login`, and `CRE_FORWARDER_ADDRESS`. The deploy script **skips**
+`RiskSignalReceiver` when no forwarder is set rather than pinning it to `address(0)`.
+
+See `integrations/chainlink-cre/README.md`.
+
+## Alchemy — high
+
+Monad RPC and WebSockets, with `fallback` across endpoints and multicall batching so a portfolio
+view is one request rather than one per asset. Live event subscriptions back the dashboard's
+settlement updates, with historical log queries as the fallback when Envio is absent.
+
+`hasMulticall3` probes for Multicall3 rather than assuming it — Monad has it on both networks, a
+bare local node does not, and batching against a missing Multicall3 returns empty data rather than
+erroring. That bug was found by running the loop.
+
+*Needs:* `NEXT_PUBLIC_ALCHEMY_API_KEY`. Falls back to the chain's public RPC.
+
+## Envio — high
+
+12 events across 4 contracts indexed into `User`, `Mandate`, `MandateAllocation`, `Position`,
+`Transaction`, `Rebalance`, `RiskEvent`, `GoalSnapshot`. The activity view reads the indexer when
+configured and says when it is falling back to RPC logs.
+
+Mandates are versioned and immutable, which is what makes the "what changed between v2 and v3?"
+view answerable rather than reconstructed. Only successful rebalances appear — a rejected proposal
+reverts and emits nothing, so the absence of a row is itself the record that the mandate held.
+
+**Proven:** `config.yaml` validates against Envio's own `evm.schema.json` from the installed
+package, and the same check asserts every configured event exists in the generated ABI.
+
+```bash
+pnpm envio:validate
+```
+
+*Needs:* Docker and Postgres for `envio codegen`; `ENVIO_GRAPHQL_URL` for the app to read it.
+
+See `integrations/envio/README.md`.
+
+## Perpl — not built
+
+The brief marks this optional and warns against making leveraged perps part of a goal-based
+wealth product. It is not integrated, and no part of the UI implies it is.
+
+The mandate would enforce such a sleeve the same way it enforces everything else: a capped
+allocation with `maxBps` on a registered asset. That is a design note, not a claim.
