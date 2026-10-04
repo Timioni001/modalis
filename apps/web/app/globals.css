@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/*
+ * MODALIS design tokens.
+ *
+ * Premium consumer fintech, not a trading terminal: white dominant, one restrained blue accent,
+ * neutral greys, large legible numbers. Risk states get their own semantic colours so a breach
+ * is never communicated by colour alone — every state also carries a label.
+ */
+@theme {
+  --color-ink: #0b1220;
+  --color-ink-soft: #3d4757;
+  --color-ink-muted: #6b7686;
+  --color-line: #e6e9ef;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f7f8fa;
+
+  --color-accent: #1d4ed8;
+  --color-accent-soft: #eef2ff;
+
+  --color-ok: #0f7a4f;
+  --color-ok-soft: #e9f6f0;
+  --color-warn: #8a5a00;
+  --color-warn-soft: #fdf5e3;
+  --color-breach: #a3252a;
+  --color-breach-soft: #fdeded;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-numeric: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Large money figures should align in columns and never reflow as digits change. */
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.015em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

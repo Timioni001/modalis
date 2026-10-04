@@ -69,6 +69,81 @@ export function resetScenario(tokens: {
   };
 }
 
+/**
+ * A repeatable breach scenario, computed from the portfolio's CURRENT holdings.
+ *
+ * The fixed `btc_rally` only breaches a portfolio that is still near its targets: once Modalis has
+ * rebalanced, the same $70,000 price is absorbed and nothing breaches — which is the system
+ * working, but makes for a demo that only runs once. This picks the largest non-liquid holding and
+ * reprices it to exactly what it takes to put it `overshootBps` past its binding limit.
+ *
+ * The chosen price is synthetic and the UI says so, including the size of the implied move. What
+ * follows from it — the breach, the proposal, the contract's decision, the settlement — is real.
+ *
+ * Share after scaling asset k's price by m:  m*v / (T - v + m*v)
+ * Solving that for a target share s gives:   m = s*(T - v) / (v*(1 - s))
+ */
+export function breachLargestHoldingScenario(input: {
+  positions: {
+    symbol: string;
+    token: Address;
+    valueE18: bigint;
+    priceE18: bigint;
+    isLiquid: boolean;
+    maxBps: number;
+    assetMaxBps: number;
+  }[];
+  totalValueE18: bigint;
+  maxSingleAssetBps: number;
+  overshootBps?: number;
+}): Scenario {
+  const BPS = 10_000n;
+  const overshoot = BigInt(input.overshootBps ?? 300);
+
+  const candidates = input.positions.filter((p) => !p.isLiquid && p.valueE18 > 0n);
+  if (candidates.length === 0) {
+    throw new Error("No non-liquid holding with a balance, so there is nothing to push past a limit.");
+  }
+  const target = candidates.reduce((a, b) => (b.valueE18 > a.valueE18 ? b : a));
+
+  // The limit that actually binds this holding is the tightest of the three.
+  const limitBps = BigInt(
+    Math.min(input.maxSingleAssetBps, target.maxBps, target.assetMaxBps),
+  );
+  const shareBps = limitBps + overshoot;
+  if (shareBps >= BPS) {
+    throw new Error(`${target.symbol} cannot exceed its limit: it is already allowed up to 100%.`);
+  }
+
+  const rest = input.totalValueE18 - target.valueE18;
+  if (rest <= 0n) {
+    throw new Error("The portfolio holds only one asset, so no single holding can be overweight.");
+  }
+
+  // m = s*(T - v) / (v*(1 - s)), in bps-scaled integer arithmetic.
+  const numerator = shareBps * rest * BPS;
+  const denominator = target.valueE18 * (BPS - shareBps);
+  const multiplierBps = numerator / denominator;
+
+  let newPrice = (target.priceE18 * multiplierBps) / BPS;
+  // Never *lower* the price in a scenario meant to create an overweight position.
+  if (newPrice <= target.priceE18) newPrice = target.priceE18 + target.priceE18 / 10n;
+
+  const movePct = Number((newPrice * 100n) / target.priceE18) - 100;
+
+  return {
+    id: "breach_largest",
+    title: `A sharp rally in ${target.symbol}`,
+    description:
+      `Simulated market movement: ${target.symbol} is repriced ${movePct >= 0 ? "+" : ""}${movePct}% ` +
+      `(to $${(Number(newPrice) / 1e18).toLocaleString("en-US", { maximumFractionDigits: 2 })}), ` +
+      `which is what it takes to push it past the ${(Number(limitBps) / 100).toFixed(0)}% limit in ` +
+      `the mandate. The price is synthetic; the resulting breach, proposal, contract validation ` +
+      `and settlement are real.`,
+    steps: [{ symbol: target.symbol, token: target.token, priceE18: newPrice }],
+  };
+}
+
 export async function runScenario(
   wallet: WalletClient,
   client: PublicClient,
