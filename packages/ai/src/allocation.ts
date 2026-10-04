@@ -163,8 +163,19 @@ export function planAllocation(
   }
 
   const d = distribute(defensiveBps, defensiveSlices);
-  let extraLiquid = d.leftover;
-  if (extraLiquid > 0) defensiveBps -= extraLiquid;
+  const extraLiquid = d.leftover;
+  if (extraLiquid > 0) {
+    // The defensive sleeve is capped too (by maxSingleAssetBps and its registry ceiling), so with
+    // a narrow universe some of it has nowhere to go but cash. Holding cash is the conservative
+    // direction and keeps the concentration rule intact; pushing it back into growth would breach
+    // the glide-path ceiling the horizon set.
+    rationale.push(
+      `${(extraLiquid / 100).toFixed(0)}% of the defensive sleeve would have breached the ` +
+        `${(maxSingle / 100).toFixed(0)}% single-asset limit, so it is held as cash instead. ` +
+        `That makes your cash position larger than the ${(liquidBps / 100).toFixed(0)}% minimum.`,
+    );
+    defensiveBps -= extraLiquid;
+  }
 
   const l = distribute(liquidBps + extraLiquid, liquidSlices);
   // The liquid sleeve's cap is 10000 for cash-like assets, so leftover here means a

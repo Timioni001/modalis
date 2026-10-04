@@ -29,6 +29,12 @@ export type SelectVenueOptions = {
   convert: Converter;
   /** Monad RPC URL, needed by the Kuru SDK. */
   rpcUrl?: string;
+  /**
+   * Deployed adapter addresses, normally taken straight from the deployment record. These win
+   * over the environment, so a caller that already knows what is deployed does not have to
+   * mirror it into env vars first.
+   */
+  adapters?: { kuruAdapter?: Address; demoAdapter?: Address };
   /** Overrides for local/fork testing. */
   kuru?: Partial<KuruVenueConfig>;
 };
@@ -41,8 +47,9 @@ export type SelectVenueOptions = {
 export function selectVenue(opts: SelectVenueOptions): VenueSelection {
   const env = opts.env ?? process.env;
 
-  const kuruAdapter = env.NEXT_PUBLIC_KURU_ADAPTER_ADDRESS?.trim() || opts.kuru?.adapter;
-  const kuruApiUrl = env.KURU_API_URL?.trim() || opts.kuru?.apiUrl;
+  const kuruAdapter =
+    opts.adapters?.kuruAdapter ?? opts.kuru?.adapter ?? env.NEXT_PUBLIC_KURU_ADAPTER_ADDRESS?.trim();
+  const kuruApiUrl = opts.kuru?.apiUrl ?? env.KURU_API_URL?.trim();
   const rpcUrl = opts.rpcUrl ?? env.NEXT_PUBLIC_MONAD_RPC_URL ?? env.MONAD_TESTNET_RPC_URL;
 
   if (kuruAdapter && isAddress(kuruAdapter) && kuruApiUrl && rpcUrl) {
@@ -59,7 +66,7 @@ export function selectVenue(opts: SelectVenueOptions): VenueSelection {
     };
   }
 
-  const mockAdapter = env.NEXT_PUBLIC_EXECUTION_ADAPTER_ADDRESS?.trim();
+  const mockAdapter = opts.adapters?.demoAdapter ?? env.NEXT_PUBLIC_EXECUTION_ADAPTER_ADDRESS?.trim();
   if (!mockAdapter || !isAddress(mockAdapter)) {
     throw new Error(
       "No execution venue available. Set NEXT_PUBLIC_KURU_ADAPTER_ADDRESS + KURU_API_URL for " +

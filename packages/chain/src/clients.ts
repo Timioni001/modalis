@@ -28,6 +28,12 @@ export type RpcConfig = {
   /** Explicit WebSocket URL. Wins over alchemyApiKey. */
   wsUrl?: string;
   alchemyApiKey?: string;
+  /**
+   * Batch reads through Multicall3. Defaults to true, which is correct for Monad (both networks
+   * have Multicall3 deployed). Set false against a bare local node that has no Multicall3, where
+   * batched calls would otherwise return empty data. `hasMulticall3` probes for it.
+   */
+  multicall?: boolean;
 };
 
 function httpUrlsFor(cfg: RpcConfig, network: NetworkName, chain: Chain): string[] {
@@ -53,10 +59,11 @@ export function createMonadPublicClient(cfg: RpcConfig): PublicClient {
   const chain = chainById(cfg.chainId);
   const network = networkForChainId(cfg.chainId);
   const urls = httpUrlsFor(cfg, network, chain);
+  const batchReads = cfg.multicall ?? true;
   return createPublicClient({
     chain,
     transport: urls.length > 1 ? fallback(urls.map((u) => http(u))) : http(urls[0]),
-    batch: { multicall: { wait: 16 } },
+    ...(batchReads ? { batch: { multicall: { wait: 16 } } as const } : {}),
   }) as PublicClient;
 }
 
@@ -106,4 +113,20 @@ export function rpcConfigFromEnv(env: Record<string, string | undefined> = proce
     wsUrl: (network === "mainnet" ? env.MONAD_MAINNET_WS_URL : env.MONAD_TESTNET_WS_URL) || undefined,
     alchemyApiKey: env.NEXT_PUBLIC_ALCHEMY_API_KEY || undefined,
   };
+}
+
+/**
+ * Checks whether the chain actually has Multicall3 deployed at the address its chain definition
+ * claims. Monad mainnet and testnet both do; a freshly started local node does not, and batching
+ * against a missing Multicall3 silently returns empty data instead of erroring usefully.
+ */
+export async function hasMulticall3(client: PublicClient): Promise<boolean> {
+  const address = client.chain?.contracts?.multicall3?.address;
+  if (!address) return false;
+  try {
+    const code = await client.getCode({ address });
+    return Boolean(code && code !== "0x");
+  } catch {
+    return false;
+  }
 }
