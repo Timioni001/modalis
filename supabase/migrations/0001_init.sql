@@ -59,12 +59,6 @@ language sql stable as $$
   select lower(nullif(auth.jwt() ->> 'wallet_address', ''))
 $$;
 
--- App user id for the caller (null if not signed in / not yet provisioned).
-create or replace function public.current_user_id() returns uuid
-language sql stable security definer set search_path = public as $$
-  select id from public.users where wallet_address = public.current_wallet()
-$$;
-
 -- ------------------------------------------------------------------ users
 create table if not exists public.users (
   id              uuid primary key default gen_random_uuid(),
@@ -78,6 +72,14 @@ create table if not exists public.users (
 );
 create trigger users_touch before update on public.users
   for each row execute function public.touch_updated_at();
+
+-- App user id for the caller (null if not signed in / not yet provisioned).
+-- Declared after public.users: Postgres parses LANGUAGE SQL bodies at CREATE time, so a
+-- forward reference to the table would fail to apply.
+create or replace function public.current_user_id() returns uuid
+language sql stable security definer set search_path = public as $$
+  select id from public.users where wallet_address = public.current_wallet()
+$$;
 
 -- ------------------------------------------------------------------ goals
 create table if not exists public.goals (
