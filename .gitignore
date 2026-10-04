@@ -18,3 +18,4 @@ docs/e2e-run.md
 # Next.js
 apps/web/.next/
 apps/web/next-env.d.ts
+*.tsbuildinfo
