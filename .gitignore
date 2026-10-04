@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.next/
+dist/
+coverage/
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/
+# Supabase / misc
+supabase/.temp/
+.DS_Store

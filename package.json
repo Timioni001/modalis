@@ -1,0 +1,15 @@
+{
+  "name": "modalis",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Goal-based wealth management, programmed on Monad.",
+  "packageManager": "pnpm@9.12.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test:portfolio": "pnpm --filter @modalis/portfolio test",
+    "test:contracts": "cd contracts && forge test -vv",
+    "build:contracts": "cd contracts && forge build",
+    "deploy:testnet": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url monad_testnet --broadcast",
+    "db:migrate": "psql \"$SUPABASE_DB_URL\" -f supabase/migrations/0001_init.sql"
+  }
+}
