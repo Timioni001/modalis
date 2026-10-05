@@ -1,129 +1,50 @@
 /**
- * Shapes the API returns, with bigints as decimal strings.
+ * The shape of /api/status.
  *
- * Every monetary field crosses the wire as a string and is revived with BigInt() — never with
- * Number(), which would silently lose precision above 2^53.
+ * The domain models (Plan, MoneyView, Progress, Adjustment, ActivityItem) come straight from
+ * `@modalis/domain`, so there is no second copy to drift. Only this deployment-status shape,
+ * which is an API concern rather than a domain concept, lives here.
  */
-export type ApiPosition = {
-  token: string;
-  symbol: string;
-  decimals: number;
-  isLiquid: boolean;
-  assetMaxBps: number;
-  targetBps: number;
-  minBps: number;
-  maxBps: number;
-  amount: string;
-  priceE18: string;
-  valueE18: string;
-  allocationBps: number;
-  driftBps: number;
-};
-
-export type ApiMandate = {
-  targetValue: string;
-  targetDate: number;
-  maxDrawdownBps: number;
-  minLiquidityBps: number;
-  rebalanceThresholdBps: number;
-  maxSingleAssetBps: number;
-  maxSlippageBps: number;
-  active: boolean;
-  version: number;
-};
-
-export type ApiPortfolioState = {
-  owner: string;
-  mandate: ApiMandate;
-  positions: ApiPosition[];
-  totalValueE18: string;
-  liquidityBps: number;
-  blockNumber: string;
-  hasMandate: boolean;
-};
-
-export type ApiViolation = {
-  code: "MAX_ALLOCATION_EXCEEDED" | "ALLOCATION_ABOVE_RANGE" | "ALLOCATION_BELOW_MIN" | "MIN_LIQUIDITY_BREACHED";
-  token?: string;
-  bps: number;
-  limitBps: number;
-};
-
-export type ApiRisk = {
-  status: "OK" | "DRIFT" | "BREACH";
-  maxDriftBps: number;
-  liquidityBps: number;
-  largestPositionBps: number;
-  violations: ApiViolation[];
-};
-
-export type ApiPortfolioResponse = {
-  owner: string;
-  hasMandate: boolean;
-  state: ApiPortfolioState | null;
-  risk: ApiRisk | null;
-  manager?: string;
-  riskSummary?: string;
-  agreesWithExecutor?: boolean;
-  error?: string;
-};
-
-export type ApiProposal = {
-  proposal: {
-    owner: string;
-    adapter: string;
-    tokenIn: string;
-    tokenOut: string;
-    amountIn: string;
-    minAmountOut: string;
-    deadline: string;
-    mandateVersion: number;
-    nonce: string;
-    reasonHash: string;
+export type SystemStatus = {
+  network: { name: string; chainId: number; reachable: boolean; blockNumber: string | null };
+  ready: boolean;
+  capabilities: {
+    canCreatePlan: boolean;
+    canFund: boolean;
+    canAdjust: boolean;
+    limitations: string[];
   };
-  reason: string;
-  explanation: string;
-  adapterData: string;
-  expectedAmountOut: string;
-  venue: { name: string; reason: string; isDemoVenue: boolean };
-  simulation:
-    | { ok: true; amountOut: string }
-    | { ok: false; errorName: string; explanation: string; raw: string };
-};
-
-export type ApiRiskResponse = {
-  kind: "no_mandate" | "empty_portfolio" | "within_mandate" | "action_needed";
-  owner: string;
-  risk?: ApiRisk;
-  unplannable?: string | null;
-  proposal: ApiProposal | null;
-  error?: string;
-};
-
-export type ApiStatus = {
-  chainId: number;
-  networkName: string;
-  rpcReachable: boolean;
-  blockNumber?: string | null;
-  deployed: boolean;
-  contracts?: Record<string, string>;
-  tokens?: Record<string, string>;
-  integrations?: Record<string, boolean>;
-  executionVenue?: { name: string; isDemoVenue: boolean } | null;
-  managerConfigured?: boolean;
-  managerAddress?: string | null;
+  signIn?: { configured: boolean; developmentBypassEnabled: boolean };
+  /** What this deployment has wired up, named for what each does for the person. */
+  poweredBy?: {
+    settlement: boolean;
+    signIn: boolean;
+    trading: boolean;
+    independentMonitoring: boolean;
+    history: boolean;
+    network: boolean;
+    explanations: boolean;
+    savedData: boolean;
+  };
+  trading?: { live: boolean; note?: string } | null;
   demoMode?: boolean;
+  /** Public addresses, for verification. Not part of the product vocabulary. */
+  technical?: {
+    contracts: Record<string, string>;
+    tokens: Record<string, string>;
+    managerAddress: string | null;
+  };
   error?: string;
 };
 
-export const riskTone = (status?: string): "ok" | "warn" | "breach" | "default" =>
-  status === "OK" ? "ok" : status === "DRIFT" ? "warn" : status === "BREACH" ? "breach" : "default";
-
-export const riskLabel = (status?: string): string =>
-  status === "OK"
-    ? "Within mandate"
-    : status === "DRIFT"
+export const planHealthLabel = (health?: string): string =>
+  health === "on_plan"
+    ? "On plan"
+    : health === "drifting"
       ? "Drifting"
-      : status === "BREACH"
-        ? "Outside mandate"
+      : health === "off_plan"
+        ? "Off plan"
         : "Unknown";
+
+export const planHealthTone = (health?: string): "ok" | "warn" | "breach" | "default" =>
+  health === "on_plan" ? "ok" : health === "drifting" ? "warn" : health === "off_plan" ? "breach" : "default";

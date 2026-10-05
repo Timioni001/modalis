@@ -2,13 +2,23 @@
 
 ```
                             HUMAN
-                              │  a financial goal
+                              │  "I want $20,000 for a deposit in five years"
                               ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  apps/web            goal interview · mandate approval · dashboard  │
-│                      risk · activity · what-if · settings           │
+│  apps/web            the questions · plan approval · money ·        │
+│                      add money · progress · activity · what-if      │
 └─────────────────────────────┬───────────────────────────────────────┘
-                              │
+                              │ goal · plan · money · progress · adjustment
+┌─────────────────────────────▼───────────────────────────────────────┐
+│  packages/domain     THE PRODUCT BOUNDARY. Speaks only the          │
+│                      product's language. translate.ts is the ONLY   │
+│                      file that reads a protocol shape.              │
+│  packages/auth       who is asking — a verified session, never an   │
+│                      address taken from a request                   │
+│  packages/db         goals, answers, explanations, and the          │
+│                      adjustments the rules refused (nowhere else)   │
+└─────────────────────────────┬───────────────────────────────────────┘
+                              │ mandates · allocations · bps · proposals
 ┌─────────────────────────────▼───────────────────────────────────────┐
 │  packages/ai         risk profiler → allocation planner → mandate   │
 │                      explanations. DETERMINISTIC. The LLM reads     │
@@ -51,11 +61,28 @@ a rebalance threshold, a slippage ceiling, and who may propose a trade.
 
 Everything else exists to make that enforceable. The AI proposes; the mandate decides.
 
+## The two vocabularies
+
+The paragraph above is the engineering. A person reads something else:
+
+> Your plan: $20,000 by March 2031. You're comfortable losing up to 15%. 30% of your money stays
+> available. No more than 40% in any one investment. Modalis steps in when something drifts 5%
+> off target.
+
+Both describe the same seven numbers. `packages/domain` is where one becomes the other, and it is
+the only place it happens — nothing above it can see a basis point, and nothing below it has to
+care about wording. The Solidity keeps its own names, because `PortfolioMandate` is precisely
+what that contract is. See [`domain.md`](domain.md) for the full mapping and the test that
+enforces it.
+
 ## Division of responsibility
 
 | Layer | Owns | Explicitly does NOT own |
 |---|---|---|
 | Human | goals, limits, approval, withdrawal | execution |
+| `packages/domain` | the product's vocabulary and shapes | any authority of its own |
+| `packages/auth` | who is asking | what is permitted |
+| `packages/db` | what the chain cannot record | anything load-bearing |
 | `packages/ai` | profile, allocation, mandate parameters, explanations | authority over funds |
 | `services/risk-monitor` | detection, proposals, submission | what is permitted |
 | Monad contracts | what is permitted | what *should* happen |

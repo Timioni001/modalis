@@ -29,17 +29,16 @@ check bash -c 'cd contracts && forge build'
 step "Contract tests (mandate enforcement, Kuru adapter, CRE report decoding)"
 (cd contracts && forge test) || FAILED=1
 
-step "Portfolio engine tests"
-check bash -c 'cd packages/portfolio && node --test --experimental-strip-types test/*.test.ts'
-
-step "Execution venue tests"
-check bash -c 'cd packages/execution && node --test --experimental-strip-types test/*.test.ts'
-
-step "Intelligence layer tests"
-check bash -c 'cd packages/ai && node --test --experimental-strip-types test/*.test.ts'
+step "Package tests"
+for p in packages/portfolio packages/execution packages/ai packages/chain packages/db \
+         packages/auth packages/domain apps/web; do
+  printf '  %-34s' "$p"
+  check bash -c "cd $p && node --test --experimental-strip-types test/*.test.ts"
+done
 
 step "Type checks"
-for p in packages/chain packages/execution packages/ai services/risk-monitor services/demo \
+for p in packages/chain packages/execution packages/ai packages/portfolio packages/db \
+         packages/auth packages/domain services/risk-monitor services/demo \
          integrations/chainlink-cre apps/web; do
   printf '  %-34s' "$p"
   check bash -c "cd $p && npx tsc --noEmit"
@@ -47,6 +46,13 @@ done
 
 step "Envio config against Envio's own JSON schema"
 check bash -c 'cd integrations/envio && python3 scripts/validate-config.py'
+
+step "Database schema and row-level security (needs PostgreSQL; skipped if absent)"
+if ls -d /usr/lib/postgresql/*/bin >/dev/null 2>&1; then
+  check bash -c 'bash supabase/scripts/db-local.sh up && bash supabase/scripts/db-local.sh check'
+else
+  printf '    SKIP (install postgresql to run this)\n'
+fi
 
 step "Web app production build"
 check bash -c 'cd apps/web && npx next build'

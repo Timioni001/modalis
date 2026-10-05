@@ -1,33 +1,43 @@
 # MODALIS
 
-**Goal-based wealth management, programmed on Monad.**
+**Turn your goal into a plan that manages itself.**
 
-Tell Modalis what your money needs to accomplish. It builds a portfolio around the goal and
-manages it within a financial mandate you approve.
+Tell Modalis what you are saving for. It builds a plan, you approve the limits, and it manages
+your money to them — and it cannot step outside them, because the limits are not enforced by
+Modalis.
 
-> AI decides what should happen.
-> Smart contracts decide what is allowed.
-> Monad settles what happens.
+> Modalis recommends. Your rules decide. Nothing else can move your money.
 
 ---
 
 ## The idea
 
 Most people can say what they need their money to do. Far fewer can say which assets to own, how
-much risk they can afford, or when to rebalance.
+much risk they can afford, or when to rebalance. Almost nobody wants to learn.
 
-Modalis turns the first into the second — and then makes the result **enforceable**. Your goals
-and constraints become a **Portfolio Mandate**: a target and date, a drawdown ceiling, a liquidity
-floor, a concentration cap, per-asset ranges, a rebalance threshold and a slippage limit, stored
-on Monad as rules a contract checks on every action.
+Modalis turns the first into the second, and then makes the result **enforceable**. A plan is a
+goal and a date plus four limits in plain language — how much you are comfortable losing, how much
+money stays available, the most that can sit in one investment, and how far off target something
+can drift before Modalis steps in. You approve it. From then on it is a boundary on Modalis's own
+authority, not a setting.
 
-The AI proposes. The mandate decides. You keep withdrawal authority throughout.
+What a person sees:
+
+```
+GOAL → PLAN → MONEY → PROGRESS → ADJUSTMENTS → ACTIVITY
+```
+
+What actually happens underneath, unchanged:
 
 ```
 GOAL → PROFILE → MANDATE → ONCHAIN POLICY → PORTFOLIO
      → MONITORING → BREACH → PROPOSAL → VALIDATION
      → EXECUTION → SETTLEMENT → UPDATED STATE ↺
 ```
+
+The second is the engineering. The first is the product. `packages/domain` is the boundary between
+them, and the only place where one becomes the other — see
+[`docs/domain.md`](docs/domain.md).
 
 ## Quick start
 
@@ -39,6 +49,12 @@ bash scripts/demo-local.sh   # the complete loop on a real local chain
 
 `scripts/demo-local.sh` runs eleven steps end to end and writes a report with real transaction
 hashes to `docs/e2e-run.md`.
+
+The database schema and its row-level security are checked separately, against a real Postgres:
+
+```bash
+pnpm db:local && pnpm db:check
+```
 
 To deploy to Monad testnet, fill in `.env` and:
 
@@ -56,7 +72,10 @@ execution** means a command in this repository runs it and it passes.
 | | |
 |---|---|
 | **47 contract tests pass** | mandate enforcement, access control, replay, slippage, pause, emergency exit, Kuru adapter, CRE report decoding |
-| **38 TypeScript tests pass** | portfolio engine (9), venue selection (6), intelligence layer (23) |
+| **124 TypeScript tests pass** | portfolio engine (9), venue selection (6), intelligence layer (23), chain clients (10), persistence degradation (7), authentication (22), domain and funding (38), API ownership audit (9) |
+| **Sign-in is verified against real signatures** | tokens signed with a real key pair and verified through the real JWKS path; a token signed by the wrong key, expired, unsigned or issued for another deployment is refused |
+| **No route can act on an account the caller does not own** | a static audit over every route in the app: the acting account comes from a verified session, never from a body, path or query string |
+| **No protocol vocabulary reaches a person** | every user-facing sentence in the domain layer is swept for it, and the guard is tested against a planted leak |
 | **The full loop runs on a real EVM node** | 11/11 steps, 13 real transactions, idempotent across runs |
 | **An invalid proposal reverts on-chain** | submitted for real with an explicit gas limit, `MAX_ALLOCATION_EXCEEDED`, portfolio asserted unchanged |
 | **The manager key cannot withdraw** | asserted in both the contract tests and the end-to-end run |
@@ -64,14 +83,16 @@ execution** means a command in this repository runs it and it passes.
 | **The web app builds and serves the whole flow** | all API routes exercised against live chain state |
 | **The CRE report encoding matches its contract** | a payload from the workflow is decoded by `RiskSignalReceiver` in a forge test |
 | **The Envio config is schema-valid** | checked against Envio's own `evm.schema.json`, plus every event verified against the ABI |
+| **The database schema applies and its row-level security holds** | 13 tables and 7 enums on a real Postgres 16, then 15 adversarial assertions: one person reading another's goals or mandates, forging a mandate or transaction row, taking over a wallet, or reading anything without signing in — all refused (`pnpm db:check`) |
 
 ### Built, but not yet run against the live service
 
 Each needs a credential or network access the build environment did not have. None is claimed as
 working in the UI — `/api/status` reports the real state and the landing page renders it.
 
-- **Monad testnet/mainnet deployment.** The deploy script is verified against a real EVM node; it
-  has not been pointed at Monad from here. One command when you have an RPC URL and a funded key.
+- **Monad testnet/mainnet deployment.** The deploy script is verified against a real EVM node, and
+  Monad testnet's public RPC is reachable from this environment (`eth_chainId` → `0x279f`), so the
+  only thing missing is a funded key. One command once you have one.
 - **Dynamic.** Needs `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`. The app renders without it and says
   wallet onboarding is unconfigured.
 - **Kuru.** The adapter is tested through the full execution path against a mock router built from
@@ -103,7 +124,10 @@ the demo adapter "not a venue".
 ## Architecture
 
 ```
-apps/web            interview · mandate approval · dashboard · risk · activity · what-if
+apps/web            the questions · plan approval · money · add money · progress · activity · what-if
+packages/domain     THE PRODUCT: goal, plan, money, progress, adjustment, activity, receipt
+packages/auth       who is asking — a verified session, never an address from a request
+packages/db         goals, answers, explanations and the adjustments the rules refused
 packages/ai         risk profiler → allocation planner → mandate builder → explanations
 packages/portfolio  allocation · drift · concentration · liquidity · rebalance planner
 packages/chain      the only place the app talks to Monad (ABIs generated from the artifacts)
@@ -114,6 +138,12 @@ contracts/          AssetRegistry · PortfolioMandate · PortfolioVault · Rebal
 integrations/       kuru · chainlink-cre · envio
 supabase/           application state (goals, interviews, explanations) with RLS
 ```
+
+`packages/domain` speaks only the product's language: a plan, how your money is spread, an
+adjustment, a receipt. `packages/domain/src/translate.ts` is the single file that reads protocol
+shapes, so no user interface ever has to know what a mandate or a basis point is. The Solidity
+keeps its own precise names — `PortfolioMandate`, `PortfolioVault`, `RebalanceExecutor` — because
+down there they are correct.
 
 Full detail in [`docs/architecture.md`](docs/architecture.md).
 
@@ -130,6 +160,16 @@ deadline, nonce (anti-replay), a slippage floor derived from the oracle, an appr
 | AI layer | propose and explain | hold a key or sign anything |
 | Chainlink CRE | publish a risk signal | move funds |
 
+Above the contracts, the server answers a second question — *who is asking?* Identity comes from a
+verified sign-in token and nothing else. No route reads an account from its request body, path or
+query string, and `apps/web/test/api-ownership.test.ts` audits every route to keep it that way.
+Authentication does not replace the contract's enforcement; it only stops one person spending
+another person's gas. The contract remains the final authority.
+
+Adding money is split the same way on purpose: the server works out **what** should happen, and
+the person's own account **does** it. No Modalis key can put money in, which is the same reason no
+Modalis key can take it out.
+
 Full detail, including known limitations and a mainnet checklist, in
 [`docs/security.md`](docs/security.md).
 
@@ -137,6 +177,7 @@ Full detail, including known limitations and a mainnet checklist, in
 
 | | |
 |---|---|
+| [`docs/domain.md`](docs/domain.md) | The product's vocabulary, the domain model, the API, and where technical language stops |
 | [`docs/architecture.md`](docs/architecture.md) | How the layers fit together and why the allocation is deterministic |
 | [`docs/security.md`](docs/security.md) | Authority model, the validation pipeline, limitations, mainnet checklist |
 | [`docs/bounty-matrix.md`](docs/bounty-matrix.md) | Each sponsor integration and exactly what is proven |
@@ -155,8 +196,13 @@ pnpm dev                 # the web app
 pnpm contracts:test      # forge tests
 pnpm contracts:build
 pnpm contracts:sync-abis # regenerate ABIs for the app and the indexer
-pnpm test                # TypeScript package tests
+pnpm test                # TypeScript tests: packages + the API ownership audit
 pnpm typecheck
+
+pnpm db:local            # a throwaway Postgres with the schema applied
+pnpm db:check            # the row-level security checks (15 adversarial assertions)
+pnpm db:types            # regenerate the TypeScript types from the live schema
+pnpm db:down
 
 pnpm risk-monitor:once   # evaluate watched portfolios once
 pnpm envio:validate      # Envio config against Envio's own schema

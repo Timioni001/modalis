@@ -1,64 +1,63 @@
 "use client";
 
 /**
- * Current allocation against target and permitted range.
+ * How the person's money is spread, against where their plan says it should be.
  *
- * A position outside its range is marked by colour AND a word, so the state survives greyscale
- * and colour-blind readers.
+ * Anything outside its allowed range is marked by colour AND a word, so the state survives
+ * greyscale and colour-blind readers.
  */
 import { RangeBar, Badge } from "./ui";
 import { usePortfolio } from "./portfolio-provider";
-import { pct, signedPct, tokenAmount, usd } from "@/lib/format";
 
 export function AllocationTable() {
-  const { portfolio } = usePortfolio();
-  const state = portfolio?.state;
-  if (!state) return null;
+  const { money, plan } = usePortfolio();
+  if (!money || !plan) return null;
 
-  const violationsByToken = new Map<string, string>();
-  for (const v of portfolio?.risk?.violations ?? []) {
-    if (v.token) violationsByToken.set(v.token.toLowerCase(), v.code);
-  }
+  const rangeFor = (id: string) => plan.howMoneyIsSpread.find((h) => h.id === id)?.allowedRange;
 
   return (
     <ul className="space-y-5">
-      {state.positions.map((p) => {
-        const breach = violationsByToken.get(p.token.toLowerCase());
-        const tone = breach ? "breach" : Math.abs(p.driftBps) > state.mandate.rebalanceThresholdBps ? "warn" : "ok";
+      {money.holdings.map((h) => {
+        const range = rangeFor(h.id) ?? { minPercent: 0, maxPercent: 100 };
+        const outside = h.sharePercent > range.maxPercent || h.sharePercent < range.minPercent;
+        const drifting = Math.abs(h.offTargetByPercent) > plan.rules.adjustWhenOffTargetByPercent;
+        const tone = outside ? "breach" : drifting ? "warn" : "ok";
+
         return (
-          <li key={p.token}>
+          <li key={h.id}>
             <div className="flex items-baseline justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-ink">{p.symbol}</span>
-                {p.isLiquid ? (
-                  <span className="text-xs text-ink-muted">cash reserve</span>
+                <span className="font-semibold text-ink">{h.name}</span>
+                {h.isAvailableCash ? (
+                  <span className="text-xs text-ink-muted">kept available</span>
                 ) : null}
-                {breach ? <Badge tone="breach">Outside range</Badge> : null}
+                {outside ? <Badge tone="breach">Outside your range</Badge> : null}
               </div>
               <div className="numeric text-right">
-                <span className="font-semibold text-ink">{pct(p.allocationBps)}</span>
+                <span className="font-semibold text-ink">{h.sharePercent}%</span>
                 <span className="ml-2 text-xs text-ink-muted">
-                  target {pct(p.targetBps, 0)} ({signedPct(p.driftBps)})
+                  plan says {h.targetPercent}% ({h.offTargetByPercent > 0 ? "+" : ""}
+                  {h.offTargetByPercent}%)
                 </span>
               </div>
             </div>
 
             <div className="mt-2">
               <RangeBar
-                currentBps={p.allocationBps}
-                targetBps={p.targetBps}
-                minBps={p.minBps}
-                maxBps={p.maxBps}
+                currentBps={Math.round(h.sharePercent * 100)}
+                targetBps={Math.round(h.targetPercent * 100)}
+                minBps={Math.round(range.minPercent * 100)}
+                maxBps={Math.round(range.maxPercent * 100)}
                 tone={tone}
               />
             </div>
 
             <div className="numeric mt-1.5 flex justify-between text-xs text-ink-muted">
               <span>
-                {tokenAmount(BigInt(p.amount), p.decimals)} {p.symbol} · {usd(BigInt(p.valueE18))}
+                {h.units} {h.name} · ${h.value.amount}
               </span>
               <span>
-                range {pct(p.minBps, 0)}–{pct(p.maxBps, 0)}
+                can range {range.minPercent}%–{range.maxPercent}%
               </span>
             </div>
           </li>

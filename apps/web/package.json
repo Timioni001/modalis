@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types test/*.test.ts"
   },
   "dependencies": {
     "@dynamic-labs/ethereum": "^5.9.3",
@@ -20,7 +21,10 @@
     "next": "^16.3.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "viem": "^2.57.2"
+    "viem": "^2.57.2",
+    "@modalis/domain": "workspace:*",
+    "@modalis/auth": "workspace:*",
+    "@modalis/db": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",

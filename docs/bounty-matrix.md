@@ -10,11 +10,12 @@ integration shows as "Not configured" rather than as a logo.
 | Sponsor | What Modalis uses it for | Built | Verified by execution |
 |---|---|---|---|
 | **Monad** | Portfolio state, mandate enforcement, settlement | Yes | **Yes** — 47 contract tests; full loop run on a real EVM node |
-| **Dynamic** | Email / social login, embedded Monad wallet, signing | Yes | Partly — built against the real SDK and typechecks; needs an environment id to sign |
+| **Dynamic** | Email / social login, embedded Monad wallet, signing, **and server-side identity** | Yes | Partly — the token verification path is proven with real signatures against a real JWKS; signing in needs an environment id |
 | **Kuru** | Orderbook execution venue for rebalances | Yes | Partly — 11 adapter tests through the full executor → vault → adapter → router path; no live market |
 | **Chainlink CRE** | DON-signed portfolio risk monitoring | Yes | Partly — report encoding proven against the receiving contract; workflow not simulated |
 | **Alchemy** | Monad RPC + WebSocket event streams | Yes | Partly — transports and URL construction built; needs an API key |
 | **Envio** | Indexed portfolio and mandate history | Yes | Partly — config validated against Envio's own JSON schema; codegen needs Docker |
+| **Supabase** | Goals, answers, explanations, and the adjustments the rules refused | Yes | Partly — schema and row-level security proven against a real local Postgres, 15 adversarial assertions; no hosted project configured |
 | **Perpl** | Capped tactical sleeve | **No** | — |
 
 ---
@@ -48,11 +49,24 @@ wallet". External wallets stay supported.
 - The user's wallet signs every owner action: `setMandate`, `setManager`, deposit, withdraw,
   revoke, pause, emergency withdraw.
 
-**Dynamic handles wallet UX; it does not handle financial permissions.** Being signed in grants no
-authority over any portfolio — the contracts key every action off `msg.sender`.
+Dynamic is also how the **server** knows who is asking. Every browser call carries the Dynamic
+JWT; `packages/auth` verifies it against Dynamic's published signing keys (JWKS) and the verified
+wallet address in that token is the only account the server will act on. Both claim shapes Dynamic
+emits are supported: a flat `wallet_address` and the `verified_credentials` array.
 
-*Needs:* `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`. Without it the app renders and says wallet
-onboarding is unconfigured rather than showing a button that cannot work.
+**Proven:** 22 tests in `packages/auth/test/session.test.ts` sign **real** tokens with a real key
+pair and verify them through the real JWKS path, served from a throwaway localhost server. A token
+signed with the wrong key, expired, unsigned, or issued for a different environment id is refused.
+A separate static audit (`apps/web/test/api-ownership.test.ts`) checks every route in the app takes
+its acting account from that verified session and never from a request body, path or query string.
+
+**Dynamic handles wallet UX and identity; it does not handle financial permissions.** Being signed
+in grants no authority over any portfolio — the contracts key every action off `msg.sender`, and a
+compromised sign-in provider could at most make the manager key act on a plan, never withdraw from
+it or change its rules.
+
+*Needs:* `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`. Without it the app renders and says signing in is
+unconfigured rather than showing a button that cannot work.
 
 ## Kuru — required / high
 
@@ -128,6 +142,39 @@ pnpm envio:validate
 *Needs:* Docker and Postgres for `envio codegen`; `ENVIO_GRAPHQL_URL` for the app to read it.
 
 See `integrations/envio/README.md`.
+
+## Supabase
+
+The chain holds everything that matters. Supabase holds what it cannot: the goal's name, the
+answers a person gave, the explanations written for them, and — the one that matters most — the
+adjustments their rules **refused**. A refused adjustment reverts and emits nothing, so that
+record exists nowhere else, and `/api/activity` merges both halves and says which answered.
+
+Two clients with deliberately different authority, mirroring the split in the contracts: the
+service-role client (server only, bypasses row-level security, writes the rows that mirror
+on-chain truth) and the anon client (subject to row-level security, so a person reaches only
+their own rows). `packages/db/src/client.ts` throws rather than build a service client in a
+browser, because that key is as powerful as the database.
+
+Persistence is additive, never load-bearing: with Supabase unconfigured every repository becomes a
+no-op and the product runs chain-only. A failed write is logged and swallowed rather than failing a
+request that was otherwise about to succeed.
+
+**Proven:** the schema applies to a real Postgres 16 (13 tables, 7 enums), and
+`supabase/local/01_rls_check.sql` runs 15 adversarial assertions as the `authenticated` and `anon`
+roles — reading another person's goals or mandates, writing a goal attributed to someone else,
+forging a mandate or a transaction row, taking over another wallet by updating your own row, and
+reading anything at all with no sign-in. Every one is refused, and each raises on failure so the
+script is a real gate rather than a report.
+`packages/db/test/degradation.test.ts` adds 7 tests covering tolerated failures, the unconfigured
+path, and the service key never being readable from a `NEXT_PUBLIC_` variable.
+
+```bash
+bash supabase/scripts/db-local.sh up && bash supabase/scripts/db-local.sh check
+```
+
+*Needs:* `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
+`SUPABASE_SERVICE_ROLE_KEY` for a hosted project.
 
 ## Perpl — not built
 

@@ -1,21 +1,20 @@
 "use client";
 
 /**
- * Wallet, mandate and permissions.
+ * Account, plan and permissions.
  *
- * The page exists to make authority legible and reversible: the user can see exactly what they
- * have granted, revoke rebalance permission, pause the mandate, or withdraw everything. All three
- * are owner-only on-chain, and the emergency exit keeps working even when the vault is paused.
+ * The page exists to make authority legible and reversible: the person can see exactly what they
+ * have allowed, take it back, pause the plan, or take all their money out. Every one of those is
+ * owner-only where it counts, and the exit keeps working even when the plan is paused.
  */
 import { useCallback, useState } from "react";
 import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain";
 import type { Address, Hex } from "viem";
 import { Badge, Button, Card, KeyValue, Notice, SectionTitle } from "@/components/ui";
-import { ExplorerLink } from "@/components/explorer-link";
+import { ReceiptLink } from "@/components/receipt-link";
 import { PortfolioProvider, usePortfolio } from "@/components/portfolio-provider";
-import { useWallet } from "@/components/wallet-context";
-import { useWalletConfig } from "@/components/wallet-context";
-import { pctRound, shortAddress, usd } from "@/lib/format";
+import { useWallet, useWalletConfig } from "@/components/wallet-context";
+import { moneyLabel, percent, shortAddress, usdFromDecimal } from "@/lib/format";
 
 export default function SettingsPage() {
   return (
@@ -29,134 +28,153 @@ export default function SettingsPage() {
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 
+type Chain = { chainId: number; contracts: Record<string, Address>; tokens: Record<string, Address> };
+
 function Settings() {
   const { chainId, networkName } = useWalletConfig();
   const { address, loggedIn, configured, getWalletClient } = useWallet();
-  const { portfolio, status, refresh } = usePortfolio();
+  const { plan, money, status, refresh } = usePortfolio();
 
   const [busy, setBusy] = useState<string | null>(null);
-  const [txs, setTxs] = useState<{ label: string; hash: Hex }[]>([]);
+  const [receipts, setReceipts] = useState<{ label: string; hash: Hex }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const act = useCallback(
-    async (label: string, fn: (wallet: Awaited<ReturnType<typeof getWalletClient>>, dep: { chainId: number; contracts: Record<string, Address>; tokens: Record<string, Address> }) => Promise<Hex>) => {
+    async (
+      label: string,
+      fn: (wallet: Awaited<ReturnType<typeof getWalletClient>>, chain: Chain) => Promise<Hex>,
+    ) => {
       setBusy(label);
       setError(null);
       try {
         const wallet = await getWalletClient();
-        const s = await fetch("/api/status").then((r) => r.json());
-        if (!s.contracts?.portfolioVault) throw new Error("Modalis is not deployed on this chain.");
-        const hash = await fn(wallet, { chainId, contracts: s.contracts, tokens: s.tokens ?? {} });
-        setTxs((t) => [...t, { label, hash }]);
+        const contracts = (status?.technical?.contracts ?? {}) as Record<string, Address>;
+        if (!contracts.portfolioVault) throw new Error("Modalis isn't set up on this network yet.");
+        const hash = await fn(wallet, {
+          chainId,
+          contracts,
+          tokens: (status?.technical?.tokens ?? {}) as Record<string, Address>,
+        });
+        setReceipts((r) => [...r, { label, hash }]);
         await refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : `Could not ${label.toLowerCase()}.`);
+        setError(err instanceof Error ? err.message : `We couldn't ${label.toLowerCase()}.`);
       } finally {
         setBusy(null);
       }
     },
-    [getWalletClient, chainId, refresh],
+    [getWalletClient, chainId, refresh, status],
   );
 
-  const state = portfolio?.state;
-  const managerAuthorised = portfolio?.manager && portfolio.manager !== ZERO;
+  const managerAddress = status?.technical?.managerAddress ?? null;
+  const adjustmentsAllowed = Boolean(plan?.adjustmentsEnabled);
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-semibold tracking-tight text-ink">Settings</h1>
 
-      {/* --------------------------------------------------------- the wallet */}
+      {/* ------------------------------------------------------- your account */}
       <Card>
-        <SectionTitle>Wallet</SectionTitle>
+        <SectionTitle>Your account</SectionTitle>
         <dl>
-          <KeyValue label="Network">
-            {networkName} (chain {chainId})
-          </KeyValue>
           <KeyValue label="Signed in">{loggedIn ? "Yes" : "No"}</KeyValue>
-          <KeyValue label="Address">{address ? shortAddress(address) : "—"}</KeyValue>
-          <KeyValue label="Wallet onboarding">{configured ? "Dynamic" : "Not configured"}</KeyValue>
+          <KeyValue label="Account">{address ? shortAddress(address) : "—"}</KeyValue>
+          <KeyValue label="Sign-in">{configured ? "Set up" : "Not set up"}</KeyValue>
+          <KeyValue label="Network">
+            {networkName} ({chainId})
+          </KeyValue>
         </dl>
         <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-          Your wallet is yours. Dynamic creates and secures it; Modalis never holds your keys, and
-          the portfolio contracts recognise only this address as the owner of your funds.
+          Your account is yours. Modalis never holds the keys to it, and only this account is
+          recognised as the owner of your money.
         </p>
       </Card>
 
       {/* -------------------------------------------------------- permissions */}
       <Card>
-        <SectionTitle hint="What you have granted, and how to take it back.">Permissions</SectionTitle>
+        <SectionTitle hint="What you have allowed, and how to take it back.">
+          What Modalis is allowed to do
+        </SectionTitle>
         <dl>
-          <KeyValue label="Rebalance proposals">
-            {managerAuthorised ? shortAddress(portfolio!.manager!) : "Not authorised"}
+          <KeyValue label="Suggest adjustments to your plan">
+            {adjustmentsAllowed ? "Allowed" : "Not allowed"}
           </KeyValue>
-          <KeyValue label="That key can withdraw">No</KeyValue>
-          <KeyValue label="That key can change your rules">No</KeyValue>
-          <KeyValue label="Mandate status">{state?.mandate.active ? "Active" : "Paused"}</KeyValue>
+          <KeyValue label="Take money out">Never</KeyValue>
+          <KeyValue label="Change your limits">Never</KeyValue>
+          <KeyValue label="Your plan">{plan ? planStateLabel(plan.status) : "Not set up yet"}</KeyValue>
         </dl>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          {managerAuthorised ? (
+          {adjustmentsAllowed ? (
             <Button
               variant="secondary"
               disabled={busy !== null || !loggedIn}
-              onClick={() => act("Revoke rebalance permission", (w, d) => setManager(w, d, ZERO))}
+              onClick={() => act("Stop allowing adjustments", (w, c) => setManager(w, c, ZERO))}
             >
-              {busy === "Revoke rebalance permission" ? "Revoking…" : "Revoke rebalance permission"}
+              {busy === "Stop allowing adjustments" ? "Saving…" : "Stop allowing adjustments"}
             </Button>
-          ) : status?.managerAddress ? (
+          ) : managerAddress ? (
             <Button
               variant="secondary"
               disabled={busy !== null || !loggedIn}
               onClick={() =>
-                act("Authorise rebalance proposals", (w, d) =>
-                  setManager(w, d, status.managerAddress as Address),
-                )
+                act("Allow adjustments", (w, c) => setManager(w, c, managerAddress as Address))
               }
             >
-              {busy === "Authorise rebalance proposals" ? "Authorising…" : "Authorise rebalance proposals"}
+              {busy === "Allow adjustments" ? "Saving…" : "Allow adjustments"}
             </Button>
           ) : null}
 
-          {state ? (
+          {plan ? (
             <Button
               variant="secondary"
               disabled={busy !== null || !loggedIn}
               onClick={() =>
-                act(state.mandate.active ? "Pause mandate" : "Resume mandate", (w, d) =>
-                  setMandateActive(w, d, !state.mandate.active),
+                act(plan.status === "paused" ? "Resume my plan" : "Pause my plan", (w, c) =>
+                  setMandateActive(w, c, plan.status === "paused"),
                 )
               }
             >
-              {state.mandate.active ? "Pause my mandate" : "Resume my mandate"}
+              {plan.status === "paused" ? "Resume my plan" : "Pause my plan"}
             </Button>
           ) : null}
         </div>
 
         <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-          Pausing your mandate stops all rebalancing. Withdrawals keep working while paused, by
-          design &mdash; a pause must never trap your money.
+          Pausing your plan stops all adjustments. Taking money out keeps working while it is
+          paused, by design &mdash; a pause must never trap your money.
         </p>
       </Card>
 
-      {/* ------------------------------------------------------- your mandate */}
-      {state ? (
+      {/* ---------------------------------------------------------- your plan */}
+      {plan ? (
         <Card>
-          <SectionTitle hint={`Version ${state.mandate.version}.`}>Your mandate</SectionTitle>
+          <SectionTitle hint={`You have changed this plan ${plan.version} time${plan.version === 1 ? "" : "s"}.`}>
+            Your plan
+          </SectionTitle>
           <dl>
-            <KeyValue label="Goal">{usd(BigInt(state.mandate.targetValue), { decimals: 0 })}</KeyValue>
-            <KeyValue label="Maximum drawdown">{pctRound(state.mandate.maxDrawdownBps)}</KeyValue>
-            <KeyValue label="Liquidity reserve">{pctRound(state.mandate.minLiquidityBps)}</KeyValue>
-            <KeyValue label="Maximum single asset">{pctRound(state.mandate.maxSingleAssetBps)}</KeyValue>
-            <KeyValue label="Rebalance threshold">{pctRound(state.mandate.rebalanceThresholdBps)}</KeyValue>
+            <KeyValue label="Your goal">{usdFromDecimal(plan.goal.target.amount, 0)}</KeyValue>
+            <KeyValue label="How much you're comfortable losing">
+              {percent(plan.rules.comfortableLosingPercent)}
+            </KeyValue>
+            <KeyValue label="Money kept available">
+              {percent(plan.rules.moneyKeptAvailablePercent)}
+            </KeyValue>
+            <KeyValue label="Maximum in one investment">
+              {percent(plan.rules.maxInOneInvestmentPercent)}
+            </KeyValue>
+            <KeyValue label="Modalis steps in when your plan moves off target by">
+              {percent(plan.rules.adjustWhenOffTargetByPercent)}
+            </KeyValue>
           </dl>
           <div className="mt-5">
             <Button variant="secondary" href="/onboarding">
-              Change my mandate
+              Change my plan
             </Button>
           </div>
           <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-            Changing your mandate creates a new version on-chain. Any rebalance proposal built
-            against the old version is automatically invalid, so nothing stale can execute.
+            Changing your plan replaces the old one. Any adjustment Modalis had already worked out
+            against the old limits stops being valid, so nothing out of date can go through.
           </p>
         </Card>
       ) : null}
@@ -164,31 +182,36 @@ function Settings() {
       {/* ----------------------------------------------------------- the exit */}
       <Card className="border-breach/30">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <SectionTitle hint="Returns every asset you hold to your wallet, in one transaction.">
-            Withdraw everything
+          <SectionTitle hint="Returns everything you hold to your own account, in one go.">
+            Take all my money out
           </SectionTitle>
-          <Badge tone="breach">Owner only</Badge>
+          <Badge tone="breach">Only you can do this</Badge>
         </div>
+        {money ? (
+          <p className="mb-4 text-sm text-ink-soft">
+            You currently have {moneyLabel(money.total)} in your plan.
+          </p>
+        ) : null}
         <Button
           variant="danger"
           disabled={busy !== null || !loggedIn}
-          onClick={() => act("Withdraw everything", (w, d) => emergencyWithdraw(w, d))}
+          onClick={() => act("Take all my money out", (w, c) => emergencyWithdraw(w, c))}
         >
-          {busy === "Withdraw everything" ? "Withdrawing…" : "Withdraw everything"}
+          {busy === "Take all my money out" ? "Taking it out…" : "Take all my money out"}
         </Button>
         <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-          This works even if the vault is paused, and no one but you can call it. It is the reason
-          handing Modalis a mandate is not the same as handing over your money.
+          This works even if your plan is paused, and nobody but you can do it. It is the reason
+          giving Modalis a plan is not the same as giving it your money.
         </p>
       </Card>
 
       {error ? <Notice tone="breach">{error}</Notice> : null}
-      {txs.length > 0 ? (
-        <Notice tone="ok" title="Settled on Monad">
+      {receipts.length > 0 ? (
+        <Notice tone="ok" title="Done">
           <ul className="space-y-1">
-            {txs.map((t) => (
-              <li key={t.hash}>
-                {t.label}: <ExplorerLink hash={t.hash} />
+            {receipts.map((r) => (
+              <li key={r.hash}>
+                {r.label}: <ReceiptLink reference={r.hash} />
               </li>
             ))}
           </ul>
@@ -196,4 +219,8 @@ function Settings() {
       ) : null}
     </div>
   );
+}
+
+function planStateLabel(state: "draft" | "active" | "paused"): string {
+  return state === "active" ? "Running" : state === "paused" ? "Paused" : "Not approved yet";
 }

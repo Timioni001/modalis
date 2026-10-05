@@ -1,47 +1,53 @@
 "use client";
 
 /**
- * The "What if?" simulator.
+ * "What if?"
  *
  * Asks a question a person actually has — "what if I add more each month?", "what if I need it a
- * year sooner?" — and answers it by rebuilding the mandate under the new assumptions, showing
- * what would change.
+ * year sooner?" — and answers it by rebuilding the plan under the new assumption and showing what
+ * moves.
  *
- * Deliberately return-free. Every funding figure assumes ZERO investment growth, so the answer is
- * framed as "here is what your own contributions cover", never as a projected return. It writes
- * nothing: changing a real mandate needs the owner's signature.
+ * Deliberately return-free. Every figure assumes ZERO growth, so the answer is framed as what the
+ * person's own contributions cover, never as a projected return. It writes nothing: changing a
+ * real plan needs their approval.
  */
 import { useEffect, useMemo, useState } from "react";
-import type { InterviewAnswers } from "@modalis/ai";
+import type { GoalAnswers, Plan } from "@modalis/domain";
 import { Badge, Button, Card, KeyValue, Notice, SectionTitle } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
-import { DEFAULT_ANSWERS, loadAnswers } from "@/lib/interview-store";
-import { monthsToHuman, pct, pctRound, usd } from "@/lib/format";
+import { DEFAULT_ANSWERS, loadAnswers } from "@/lib/goal-answers";
+import { apiPost } from "@/lib/client-api";
+import { monthsToHuman, percent, usdFromDecimal } from "@/lib/format";
 
-type Side = {
-  draft: {
-    params: Record<string, string | number | boolean>;
-    allocations: { symbol: string; targetBps: number; isLiquid: boolean }[];
-    profile: { riskScore: number };
-  };
-  funding: {
-    plannedTotalE18: string;
-    targetValueE18: string;
-    requiredMonthlyE18: string;
-    gapMonthlyE18: string;
-    coverageBps: number;
-  };
-};
+type Comparison = { current: Plan; changed: Plan; note: string };
 
-type Result = { base: Side; changed: Side; disclaimer: string };
-
-const PRESETS: { id: string; label: string; apply: (a: InterviewAnswers) => Partial<InterviewAnswers> }[] = [
-  { id: "more", label: "Add $100 more each month", apply: (a) => ({ contributionAmount: a.contributionAmount + 100 }) },
-  { id: "sooner", label: "Need it a year sooner", apply: (a) => ({ horizonMonths: Math.max(6, a.horizonMonths - 12) }) },
-  { id: "later", label: "Give it a year longer", apply: (a) => ({ horizonMonths: a.horizonMonths + 12 }) },
-  { id: "safer", label: "Cut my drawdown limit to 10%", apply: () => ({ maxTolerableDrawdownPct: 10 }) },
-  { id: "bigger", label: "Raise my goal by 50%", apply: (a) => ({ targetValue: Math.round(a.targetValue * 1.5) }) },
+const PRESETS: { id: string; label: string; apply: (a: GoalAnswers) => Partial<GoalAnswers> }[] = [
+  {
+    id: "more",
+    label: "Add $100 more each month",
+    apply: (a) => ({ contributionAmount: a.contributionAmount + 100 }),
+  },
+  {
+    id: "sooner",
+    label: "Need it a year sooner",
+    apply: (a) => ({ monthsUntilNeeded: Math.max(6, a.monthsUntilNeeded - 12) }),
+  },
+  {
+    id: "later",
+    label: "Give it a year longer",
+    apply: (a) => ({ monthsUntilNeeded: a.monthsUntilNeeded + 12 }),
+  },
+  {
+    id: "safer",
+    label: "Only comfortable losing 10%",
+    apply: () => ({ comfortableLosingPercent: 10 }),
+  },
+  {
+    id: "bigger",
+    label: "Raise my goal by 50%",
+    apply: (a) => ({ targetAmount: Math.round(a.targetAmount * 1.5) }),
+  },
 ];
 
 export default function ScenariosPage() {
@@ -53,66 +59,61 @@ export default function ScenariosPage() {
 }
 
 function Scenarios() {
-  const { portfolio } = usePortfolio();
+  const { plan } = usePortfolio();
 
-  // Start from the stored interview answers when available, otherwise reconstruct a base from the
-  // live mandate so the page works for a returning user.
-  const base: InterviewAnswers = useMemo(() => {
+  // Start from the answers the person gave when they still have them, otherwise reconstruct a
+  // starting point from their live plan so the page works for someone coming back later.
+  const answers: GoalAnswers = useMemo(() => {
     const stored = loadAnswers();
     if (stored) return stored;
-    const m = portfolio?.state?.mandate;
-    if (!m) return DEFAULT_ANSWERS;
-    const months = Math.max(
-      1,
-      Math.round((m.targetDate - Math.floor(Date.now() / 1000)) / (30.44 * 86_400)),
-    );
+    if (!plan) return DEFAULT_ANSWERS;
     return {
       ...DEFAULT_ANSWERS,
-      targetValue: Number(BigInt(m.targetValue) / 10n ** 18n),
-      horizonMonths: months,
-      maxTolerableDrawdownPct: Math.round(m.maxDrawdownBps / 100),
+      goalKind: plan.goal.kind,
+      targetAmount: Math.round(Number(plan.goal.target.amount)),
+      startingAmount: Math.round(Number(plan.goal.startingAmount.amount)),
+      contributionAmount: Math.round(Number(plan.goal.contribution.amount.amount)),
+      contributionCadence: plan.goal.contribution.cadence,
+      monthsUntilNeeded: Math.max(1, plan.goal.monthsRemaining),
+      comfortableLosingPercent: Math.round(plan.rules.comfortableLosingPercent),
     };
-  }, [portfolio?.state?.mandate]);
+  }, [plan]);
 
   const [selected, setSelected] = useState(PRESETS[0].id);
-  const [result, setResult] = useState<Result | null>(null);
+  const [result, setResult] = useState<Comparison | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const changes = useMemo(() => {
     const preset = PRESETS.find((p) => p.id === selected) ?? PRESETS[0];
-    return preset.apply(base);
-  }, [base, selected]);
+    return preset.apply(answers);
+  }, [answers, selected]);
 
   useEffect(() => {
     let alive = true;
     setBusy(true);
     setError(null);
-    fetch("/api/scenarios/project", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ base, changes }),
-    })
-      .then((r) => r.json())
-      .then((d) => {
+    apiPost<Comparison>("/api/plan/compare", { answers, changes })
+      .then((d) => alive && setResult(d))
+      .catch((err: unknown) => {
         if (!alive) return;
-        if (d.error) setError(d.error);
-        else setResult(d as Result);
+        setError(err instanceof Error ? err.message : "We couldn't work that out.");
       })
-      .catch(() => alive && setError("Could not run the scenario."))
-      .finally(() => alive && setBusy(false));
+      .finally(() => {
+        if (alive) setBusy(false);
+      });
     return () => {
       alive = false;
     };
-  }, [base, changes]);
+  }, [answers, changes]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-ink">What if?</h1>
         <p className="mt-2 max-w-2xl text-ink-soft">
-          Change one thing about your plan and see what Modalis would do differently. Nothing here
-          changes your real mandate &mdash; that needs your signature.
+          Change one thing and see what Modalis would do differently. Nothing here touches your
+          real plan &mdash; that needs your approval.
         </p>
       </div>
 
@@ -142,11 +143,11 @@ function Scenarios() {
       {result ? (
         <>
           <div className="grid gap-6 lg:grid-cols-2">
-            <SideCard title="Your plan today" side={result.base} answers={base} tone="default" />
+            <SideCard title="Your plan today" plan={result.current} answers={answers} tone="default" />
             <SideCard
               title="With that change"
-              side={result.changed}
-              answers={{ ...base, ...changes }}
+              plan={result.changed}
+              answers={{ ...answers, ...changes }}
               tone="accent"
             />
           </div>
@@ -156,7 +157,9 @@ function Scenarios() {
             <ul className="space-y-2 text-sm text-ink-soft">
               {describeDiff(result).map((line) => (
                 <li key={line} className="flex gap-2">
-                  <span aria-hidden className="text-ink-muted">·</span>
+                  <span aria-hidden className="text-ink-muted">
+                    ·
+                  </span>
                   <span>{line}</span>
                 </li>
               ))}
@@ -164,7 +167,7 @@ function Scenarios() {
           </Card>
 
           <Notice tone="default" title="How to read these numbers">
-            {result.disclaimer}
+            {result.note}
           </Notice>
         </>
       ) : null}
@@ -174,54 +177,52 @@ function Scenarios() {
 
 function SideCard({
   title,
-  side,
+  plan,
   answers,
   tone,
 }: {
   title: string;
-  side: Side;
-  answers: InterviewAnswers;
+  plan: Plan;
+  answers: GoalAnswers;
   tone: "default" | "accent";
 }) {
-  const p = side.draft.params;
-  const coverage = side.funding.coverageBps;
-
   return (
     <Card className={tone === "accent" ? "border-accent/40" : ""}>
       <div className="flex items-center justify-between">
         <SectionTitle>{title}</SectionTitle>
-        <Badge tone={coverage >= 10_000 ? "ok" : coverage >= 7_000 ? "warn" : "breach"}>
-          {pct(Math.min(coverage, 99_999), 0)} funded
-        </Badge>
+        <Badge tone="default">{plan.riskLevel.level}</Badge>
       </div>
 
       <dl>
-        <KeyValue label="Goal">{usd(BigInt(p.targetValue as string), { decimals: 0 })}</KeyValue>
-        <KeyValue label="Horizon">{monthsToHuman(answers.horizonMonths)}</KeyValue>
-        <KeyValue label="Contribution">
-          ${answers.contributionAmount.toLocaleString("en-US")} / {answers.contributionCadence.replace("ly", "")}
+        <KeyValue label="Your goal">{usdFromDecimal(plan.goal.target.amount, 0)}</KeyValue>
+        <KeyValue label="Time you have">{monthsToHuman(answers.monthsUntilNeeded)}</KeyValue>
+        <KeyValue label="You're adding">
+          ${answers.contributionAmount.toLocaleString("en-US")} per{" "}
+          {answers.contributionCadence.replace("ly", "")}
         </KeyValue>
-        <KeyValue label="Risk score">{side.draft.profile.riskScore}/100</KeyValue>
-        <KeyValue label="Maximum drawdown">{pctRound(Number(p.maxDrawdownBps))}</KeyValue>
-        <KeyValue label="Liquidity reserve">{pctRound(Number(p.minLiquidityBps))}</KeyValue>
-        <KeyValue label="Maximum single asset">{pctRound(Number(p.maxSingleAssetBps))}</KeyValue>
-        <KeyValue label="Needed per month, zero growth">
-          {usd(BigInt(side.funding.requiredMonthlyE18), { decimals: 0 })}
+        <KeyValue label="How much you're comfortable losing">
+          {percent(plan.rules.comfortableLosingPercent)}
+        </KeyValue>
+        <KeyValue label="Money kept available">
+          {percent(plan.rules.moneyKeptAvailablePercent)}
+        </KeyValue>
+        <KeyValue label="Maximum in one investment">
+          {percent(plan.rules.maxInOneInvestmentPercent)}
         </KeyValue>
       </dl>
 
       <div className="mt-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-          Allocation
+          How your money is spread
         </div>
         <ul className="numeric mt-2 space-y-1 text-sm">
-          {side.draft.allocations.map((a) => (
-            <li key={a.symbol} className="flex justify-between">
+          {plan.howMoneyIsSpread.map((h) => (
+            <li key={h.id} className="flex justify-between">
               <span className="text-ink-soft">
-                {a.symbol}
-                {a.isLiquid ? " (cash)" : ""}
+                {h.name}
+                {h.isAvailableCash ? " (kept available)" : ""}
               </span>
-              <span className="font-semibold">{pctRound(a.targetBps)}</span>
+              <span className="font-semibold">{percent(h.sharePercent)}</span>
             </li>
           ))}
         </ul>
@@ -230,48 +231,46 @@ function SideCard({
   );
 }
 
-function describeDiff(r: Result): string[] {
-  const a = r.base.draft.params;
-  const b = r.changed.draft.params;
+function describeDiff(result: Comparison): string[] {
+  const a = result.current;
+  const b = result.changed;
   const out: string[] = [];
 
-  const num = (v: string | number | boolean) => Number(v);
-  const compare = (label: string, x: number, y: number, fmt: (n: number) => string) => {
-    if (x !== y) out.push(`${label}: ${fmt(x)} → ${fmt(y)}`);
+  const compare = (label: string, x: number, y: number) => {
+    if (x !== y) out.push(`${label}: ${percent(x)} → ${percent(y)}`);
   };
 
-  compare("Maximum drawdown", num(a.maxDrawdownBps), num(b.maxDrawdownBps), pctRound);
-  compare("Liquidity reserve", num(a.minLiquidityBps), num(b.minLiquidityBps), pctRound);
-  compare("Maximum single asset", num(a.maxSingleAssetBps), num(b.maxSingleAssetBps), pctRound);
-  compare("Rebalance threshold", num(a.rebalanceThresholdBps), num(b.rebalanceThresholdBps), pctRound);
+  compare("How much you're comfortable losing", a.rules.comfortableLosingPercent, b.rules.comfortableLosingPercent);
+  compare("Money kept available", a.rules.moneyKeptAvailablePercent, b.rules.moneyKeptAvailablePercent);
+  compare("Maximum in one investment", a.rules.maxInOneInvestmentPercent, b.rules.maxInOneInvestmentPercent);
+  compare("Modalis steps in at", a.rules.adjustWhenOffTargetByPercent, b.rules.adjustWhenOffTargetByPercent);
 
-  if (r.base.draft.profile.riskScore !== r.changed.draft.profile.riskScore) {
-    out.push(
-      `Risk score: ${r.base.draft.profile.riskScore}/100 → ${r.changed.draft.profile.riskScore}/100`,
-    );
+  if (a.riskLevel.level !== b.riskLevel.level) {
+    out.push(`Your risk level: ${a.riskLevel.level} → ${b.riskLevel.level}`);
   }
 
-  const bySymbol = new Map(r.base.draft.allocations.map((x) => [x.symbol, x.targetBps]));
-  for (const alloc of r.changed.draft.allocations) {
-    const before = bySymbol.get(alloc.symbol);
-    if (before === undefined) out.push(`${alloc.symbol} is added at ${pctRound(alloc.targetBps)}`);
-    else if (before !== alloc.targetBps) {
-      out.push(`${alloc.symbol}: ${pctRound(before)} → ${pctRound(alloc.targetBps)}`);
+  if (a.goal.target.amount !== b.goal.target.amount) {
+    out.push(
+      `Your goal: ${usdFromDecimal(a.goal.target.amount, 0)} → ${usdFromDecimal(b.goal.target.amount, 0)}`,
+    );
+  }
+  if (a.goal.targetDate !== b.goal.targetDate) {
+    out.push(`When you need it: ${monthsToHuman(a.goal.monthsRemaining)} → ${monthsToHuman(b.goal.monthsRemaining)}`);
+  }
+
+  const before = new Map(a.howMoneyIsSpread.map((h) => [h.id, h]));
+  for (const h of b.howMoneyIsSpread) {
+    const was = before.get(h.id);
+    if (!was) out.push(`${h.name} is added at ${percent(h.sharePercent)}`);
+    else if (was.sharePercent !== h.sharePercent) {
+      out.push(`${h.name}: ${percent(was.sharePercent)} → ${percent(h.sharePercent)}`);
     }
   }
-  const changedSymbols = new Set(r.changed.draft.allocations.map((x) => x.symbol));
-  for (const [symbol] of bySymbol) {
-    if (!changedSymbols.has(symbol)) out.push(`${symbol} is dropped from the plan`);
+  const after = new Set(b.howMoneyIsSpread.map((h) => h.id));
+  for (const [id, h] of before) {
+    if (!after.has(id)) out.push(`${h.name} is dropped from the plan`);
   }
 
-  const covA = r.base.funding.coverageBps;
-  const covB = r.changed.funding.coverageBps;
-  if (covA !== covB) {
-    out.push(
-      `Share of the goal your own contributions cover: ${pct(covA, 0)} → ${pct(covB, 0)} (no growth assumed)`,
-    );
-  }
-
-  if (out.length === 0) out.push("Nothing about your policy changes.");
+  if (out.length === 0) out.push("Nothing about your limits changes.");
   return out;
 }

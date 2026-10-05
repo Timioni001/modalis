@@ -36,13 +36,25 @@ export type RpcConfig = {
   multicall?: boolean;
 };
 
+/**
+ * The endpoints to talk to, in order.
+ *
+ * A CONFIGURED endpoint is used exclusively. The chain's public endpoint is a default for when
+ * nothing is configured, never a companion to something that is — mixing them is how a client
+ * ends up reading one node and estimating against another.
+ *
+ * That is not hypothetical: with a local node configured, appending the public endpoint made gas
+ * estimation answer from a chain where the local addresses hold no code, so transactions were
+ * signed with a plain-transfer gas limit and ran out of gas on the node that actually had the
+ * contracts. Worse, a write client holding an endpoint for a different node could broadcast
+ * there. One configured endpoint, or the public default: never both.
+ */
 function httpUrlsFor(cfg: RpcConfig, network: NetworkName, chain: Chain): string[] {
-  const urls: string[] = [];
-  if (cfg.httpUrl) urls.push(cfg.httpUrl);
-  if (cfg.alchemyApiKey) urls.push(alchemyHttpUrl(network, cfg.alchemyApiKey));
-  // Public endpoints last: a usable default, never a silent replacement for a configured provider.
-  urls.push(...(chain.rpcUrls.default.http ?? []));
-  return [...new Set(urls)];
+  const configured: string[] = [];
+  if (cfg.httpUrl) configured.push(cfg.httpUrl);
+  if (cfg.alchemyApiKey) configured.push(alchemyHttpUrl(network, cfg.alchemyApiKey));
+  if (configured.length > 0) return [...new Set(configured)];
+  return [...new Set(chain.rpcUrls.default.http ?? [])];
 }
 
 function wsUrlFor(cfg: RpcConfig, network: NetworkName): string | undefined {
@@ -52,8 +64,8 @@ function wsUrlFor(cfg: RpcConfig, network: NetworkName): string | undefined {
 }
 
 /**
- * Read client. `fallback` keeps the dashboard alive if one endpoint degrades, and batching
- * collapses the per-asset reads a portfolio view needs into a single multicall3 request.
+ * Read client. `fallback` keeps the dashboard alive if one CONFIGURED endpoint degrades, and
+ * batching collapses the per-asset reads a portfolio view needs into a single multicall3 request.
  */
 export function createMonadPublicClient(cfg: RpcConfig): PublicClient {
   const chain = chainById(cfg.chainId);
@@ -94,7 +106,9 @@ export function createManagerWalletClient(cfg: RpcConfig, privateKey: string): W
   return createWalletClient({
     account: accountFromPrivateKey(privateKey),
     chain,
-    transport: urls.length > 1 ? fallback(urls.map((u) => http(u))) : http(urls[0]),
+    // A write client signs and broadcasts, so it talks to ONE node. Picking between nodes
+    // mid-transaction is how a nonce or a gas estimate ends up belonging to the wrong chain.
+    transport: http(urls[0]),
   });
 }
 

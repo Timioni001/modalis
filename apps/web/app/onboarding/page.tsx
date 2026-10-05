@@ -8,15 +8,15 @@
  * useful information — "sell everything" and "invest more" describe very different investors
  * even when both say they tolerate a 15% fall.
  *
- * Nothing here is written on-chain. The answers become a mandate on the next screen, and only
- * the user's own signature puts it on Monad.
+ * Nothing here is written anywhere yet. The answers become a plan on the next screen, and only
+ * the person's own signature makes that plan real.
  */
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import type { InterviewAnswers } from "@modalis/ai";
+import type { GoalAnswers } from "@modalis/domain";
 import { Badge, Button, Card, Notice } from "@/components/ui";
 import { monthsToHuman } from "@/lib/format";
-import { DEFAULT_ANSWERS, saveAnswers } from "@/lib/interview-store";
+import { DEFAULT_ANSWERS, saveAnswers } from "@/lib/goal-answers";
 
 type Step = { id: string; title: string; hint?: string };
 
@@ -32,7 +32,7 @@ const STEPS: Step[] = [
   { id: "constraints", title: "Your limits" },
 ];
 
-const GOALS: { value: InterviewAnswers["goalType"]; label: string; blurb: string }[] = [
+const GOALS: { value: GoalAnswers["goalKind"]; label: string; blurb: string }[] = [
   { value: "house", label: "A home", blurb: "A deposit or a purchase" },
   { value: "education", label: "Education", blurb: "Tuition or study costs" },
   { value: "long_term_wealth", label: "Long-term wealth", blurb: "No fixed purpose yet" },
@@ -41,7 +41,7 @@ const GOALS: { value: InterviewAnswers["goalType"]; label: string; blurb: string
   { value: "custom", label: "Something else", blurb: "Describe it yourself" },
 ];
 
-const DRAWDOWN: { value: InterviewAnswers["drawdownResponse"]; label: string }[] = [
+const DRAWDOWN: { value: GoalAnswers["ifItFellResponse"]; label: string }[] = [
   { value: "sell_everything", label: "Sell everything" },
   { value: "sell_some", label: "Sell some of it" },
   { value: "do_nothing", label: "Do nothing and wait" },
@@ -51,10 +51,10 @@ const DRAWDOWN: { value: InterviewAnswers["drawdownResponse"]; label: string }[]
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<InterviewAnswers>(DEFAULT_ANSWERS);
+  const [answers, setAnswers] = useState<GoalAnswers>(DEFAULT_ANSWERS);
   const [description, setDescription] = useState("");
 
-  const set = <K extends keyof InterviewAnswers>(key: K, value: InterviewAnswers[K]) =>
+  const set = <K extends keyof GoalAnswers>(key: K, value: GoalAnswers[K]) =>
     setAnswers((a) => ({ ...a, [key]: value }));
 
   const problems = useMemo(() => validate(answers, step), [answers, step]);
@@ -66,8 +66,8 @@ export default function OnboardingPage() {
       setStep((s) => s + 1);
       return;
     }
-    saveAnswers({ ...answers, goalDescription: description.trim() || undefined });
-    router.push("/mandate");
+    saveAnswers({ ...answers, inTheirWords: description.trim() || undefined });
+    router.push("/plan");
   }
 
   return (
@@ -98,17 +98,17 @@ export default function OnboardingPage() {
                 <label
                   key={g.value}
                   className={`cursor-pointer rounded-xl border p-4 transition-colors ${
-                    answers.goalType === g.value
+                    answers.goalKind === g.value
                       ? "border-accent bg-accent-soft"
                       : "border-line hover:bg-surface-sunken"
                   }`}
                 >
                   <input
                     type="radio"
-                    name="goalType"
+                    name="goalKind"
                     className="sr-only"
-                    checked={answers.goalType === g.value}
-                    onChange={() => set("goalType", g.value)}
+                    checked={answers.goalKind === g.value}
+                    onChange={() => set("goalKind", g.value)}
                   />
                   <span className="block font-semibold text-ink">{g.label}</span>
                   <span className="mt-0.5 block text-sm text-ink-muted">{g.blurb}</span>
@@ -134,16 +134,16 @@ export default function OnboardingPage() {
         {STEPS[step].id === "amount" ? (
           <>
             <Field label="How much do you need?">
-              <MoneyInput value={answers.targetValue} onChange={(v) => set("targetValue", v)} />
+              <MoneyInput value={answers.targetAmount} onChange={(v) => set("targetAmount", v)} />
             </Field>
-            <Field label="When do you need it?" hint={monthsToHuman(answers.horizonMonths)}>
+            <Field label="When do you need it?" hint={monthsToHuman(answers.monthsUntilNeeded)}>
               <input
                 type="range"
                 min={6}
                 max={360}
                 step={6}
-                value={answers.horizonMonths}
-                onChange={(e) => set("horizonMonths", Number(e.target.value))}
+                value={answers.monthsUntilNeeded}
+                onChange={(e) => set("monthsUntilNeeded", Number(e.target.value))}
                 className="w-full accent-accent"
               />
               <div className="mt-1 flex justify-between text-xs text-ink-muted">
@@ -157,7 +157,7 @@ export default function OnboardingPage() {
         {STEPS[step].id === "funding" ? (
           <>
             <Field label="How much do you have to start?">
-              <MoneyInput value={answers.initialAmount} onChange={(v) => set("initialAmount", v)} />
+              <MoneyInput value={answers.startingAmount} onChange={(v) => set("startingAmount", v)} />
             </Field>
             <Field label="How much can you add regularly?">
               <div className="flex gap-3">
@@ -168,7 +168,7 @@ export default function OnboardingPage() {
                 <select
                   value={answers.contributionCadence}
                   onChange={(e) =>
-                    set("contributionCadence", e.target.value as InterviewAnswers["contributionCadence"])
+                    set("contributionCadence", e.target.value as GoalAnswers["contributionCadence"])
                   }
                   className="rounded-xl border border-line px-3 text-ink outline-none focus:border-accent"
                 >
@@ -180,8 +180,8 @@ export default function OnboardingPage() {
             </Field>
             <Field label="How steady is your income?">
               <Choices
-                value={answers.incomeStability}
-                onChange={(v) => set("incomeStability", v)}
+                value={answers.incomeSteadiness}
+                onChange={(v) => set("incomeSteadiness", v)}
                 options={[
                   { value: "unstable", label: "It varies a lot" },
                   { value: "stable", label: "Fairly steady" },
@@ -196,13 +196,13 @@ export default function OnboardingPage() {
           <>
             <Card className="bg-surface-sunken">
               <p className="text-ink">
-                Your portfolio falls <span className="numeric font-semibold">12%</span> during a market
+                Your money falls <span className="numeric font-semibold">12%</span> during a market
                 downturn. What would you most likely do?
               </p>
             </Card>
             <Choices
-              value={answers.drawdownResponse}
-              onChange={(v) => set("drawdownResponse", v)}
+              value={answers.ifItFellResponse}
+              onChange={(v) => set("ifItFellResponse", v)}
               options={DRAWDOWN}
               stacked
             />
@@ -213,19 +213,19 @@ export default function OnboardingPage() {
           <>
             <Field
               label="What is the largest fall you would accept?"
-              hint={`Modalis will hold your portfolio to no more than ${answers.maxTolerableDrawdownPct}% — or tighter, if your plan calls for it.`}
+              hint={`Modalis will hold your money to no more than ${answers.comfortableLosingPercent}% — or tighter, if your plan calls for it.`}
             >
               <input
                 type="range"
                 min={2}
                 max={40}
                 step={1}
-                value={answers.maxTolerableDrawdownPct}
-                onChange={(e) => set("maxTolerableDrawdownPct", Number(e.target.value))}
+                value={answers.comfortableLosingPercent}
+                onChange={(e) => set("comfortableLosingPercent", Number(e.target.value))}
                 className="w-full accent-accent"
               />
               <div className="numeric mt-1 text-2xl font-semibold text-ink">
-                {answers.maxTolerableDrawdownPct}%
+                {answers.comfortableLosingPercent}%
               </div>
             </Field>
             <Field
@@ -233,8 +233,8 @@ export default function OnboardingPage() {
               hint="Held in cash-like assets you can withdraw at any time."
             >
               <Choices
-                value={answers.liquidityNeed}
-                onChange={(v) => set("liquidityNeed", v)}
+                value={answers.moneyKeptAvailable}
+                onChange={(v) => set("moneyKeptAvailable", v)}
                 options={[
                   { value: "none", label: "Very little" },
                   { value: "some", label: "Some of it" },
@@ -257,7 +257,7 @@ export default function OnboardingPage() {
           Back
         </Button>
         <Button onClick={next} disabled={problems.length > 0}>
-          {last ? "See my mandate" : "Continue"}
+          {last ? "See my plan" : "Continue"}
         </Button>
       </div>
     </div>
@@ -321,17 +321,17 @@ function Choices<T extends string>({
 }
 
 /** Client-side checks that match the pipeline's own preconditions, so errors land here. */
-function validate(a: InterviewAnswers, step: number): string[] {
+function validate(a: GoalAnswers, step: number): string[] {
   const id = STEPS[step].id;
   const out: string[] = [];
   if (id === "amount") {
-    if (!(a.targetValue > 0)) out.push("Enter the amount you need.");
-    if (a.horizonMonths < 1) out.push("Choose when you need the money.");
+    if (!(a.targetAmount > 0)) out.push("Enter the amount you need.");
+    if (a.monthsUntilNeeded < 1) out.push("Choose when you need the money.");
   }
   if (id === "funding") {
-    if (a.initialAmount < 0 || a.contributionAmount < 0) out.push("Amounts cannot be negative.");
-    if (a.initialAmount === 0 && a.contributionAmount === 0) {
-      out.push("Add a starting amount or a regular contribution — a portfolio needs funding.");
+    if (a.startingAmount < 0 || a.contributionAmount < 0) out.push("Amounts cannot be negative.");
+    if (a.startingAmount === 0 && a.contributionAmount === 0) {
+      out.push("Add a starting amount or a regular contribution — a plan needs money in it.");
     }
   }
   return out;

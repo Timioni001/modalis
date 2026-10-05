@@ -20,7 +20,7 @@
     "contracts:deploy:testnet": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url monad_testnet --broadcast",
     "contracts:sync-abis": "pnpm --filter @modalis/chain sync-abis",
 
-    "test": "pnpm -r --filter './packages/*' test",
+    "test": "pnpm -r --filter './packages/*' --filter @modalis/web test",
     "typecheck": "pnpm -r typecheck",
 
     "risk-monitor": "pnpm --filter @modalis/risk-monitor start",
@@ -32,6 +32,10 @@
     "envio:dev": "pnpm --filter @modalis/envio dev",
     "cre:simulate": "pnpm --filter @modalis/cre-risk-monitor simulate",
 
-    "db:migrate": "psql \"$SUPABASE_DB_URL\" -f supabase/migrations/0001_init.sql"
+    "db:migrate": "psql \"$SUPABASE_DB_URL\" -f supabase/migrations/0001_init.sql",
+    "db:local": "bash supabase/scripts/db-local.sh up",
+    "db:check": "bash supabase/scripts/db-local.sh check",
+    "db:down": "bash supabase/scripts/db-local.sh down",
+    "db:types": "pnpm --filter @modalis/db gen-types"
   }
 }

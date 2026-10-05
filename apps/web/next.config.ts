@@ -6,7 +6,10 @@ const nextConfig: NextConfig = {
   // engine instead of a separate build step that could go stale.
   transpilePackages: [
     "@modalis/ai",
+    "@modalis/auth",
     "@modalis/chain",
+    "@modalis/db",
+    "@modalis/domain",
     "@modalis/execution",
     "@modalis/portfolio",
     "@modalis/risk-monitor",

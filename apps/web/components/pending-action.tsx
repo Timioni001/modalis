@@ -1,70 +1,49 @@
 "use client";
 
 /**
- * What Modalis proposes to do, and why.
+ * What Modalis suggests doing, and whether the person's own rules allow it.
  *
- * The proposal shown here has already been simulated against live chain state, so the user sees
- * whether the contract will accept it BEFORE anything is submitted. When the mandate refuses a
- * proposal, that refusal is shown as the system working — not as an error.
+ * The suggestion has already been checked against the live contract before it reaches here, so a
+ * refusal is shown as the rules protecting them — not as an error.
  */
 import { useState } from "react";
 import { Badge, Button, Card, Notice, SectionTitle } from "./ui";
-import { ExplorerLink } from "./explorer-link";
+import { ReceiptLink } from "./receipt-link";
 import { usePortfolio } from "./portfolio-provider";
-import { pct, tokenAmount } from "@/lib/format";
+import { apiPost } from "@/lib/client-api";
+import type { Adjustment } from "@modalis/domain";
 
 export function PendingAction() {
-  const { risk, portfolio, refresh, status } = usePortfolio();
+  const { adjustment, planStatus, status, refresh } = usePortfolio();
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<
-    | { kind: "settled"; hash: string; blockNumber?: string | null }
-    | { kind: "rejected"; errorName: string; explanation: string }
-    | { kind: "failed"; message: string }
-    | null
-  >(null);
+  const [result, setResult] = useState<Adjustment | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
 
-  const state = portfolio?.state;
-  if (!risk || !state) return null;
+  if (!adjustment) return null;
 
-  if (risk.kind === "within_mandate" || risk.kind === "empty_portfolio") {
+  if (adjustment.status === "none_needed") {
     return (
       <Card>
-        <SectionTitle>Portfolio health</SectionTitle>
+        <SectionTitle>Your plan</SectionTitle>
         <div className="flex items-start gap-3">
-          <Badge tone="ok">No action needed</Badge>
-          <p className="text-sm text-ink-soft">
-            {portfolio?.riskSummary ??
-              "Your portfolio is within every rule you approved, so Modalis is doing nothing."}
-          </p>
+          <Badge tone="ok">Nothing to do</Badge>
+          <p className="text-sm text-ink-soft">{planStatus?.summary ?? adjustment.explanation}</p>
         </div>
       </Card>
     );
   }
 
-  const action = risk.proposal;
-  const symbolFor = (token: string) =>
-    state.positions.find((p) => p.token.toLowerCase() === token.toLowerCase());
+  const shown = result ?? adjustment;
 
-  async function submit() {
+  async function approve() {
     setSubmitting(true);
-    setResult(null);
+    setFailure(null);
     try {
-      const res = await fetch("/api/rebalance/execute", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ owner: portfolio?.owner }),
-      });
-      const json = await res.json();
-      if (json.rejectedBy === "mandate") {
-        setResult({ kind: "rejected", errorName: json.errorName, explanation: json.explanation });
-      } else if (json.submitted && json.hash && !json.rejectedWith) {
-        setResult({ kind: "settled", hash: json.hash, blockNumber: json.blockNumber });
-      } else {
-        setResult({ kind: "failed", message: json.error ?? json.rejectedWith ?? json.reason ?? "Could not settle." });
-      }
+      const { adjustment: done } = await apiPost<{ adjustment: Adjustment }>("/api/adjustment/execute");
+      setResult(done);
       await refresh();
-    } catch {
-      setResult({ kind: "failed", message: "Could not reach the Modalis server." });
+    } catch (err) {
+      setFailure(err instanceof Error ? err.message : "That didn't go through.");
     } finally {
       setSubmitting(false);
     }
@@ -73,107 +52,74 @@ export function PendingAction() {
   return (
     <Card className="border-accent/30 bg-accent-soft/40">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SectionTitle>Modalis proposes a rebalance</SectionTitle>
-        <Badge tone={risk.risk?.status === "BREACH" ? "breach" : "warn"}>
-          {risk.risk?.status === "BREACH" ? "Outside your mandate" : "Drifted past your threshold"}
+        <SectionTitle>Modalis suggests an adjustment</SectionTitle>
+        <Badge tone={planStatus?.health === "off_plan" ? "breach" : "warn"}>
+          {planStatus?.health === "off_plan" ? "Off plan" : "Drifting"}
         </Badge>
       </div>
 
-      {risk.unplannable ? (
-        <Notice tone="warn" title="No single trade fixes this">
-          {risk.unplannable}
-        </Notice>
+      <p className="text-ink">{shown.explanation}</p>
+
+      {shown.reasons.length > 0 ? (
+        <ul className="mt-4 space-y-1 text-sm text-ink-soft">
+          {shown.reasons.map((r, i) => (
+            <li key={`${r.code}-${i}`}>· {r.message}</li>
+          ))}
+        </ul>
       ) : null}
 
-      {action ? (
-        <>
-          <p className="text-ink">{action.explanation}</p>
-
-          <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-ink-muted">Sell</dt>
-              <dd className="numeric font-semibold">
-                {(() => {
-                  const p = symbolFor(action.proposal.tokenIn);
-                  return p
-                    ? `${tokenAmount(BigInt(action.proposal.amountIn), p.decimals)} ${p.symbol}`
-                    : action.proposal.amountIn;
-                })()}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-ink-muted">Buy, at least</dt>
-              <dd className="numeric font-semibold">
-                {(() => {
-                  const p = symbolFor(action.proposal.tokenOut);
-                  return p
-                    ? `${tokenAmount(BigInt(action.proposal.minAmountOut), p.decimals)} ${p.symbol}`
-                    : action.proposal.minAmountOut;
-                })()}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-ink-muted">Venue</dt>
-              <dd className="font-semibold">
-                {action.venue.name === "kuru" ? "Kuru orderbook" : "Demo adapter"}
-                {action.venue.isDemoVenue ? (
-                  <span className="ml-2 text-xs font-normal text-ink-muted">not a real venue</span>
-                ) : null}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-ink-muted">Checked against</dt>
-              <dd className="numeric font-semibold">
-                mandate v{action.proposal.mandateVersion}, nonce {action.proposal.nonce}
-              </dd>
-            </div>
-          </dl>
-
-          <div className="mt-5">
-            {action.simulation.ok ? (
-              <Notice tone="ok" title="The mandate accepts this action">
-                Simulated against live chain state: the portfolio would end up back inside every
-                rule you approved. Nothing has been submitted yet.
-              </Notice>
-            ) : (
-              <Notice tone="breach" title={`The mandate refuses this action (${action.simulation.errorName})`}>
-                {action.simulation.explanation} Modalis will not submit it.
-              </Notice>
-            )}
+      {shown.change?.sell.name ? (
+        <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-ink-muted">Move out of</dt>
+            <dd className="numeric font-semibold">
+              {shown.change.sell.amount} {shown.change.sell.name}
+            </dd>
           </div>
-
-          {result?.kind === "settled" ? (
-            <div className="mt-4">
-              <Notice tone="ok" title="Settled on Monad">
-                Transaction <ExplorerLink hash={result.hash} />
-                {result.blockNumber ? ` in block ${result.blockNumber}` : ""}.
-              </Notice>
-            </div>
-          ) : null}
-          {result?.kind === "rejected" ? (
-            <div className="mt-4">
-              <Notice tone="breach" title={`Rejected by your mandate (${result.errorName})`}>
-                {result.explanation}
-              </Notice>
-            </div>
-          ) : null}
-          {result?.kind === "failed" ? (
-            <div className="mt-4">
-              <Notice tone="warn">{result.message}</Notice>
-            </div>
-          ) : null}
-
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Button onClick={submit} disabled={submitting || !action.simulation.ok || !status?.managerConfigured}>
-              {submitting ? "Submitting…" : "Approve and execute"}
-            </Button>
-            {!status?.managerConfigured ? (
-              <span className="text-xs text-ink-muted">
-                No manager key configured on the server, so Modalis cannot submit this for you.
-              </span>
-            ) : null}
+          <div>
+            <dt className="text-ink-muted">Into, at least</dt>
+            <dd className="numeric font-semibold">
+              {shown.change.buy.atLeast} {shown.change.buy.name}
+            </dd>
           </div>
-        </>
+        </dl>
+      ) : null}
+
+      <div className="mt-5">
+        {shown.status === "done" ? (
+          <Notice tone="ok" title="Done">
+            Your money has been moved back in line with your plan.{" "}
+            {shown.receipt ? <ReceiptLink reference={shown.receipt.reference} /> : null}
+          </Notice>
+        ) : shown.allowedByYourRules ? (
+          <Notice tone="ok" title="Your rules allow this">
+            Checked against your plan before anything happens. Nothing has moved yet.
+          </Notice>
+        ) : (
+          <Notice tone="breach" title="Your rules don't allow this">
+            {shown.explanation}
+            {shown.blockedBecause ? ` This is ${shown.blockedBecause}.` : ""} Nothing moved.
+          </Notice>
+        )}
+      </div>
+
+      {failure ? (
+        <div className="mt-4">
+          <Notice tone="warn">{failure}</Notice>
+        </div>
+      ) : null}
+
+      {shown.status !== "done" ? (
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Button onClick={approve} disabled={submitting || !shown.allowedByYourRules || !status?.capabilities.canAdjust}>
+            {submitting ? "Making the change…" : "Approve this adjustment"}
+          </Button>
+          {!status?.capabilities.canAdjust ? (
+            <span className="text-xs text-ink-muted">
+              Modalis can&rsquo;t make adjustments on this deployment.
+            </span>
+          ) : null}
+        </div>
       ) : null}
     </Card>
   );

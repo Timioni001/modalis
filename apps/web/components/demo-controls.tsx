@@ -1,75 +1,58 @@
 "use client";
 
 /**
- * Demo controls, shown only when DEMO_MODE is on.
+ * Demonstration controls, shown only on a demo deployment.
  *
- * Two buttons with very different meanings, and the UI must not blur them:
+ * Two buttons with very different meanings, and the copy must not blur them:
  *
- *  - "Simulate a market move" writes a SYNTHETIC price to the demo oracle. The price is made up;
- *    the breach it causes, and everything after it, is real.
- *  - "Run the security test" submits a genuinely invalid proposal and lets the contract reject it
- *    on-chain. That transaction is real and its revert is verifiable.
+ *  - "Simulate a market move" writes a MADE-UP price. Everything that follows from it is real.
+ *  - "Test my rules" submits a genuinely invalid change and lets the person's own rules refuse it
+ *    on-chain. That transaction is real and the refusal is verifiable.
  */
 import { useState } from "react";
 import { Badge, Button, Card, Notice, SectionTitle } from "./ui";
-import { ExplorerLink } from "./explorer-link";
+import { ReceiptLink } from "./receipt-link";
 import { usePortfolio } from "./portfolio-provider";
+import { apiPost } from "@/lib/client-api";
 
-type ScenarioResult = { title?: string; description?: string; writes?: { symbol: string; hash: string }[] };
+type ScenarioResult = { title?: string; description?: string; receipts?: { reference: string }[] };
 type SecurityResult = {
-  hash?: string;
-  reverted?: boolean;
-  errorName?: string | null;
+  stoppedByYourRules?: boolean;
   explanation?: string;
-  portfolioUnchanged?: boolean;
-  error?: string;
+  moneyUnchanged?: boolean;
+  receipt?: { reference: string };
 };
 
 export function DemoControls() {
-  const { portfolio, refresh } = usePortfolio();
+  const { refresh } = usePortfolio();
   const [busy, setBusy] = useState<string | null>(null);
   const [scenario, setScenario] = useState<ScenarioResult | null>(null);
   const [security, setSecurity] = useState<SecurityResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function runScenario(id: string) {
-    // The breach scenario is computed from this portfolio's live holdings, so it needs the owner.
+  async function run(id: string) {
     setBusy(id);
     setError(null);
     setScenario(null);
     try {
-      const res = await fetch("/api/scenario", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scenario: id, owner: portfolio?.owner }),
-      });
-      const json = await res.json();
-      if (!res.ok) setError(json.error ?? "Could not run the scenario.");
-      else setScenario(json);
+      setScenario(await apiPost<ScenarioResult>("/api/demo/scenario", { scenario: id }));
       await refresh();
-    } catch {
-      setError("Could not reach the Modalis server.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't work.");
     } finally {
       setBusy(null);
     }
   }
 
-  async function runSecurityTest() {
+  async function testRules() {
     setBusy("security");
     setError(null);
     setSecurity(null);
     try {
-      const res = await fetch("/api/rebalance/invalid", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ owner: portfolio?.owner }),
-      });
-      const json = await res.json();
-      if (!res.ok) setError(json.error ?? "Could not run the security test.");
-      else setSecurity(json);
+      setSecurity(await apiPost<SecurityResult>("/api/demo/security-test"));
       await refresh();
-    } catch {
-      setError("Could not reach the Modalis server.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't work.");
     } finally {
       setBusy(null);
     }
@@ -78,28 +61,27 @@ export function DemoControls() {
   return (
     <Card className="border-dashed">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SectionTitle hint="Available because this deployment runs with DEMO_MODE enabled.">
-          Demo controls
+        <SectionTitle hint="Available because this is a demonstration deployment.">
+          Try it out
         </SectionTitle>
         <Badge tone="warn">Test network only</Badge>
       </div>
 
       <div className="flex flex-wrap gap-3">
-        <Button variant="secondary" onClick={() => runScenario("breach_largest")} disabled={busy !== null}>
-          {busy === "breach_largest" ? "Writing prices…" : "Simulate a market move"}
+        <Button variant="secondary" onClick={() => run("off_target")} disabled={busy !== null}>
+          {busy === "off_target" ? "Working…" : "Simulate a market move"}
         </Button>
-        <Button variant="secondary" onClick={() => runScenario("reset")} disabled={busy !== null}>
-          {busy === "reset" ? "Resetting…" : "Reset demo prices"}
+        <Button variant="secondary" onClick={() => run("reset")} disabled={busy !== null}>
+          {busy === "reset" ? "Resetting…" : "Reset"}
         </Button>
-        <Button variant="danger" onClick={runSecurityTest} disabled={busy !== null}>
-          {busy === "security" ? "Submitting…" : "Run the security test"}
+        <Button variant="danger" onClick={testRules} disabled={busy !== null}>
+          {busy === "security" ? "Testing…" : "Test my rules"}
         </Button>
       </div>
 
       <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-        The market move writes a <strong>synthetic price</strong> to the demo oracle. Everything
-        downstream of it &mdash; the breach, the proposal, the contract&rsquo;s decision and the
-        settlement &mdash; is real, and every transaction hash below came from the network.
+        The market move uses a <strong>made-up price</strong>. Everything after it &mdash; your plan
+        going off target, the suggestion, your rules&rsquo; decision and the result &mdash; is real.
       </p>
 
       {error ? (
@@ -110,13 +92,13 @@ export function DemoControls() {
 
       {scenario ? (
         <div className="mt-4">
-          <Notice tone="accent" title={scenario.title ?? "Scenario run"}>
-            <p>{scenario.description ?? "Demo prices updated."}</p>
-            {scenario.writes?.length ? (
+          <Notice tone="accent" title={scenario.title ?? "Done"}>
+            <p>{scenario.description}</p>
+            {scenario.receipts?.length ? (
               <ul className="mt-2 space-y-1">
-                {scenario.writes.map((w) => (
-                  <li key={w.hash}>
-                    {w.symbol} price written: <ExplorerLink hash={w.hash} />
+                {scenario.receipts.map((r) => (
+                  <li key={r.reference}>
+                    <ReceiptLink reference={r.reference} />
                   </li>
                 ))}
               </ul>
@@ -128,28 +110,24 @@ export function DemoControls() {
       {security ? (
         <div className="mt-4">
           <Notice
-            tone={security.reverted ? "ok" : "breach"}
+            tone={security.stoppedByYourRules ? "ok" : "breach"}
             title={
-              security.reverted
-                ? `The contract rejected the invalid action (${security.errorName ?? "reverted"})`
-                : "The contract did NOT reject the invalid action"
+              security.stoppedByYourRules
+                ? "Your rules stopped it"
+                : "Your rules did NOT stop it"
             }
           >
             <p>{security.explanation}</p>
-            {security.hash ? (
+            {security.receipt ? (
               <p className="mt-2">
-                Transaction <ExplorerLink hash={security.hash} /> &mdash;{" "}
-                {security.reverted ? "reverted on-chain" : "succeeded"}.
+                <ReceiptLink reference={security.receipt.reference} /> &mdash; refused.
               </p>
             ) : null}
-            {security.portfolioUnchanged !== undefined ? (
-              <p className="mt-1">
-                Portfolio unchanged: <strong>{security.portfolioUnchanged ? "yes" : "no"}</strong>.
-              </p>
-            ) : null}
+            <p className="mt-1">
+              Your money is unchanged: <strong>{security.moneyUnchanged ? "yes" : "no"}</strong>.
+            </p>
             <p className="mt-2 text-xs">
-              The proposal was well-formed and correctly signed. Only the mandate stopped it &mdash;
-              which is the point: the AI is not the security boundary.
+              That change was correctly formed and properly signed. Only your own rules stopped it.
             </p>
           </Notice>
         </div>

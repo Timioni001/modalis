@@ -1,11 +1,9 @@
 "use client";
 
 /**
- * The main dashboard.
+ * The main screen: my goal, my money, my progress, anything that needs doing.
  *
- * Reading order is deliberate: the goal first, then where the portfolio stands against it, then
- * health, then the holdings, then what Modalis last did and why. The user should understand their
- * portfolio without knowing what an AMM or a smart contract is.
+ * Reads only domain objects. Nothing here knows what a mandate, a vault or a basis point is.
  */
 import { Badge, Button, Card, Notice, SectionTitle, Stat } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
@@ -14,8 +12,7 @@ import { AllocationTable } from "@/components/allocation-table";
 import { GoalProgress } from "@/components/goal-progress";
 import { PendingAction } from "@/components/pending-action";
 import { DemoControls } from "@/components/demo-controls";
-import { riskLabel, riskTone } from "@/lib/api-types";
-import { pct, pctRound, usd } from "@/lib/format";
+import { planHealthLabel, planHealthTone } from "@/lib/api-types";
 
 export default function PortfolioPage() {
   return (
@@ -26,108 +23,100 @@ export default function PortfolioPage() {
 }
 
 function Dashboard() {
-  const { portfolio, risk, status, refresh } = usePortfolio();
-  const state = portfolio?.state;
-  if (!state) return null;
-
-  const total = BigInt(state.totalValueE18);
-  const target = BigInt(state.mandate.targetValue);
-  const r = portfolio?.risk;
+  const { plan, money, progress, planStatus, status, refresh } = usePortfolio();
+  if (!plan || !money) return null;
 
   return (
     <div className="space-y-6">
-      {/* ------------------------------------------------------------- header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-ink-muted">Your portfolio</p>
-          <Stat label="" value={usd(total)} size="xl" />
+          <p className="text-sm font-medium text-ink-muted">{plan.goal.name}</p>
+          <Stat label="" value={`$${money.total.amount}`} size="xl" />
           <p className="mt-2 text-sm text-ink-soft">
-            of {usd(target, { decimals: 0 })} · mandate v{state.mandate.version} · read at block{" "}
-            <span className="numeric">{state.blockNumber}</span>
+            of ${plan.goal.target.amount} · plan version {plan.version}
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Badge tone={riskTone(r?.status)}>{riskLabel(r?.status)}</Badge>
+          <Badge tone={planHealthTone(planStatus?.health)}>{planHealthLabel(planStatus?.health)}</Badge>
           <Button variant="secondary" onClick={() => void refresh()}>
             Refresh
           </Button>
         </div>
       </div>
 
-      {portfolio?.agreesWithExecutor === false ? (
-        <Notice tone="warn" title="Valuation mismatch">
-          This view and the executor&rsquo;s own valuation of the portfolio disagree. The
-          executor&rsquo;s numbers are what the mandate is checked against, so treat the figures
-          here as indicative until this clears.
+      {money.isEmpty ? (
+        <Notice tone="accent" title="Your plan is ready — now add some money">
+          Nothing is invested yet, so there's nothing to keep on track.
+          <span className="mt-3 block">
+            <Button href="/portfolio/add-money">Add money</Button>
+          </span>
         </Notice>
       ) : null}
 
-      {total === 0n ? (
-        <Notice tone="accent" title="Your mandate is live, but the portfolio is empty">
-          Deposit into the vault to deploy capital against your plan. Until then there is nothing to
-          drift and nothing to rebalance.
-        </Notice>
-      ) : null}
-
-      {/* -------------------------------------------------------- key figures */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <Stat
-            label="Goal progress"
-            value={target === 0n ? "—" : pct(Number((total * 10_000n) / target), 1)}
-            sub={`${usd(total, { compact: true })} of ${usd(target, { compact: true })}`}
+            label="Progress"
+            value={progress ? `${progress.percentComplete}%` : "—"}
+            sub={progress ? `$${progress.saved.amount} of $${progress.target.amount}` : undefined}
           />
         </Card>
         <Card>
           <Stat
-            label="Largest holding"
-            value={r ? pct(r.largestPositionBps) : "—"}
-            sub={`limit ${pctRound(state.mandate.maxSingleAssetBps)}`}
-            tone={r && r.largestPositionBps > state.mandate.maxSingleAssetBps ? "breach" : "default"}
+            label="Biggest investment"
+            value={planStatus ? `${planStatus.largestHoldingPercent}%` : "—"}
+            sub={`your limit is ${plan.rules.maxInOneInvestmentPercent}%`}
+            tone={
+              planStatus && planStatus.largestHoldingPercent > plan.rules.maxInOneInvestmentPercent
+                ? "breach"
+                : "default"
+            }
           />
         </Card>
         <Card>
           <Stat
-            label="Cash reserve"
-            value={pct(state.liquidityBps)}
-            sub={`minimum ${pctRound(state.mandate.minLiquidityBps)}`}
-            tone={state.liquidityBps < state.mandate.minLiquidityBps ? "breach" : "default"}
+            label="Available to withdraw"
+            value={`$${money.available.amount}`}
+            sub={`you asked for at least ${plan.rules.moneyKeptAvailablePercent}%`}
+            tone={
+              planStatus && planStatus.availableMoneyPercent < plan.rules.moneyKeptAvailablePercent
+                ? "breach"
+                : "default"
+            }
           />
         </Card>
         <Card>
           <Stat
-            label="Largest drift"
-            value={r ? pct(r.maxDriftBps) : "—"}
-            sub={`acts above ${pctRound(state.mandate.rebalanceThresholdBps)}`}
-            tone={r && r.maxDriftBps > state.mandate.rebalanceThresholdBps ? "warn" : "default"}
+            label="Furthest off target"
+            value={planStatus ? `${planStatus.furthestOffTargetPercent}%` : "—"}
+            sub={`Modalis steps in past ${plan.rules.adjustWhenOffTargetByPercent}%`}
+            tone={
+              planStatus && planStatus.furthestOffTargetPercent > plan.rules.adjustWhenOffTargetByPercent
+                ? "warn"
+                : "default"
+            }
           />
         </Card>
       </div>
 
-      {/* --------------------------------------------- what Modalis will do */}
       <PendingAction />
 
-      {/* ----------------------------------------------------- goal + holdings */}
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <Card>
-          <SectionTitle hint="Your own contributions, with no investment growth assumed.">
-            Toward your goal
-          </SectionTitle>
+          <SectionTitle hint="Assuming your money doesn't grow at all.">Toward your goal</SectionTitle>
           <GoalProgress />
         </Card>
-
         <Card>
-          <SectionTitle hint="Each holding against the target and range you approved.">
-            Current allocation
+          <SectionTitle hint="Each investment against where your plan says it should be.">
+            How your money is spread
           </SectionTitle>
           <AllocationTable />
         </Card>
       </div>
 
-      {status?.executionVenue?.isDemoVenue ? (
-        <Notice tone="warn" title="Trades settle through the demo adapter">
-          Kuru is not configured on this deployment. Rebalances fill at the oracle price from
-          pre-funded inventory — a test fixture, not a venue. Transactions are still real.
+      {status?.trading && !status.trading.live ? (
+        <Notice tone="warn" title="Trades run through a test fixture here">
+          {status.trading.note}
         </Notice>
       ) : null}
 

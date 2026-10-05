@@ -1,35 +1,57 @@
 "use client";
 
 /**
- * Shared portfolio state for the dashboard pages.
+ * Shared plan state for the signed-in person.
  *
- * One fetch of live chain state, refreshed on demand after an action settles. Everything is read
- * from the contracts each time — there is no client-side cache of balances, because a stale
- * balance in a wealth product is worse than a spinner.
+ * Speaks the product's language: plan, money, progress, adjustment. It no longer knows what a
+ * mandate or a vault is — the domain API returns those already translated.
+ *
+ * Everything is read live on each refresh. A stale balance in a money product is worse than a
+ * spinner, so nothing here is cached as truth.
  */
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useWallet } from "./wallet-context";
-import type { ApiPortfolioResponse, ApiRiskResponse, ApiStatus } from "@/lib/api-types";
+import { ApiError, apiGet } from "@/lib/client-api";
+import type { Adjustment, MoneyView, Plan, Progress } from "@modalis/domain";
+import type { SystemStatus } from "@/lib/api-types";
 
-type PortfolioContextValue = {
+type PlanStatusView = {
+  health: "on_plan" | "drifting" | "off_plan";
+  summary: string;
+  furthestOffTargetPercent: number;
+  availableMoneyPercent: number;
+  largestHoldingPercent: number;
+  needsAdjustment: boolean;
+};
+
+type ContextValue = {
   address: string | null;
-  loggedIn: boolean;
+  signedIn: boolean;
   walletConfigured: boolean;
-  status: ApiStatus | null;
-  portfolio: ApiPortfolioResponse | null;
-  risk: ApiRiskResponse | null;
+  status: SystemStatus | null;
+  plan: Plan | null;
+  money: MoneyView | null;
+  progress: Progress | null;
+  planStatus: PlanStatusView | null;
+  adjustment: Adjustment | null;
+  /** True when the person is signed in but has not made a plan yet. */
+  needsPlan: boolean;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
 };
 
-const Ctx = createContext<PortfolioContextValue>({
+const Ctx = createContext<ContextValue>({
   address: null,
-  loggedIn: false,
+  signedIn: false,
   walletConfigured: false,
   status: null,
-  portfolio: null,
-  risk: null,
+  plan: null,
+  money: null,
+  progress: null,
+  planStatus: null,
+  adjustment: null,
+  needsPlan: false,
   loading: true,
   error: null,
   refresh: async () => {},
@@ -37,44 +59,72 @@ const Ctx = createContext<PortfolioContextValue>({
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
   const { address, loggedIn, configured } = useWallet();
-  const [status, setStatus] = useState<ApiStatus | null>(null);
-  const [portfolio, setPortfolio] = useState<ApiPortfolioResponse | null>(null);
-  const [risk, setRisk] = useState<ApiRiskResponse | null>(null);
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [money, setMoney] = useState<MoneyView | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
+  const [planStatus, setPlanStatus] = useState<PlanStatusView | null>(null);
+  const [adjustment, setAdjustment] = useState<Adjustment | null>(null);
+  const [needsPlan, setNeedsPlan] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      const s = (await fetch("/api/status").then((r) => r.json())) as ApiStatus;
-      setStatus(s);
-
-      if (!address) {
-        setPortfolio(null);
-        setRisk(null);
-        return;
-      }
-      if (!s.deployed) {
-        setError("Modalis is not deployed on this chain yet.");
-        return;
-      }
-
-      const p = (await fetch(`/api/portfolio/${address}`).then((r) => r.json())) as ApiPortfolioResponse;
-      setPortfolio(p);
-      if (p.error) setError(p.error);
-
-      if (p.hasMandate) {
-        const r = (await fetch(`/api/risk/${address}`).then((res) => res.json())) as ApiRiskResponse;
-        setRisk(r);
-      } else {
-        setRisk(null);
-      }
+      setStatus(await apiGet<SystemStatus>("/api/status"));
     } catch {
-      setError("Could not reach the Modalis server.");
-    } finally {
+      setError("We can't reach Modalis right now.");
       setLoading(false);
+      return;
     }
-  }, [address]);
+
+    if (!loggedIn || !address) {
+      setPlan(null);
+      setMoney(null);
+      setProgress(null);
+      setPlanStatus(null);
+      setAdjustment(null);
+      setNeedsPlan(false);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { plan: live } = await apiGet<{ plan: Plan }>("/api/plan");
+      setPlan(live);
+      setNeedsPlan(false);
+    } catch (err) {
+      // "No plan yet" is a normal state for a new person, not an error to show.
+      if (err instanceof ApiError && err.code === "no_plan") {
+        setNeedsPlan(true);
+        setPlan(null);
+        setMoney(null);
+        setProgress(null);
+        setPlanStatus(null);
+        setAdjustment(null);
+        setLoading(false);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setLoading(false);
+      return;
+    }
+
+    // Each of these is useful on its own, so one failing should not blank the others.
+    const [m, p, s, a] = await Promise.allSettled([
+      apiGet<{ money: MoneyView }>("/api/money"),
+      apiGet<{ progress: Progress }>("/api/progress"),
+      apiGet<PlanStatusView>("/api/plan/status"),
+      apiGet<{ adjustment: Adjustment }>("/api/adjustment"),
+    ]);
+    if (m.status === "fulfilled") setMoney(m.value.money);
+    if (p.status === "fulfilled") setProgress(p.value.progress);
+    if (s.status === "fulfilled") setPlanStatus(s.value);
+    if (a.status === "fulfilled") setAdjustment(a.value.adjustment);
+
+    setLoading(false);
+  }, [address, loggedIn]);
 
   useEffect(() => {
     setLoading(true);
@@ -83,13 +133,27 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ address, loggedIn, walletConfigured: configured, status, portfolio, risk, loading, error, refresh }}
+      value={{
+        address,
+        signedIn: loggedIn,
+        walletConfigured: configured,
+        status,
+        plan,
+        money,
+        progress,
+        planStatus,
+        adjustment,
+        needsPlan,
+        loading,
+        error,
+        refresh,
+      }}
     >
       {children}
     </Ctx.Provider>
   );
 }
 
-export function usePortfolio(): PortfolioContextValue {
+export function usePortfolio(): ContextValue {
   return useContext(Ctx);
 }

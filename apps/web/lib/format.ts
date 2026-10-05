@@ -1,46 +1,56 @@
 /**
  * Display formatting.
  *
- * Money is bigint USD at 1e18 everywhere in the system, and is only ever converted to a string
- * here — never to a float for arithmetic. Percentages come in as integer bps.
+ * The domain layer hands this app money as a decimal STRING and percentages as plain numbers, so
+ * nothing here has to know about 1e18 fixed point or basis points. Money is only ever converted
+ * to a float for display, never for arithmetic — the string carries the precision.
  */
-import { formatUnits } from "viem";
+import type { Money } from "@modalis/domain";
 
-export function usd(valueE18: bigint, opts: { decimals?: number; compact?: boolean } = {}): string {
-  const n = Number(formatUnits(valueE18, 18));
-  if (opts.compact && Math.abs(n) >= 10_000) {
-    return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-  }
-  const d = opts.decimals ?? 2;
-  return `$${n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+/** A domain Money -> "$11,031.67". */
+export function moneyLabel(value: Money | undefined, decimals = 2): string {
+  if (!value) return "—";
+  return usdFromDecimal(value.amount, decimals);
 }
 
-/** bps -> "32.7%". One decimal is the right resolution for an allocation. */
-export function pct(bps: number, decimals = 1): string {
-  return `${(bps / 100).toFixed(decimals)}%`;
+/** A decimal string of dollars -> "$11,031.67". */
+export function usdFromDecimal(amount: string, decimals = 2): string {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return `$${amount}`;
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })}`;
 }
 
-/** bps -> "30%" for round policy numbers like a cap or a floor. */
-export function pctRound(bps: number): string {
-  return `${Math.round(bps / 100)}%`;
+/** Compact for headline figures: "$1.2M", "$24,500". */
+export function moneyCompact(value: Money | undefined): string {
+  if (!value) return "—";
+  const n = Number(value.amount);
+  if (!Number.isFinite(n)) return `$${value.amount}`;
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toLocaleString("en-US", { maximumFractionDigits: 1 })}M`;
+  if (Math.abs(n) >= 10_000) return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  return usdFromDecimal(value.amount);
 }
 
-export function signedPct(bps: number): string {
-  const s = (bps / 100).toFixed(1);
-  return bps > 0 ? `+${s}%` : `${s}%`;
+/** A percentage number -> "30%" or "32.7%". Trailing ".0" is noise, so it is dropped. */
+export function percent(value: number, decimals?: number): string {
+  if (decimals !== undefined) return `${value.toFixed(decimals)}%`;
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
 }
 
-export function tokenAmount(amount: bigint, decimals: number, maxFractionDigits = 6): string {
-  const n = Number(formatUnits(amount, decimals));
-  return n.toLocaleString("en-US", { maximumFractionDigits: maxFractionDigits });
+export function signedPercent(value: number): string {
+  const text = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return value > 0 ? `+${text}%` : `${text}%`;
 }
 
 export function shortAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-export function shortHash(hash: string): string {
-  return `${hash.slice(0, 10)}…${hash.slice(-8)}`;
+/** A receipt reference, shortened. The word "hash" never reaches a person. */
+export function shortReference(reference: string): string {
+  return `${reference.slice(0, 10)}…${reference.slice(-8)}`;
 }
 
 export function monthsToHuman(months: number): string {
@@ -51,13 +61,16 @@ export function monthsToHuman(months: number): string {
   return rest === 0 ? y : `${y}, ${rest} month${rest === 1 ? "" : "s"}`;
 }
 
-export function targetDateLabel(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+/** An ISO date -> "March 2029". */
+export function monthYear(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-/** Accepts the string form too, since GraphQL returns BigInt scalars as strings. */
-export function timestampLabel(unixSeconds: number | bigint | string): string {
-  return new Date(Number(unixSeconds) * 1000).toLocaleString("en-US", {
+/** An ISO timestamp -> "Mar 4, 09:21". */
+export function whenLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "2-digit",

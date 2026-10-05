@@ -37,27 +37,35 @@ Those are the well-known anvil test keys. They hold nothing on any real network.
 **0:00 — the problem.** "Most people don't struggle to say what they want their money to do. They
 struggle to continuously manage the portfolio that gets them there."
 
-**0:20 — the interview.** Five questions, none of them financial jargon. The one that matters:
-*your portfolio falls 12% — what do you do?* "Sell everything" and "invest more" describe very
-different investors even when both claim to tolerate a 15% fall.
+**0:20 — the questions.** Five of them, none financial. The one that matters: *your money falls
+12% — what do you do?* "Sell everything" and "invest more" describe very different people even
+when both say they'd accept a 15% fall.
 
-**0:45 — the mandate.** *"This is the policy Modalis will use to manage your portfolio."*
-A goal, a date, a drawdown ceiling, a liquidity floor, a concentration cap, a rebalance threshold,
-and the allocation — with the reasoning behind every number. Approve.
+**0:45 — the plan.** *"This is how Modalis will manage your money."* A goal, a date, and four
+limits in plain language — how much you're comfortable losing, how much money stays available, the
+most that can sit in one investment, and how far off target something can drift before Modalis
+steps in. Plus how the money is spread, with the reasoning behind every number. Approve.
 
-Say this out loud: **the user is not handing an AI their money. They are approving a policy, and
-the contract will refuse anything outside it.**
+Say this out loud: **they are not handing an AI their money. They are setting limits, and the
+limits are not enforced by Modalis.**
 
-**1:05 — onchain.** `setMandate` settles on Monad. Fund the portfolio. Real positions appear.
+Nothing on that screen says mandate, allocation, basis point or drawdown. Everything behind it
+does — `packages/domain` is the only place one becomes the other.
 
-**1:30 — the breach.** Run the market move. The largest holding is repriced past its limit. The
-dashboard turns red and names the rule: *mBOND grew to 33.0% of your portfolio, above the 30.0%
-limit you approved for any single asset.*
+**1:05 — add money.** The plan goes live, then: *how much would you like to add?* Modalis works
+out the split from the plan's own targets and walks the steps. **Each one is signed by them** —
+no Modalis key can put money in, which is the same reason none can take it out. Real positions
+appear.
+
+**1:30 — off plan.** Run the market move. The largest holding is repriced past its limit. The
+screen names the rule in their words: *Bitcoin grew to 32.7% of your money, above the 30% limit
+you set for any one investment.*
 
 The price is synthetic and the UI says so. Everything after it is real.
 
-**1:55 — the proposal.** Modalis explains what it will do and why, in plain language, and shows
-that it has already simulated the trade against live chain state.
+**1:55 — the recommended adjustment.** Modalis explains what it would do and why, and has
+**already checked it against their rules** before asking. That matters: a person is never asked to
+approve something their own limits would refuse.
 
 **2:15 — the security moment.** Press **Run the security test**. A well-formed, correctly signed
 proposal that would concentrate the portfolio past its cap is submitted *for real*.
@@ -68,9 +76,9 @@ proposal that would concentrate the portfolio past its cap is submitted *for rea
 This is the whole thesis in one transaction. The proposal was valid in every mechanical sense.
 Only the mandate stopped it.
 
-**2:35 — execution.** Now the valid rebalance. It settles on Monad, the vault re-measures its own
-balances, and the mandate re-validates the result before the transaction is allowed to succeed.
-The dashboard updates: back inside every rule.
+**2:35 — the adjustment.** Now the valid one. It settles, the vault re-measures its own balances,
+and the rules re-validate the result before the transaction is allowed to succeed. Back inside
+every limit, with a receipt.
 
 **2:50 — the line.**
 
@@ -98,6 +106,19 @@ practical rather than theoretical.
 It proposes them. Every proposal is re-checked on-chain for authorisation, mandate version,
 deadline, replay, slippage, venue approval and post-trade compliance. Press the security test and
 watch one get rejected.
+
+**"Where did all the crypto language go?"**
+Into the implementation, where it belongs. The contracts still have their precise names and the
+mandate still does the enforcing — a person just never has to read the word. `packages/domain` is
+the boundary, and a test sweeps every user-facing sentence to keep it honest. The one place the
+infrastructure is still named is the status panel, because claiming an integration you do not have
+is worse than naming the ones you do.
+
+**"Can the server act on someone else's plan?"**
+No. The account comes from a verified sign-in and nothing else — not from a request body, a path
+or a query string — and a static audit over every route in the app fails the build if that
+changes. Even then, authentication is the outer gate: the contract is still the one that decides
+what is allowed.
 
 ## Honest framing
 

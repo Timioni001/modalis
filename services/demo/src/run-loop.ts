@@ -45,8 +45,8 @@ import {
   type Proposal,
 } from "@modalis/chain";
 import { buildMandateDraft, explainMandate, usdToE18, type InterviewAnswers, type UniverseAsset } from "@modalis/ai";
-import { evaluate, execute, toEngineInputs } from "@modalis/risk-monitor/src/monitor.ts";
-import { btcRallyScenario, resetScenario, runScenario } from "@modalis/risk-monitor/src/scenario.ts";
+import { evaluate, execute, toEngineInputs } from "@modalis/risk-monitor";
+import { btcRallyScenario, resetScenario, runScenario } from "@modalis/risk-monitor";
 import { assessRisk } from "@modalis/portfolio";
 import { getAddress, parseEther, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";

@@ -17,6 +17,54 @@ says exactly what enforces that, and which parts are proven by a test you can ru
 
 Every one of these is enforced by `msg.sender` checks on-chain, not by convention in the backend.
 
+## Who is asking
+
+The table above answers *what is allowed*. The server has to answer a different question first:
+*whose plan is this?*
+
+Identity comes from one place — a sign-in token verified against the provider's published signing
+keys — and the verified wallet address in that token is the only account the server will act on.
+
+```ts
+const owner = await requireOwner(request);   // a verified session, never the request body
+```
+
+### The hole this closed
+
+A route used to read `{"owner": "0x…"}` from its body and act on it. The contracts still protected
+the money — the manager key cannot withdraw, and the mandate refuses anything outside its rules —
+but anyone could make the Modalis manager key work on a stranger's plan: griefing, and spending
+someone else's gas. Authentication was the missing layer, not a replacement for the contracts.
+
+### What keeps it closed
+
+| | |
+|---|---|
+| `packages/auth/test/session.test.ts` | 22 tests against **real** signatures and a real JWKS fetch. A token signed with the wrong key, expired, unsigned, or issued for a different deployment is refused. `peekToken` decodes without verifying and is tested to prove it is never used for an access decision |
+| `apps/web/test/api-ownership.test.ts` | A static audit over **every** route. A route that changes something without a verified account fails the build; so does one that reads an account from a body, path or query string. Verified by planting both regressions |
+| The public-route list | Three routes may be called without signing in, each listed with the reason it discloses nothing and changes nothing: `/api/status`, `/api/plan/draft`, `/api/plan/compare` |
+| The development bypass | A header-named account for local work without a sign-in provider. Refused outright on chain 143 whatever the environment says, and `/api/status` reports loudly when it is on |
+
+Three independent gates stand between a request and a person's money:
+
+1. Is this person signed in, and is this their plan? — `requireOwner`
+2. Do they currently permit Modalis to adjust it? — `plan.adjustmentsEnabled`, read from the chain
+3. Do their rules allow this specific change? — the contract, which is the one that counts
+
+Removing any of the first two is a bug. Removing the third would be removing the product.
+
+## Adding money is an owner action
+
+The server works out **what** should happen — the split by the plan's targets, the conversion at
+live prices, the check that the person holds enough. The person's **own account** does it, signing
+each step.
+
+No Modalis key can put money in, for the same reason none can take it out. The worst a compromised
+server could do is propose a bad funding plan, which the person would still have to approve step
+by step while seeing each amount. `/api/money/confirm` re-reads the receipt on-chain before
+recording anything and refuses a receipt whose sender is not the person asking, so a deposit
+cannot be claimed by posting a hash.
+
 ## What every proposal is checked against
 
 `RebalanceExecutor.execute` runs this pipeline, and any failure reverts the entire transaction:
@@ -53,8 +101,9 @@ byte-for-byte unchanged.
 bash scripts/demo-local.sh     # step 8 of 11
 ```
 
-The same path is exposed at `POST /api/rebalance/invalid` behind `DEMO_MODE`, and refuses to run
-on mainnet.
+The same path is exposed at `POST /api/demo/security-test` behind `DEMO_MODE`. It is authenticated
+and owner-scoped like every other action, so it can only ever be run against the signed-in
+person's own plan, and it refuses to run on mainnet.
 
 ## Asset and trade safety
 
@@ -107,6 +156,7 @@ deterministic pipeline, which refuses to emit a mandate the contract would rejec
 | Key | Lives | Authority |
 |---|---|---|
 | User's wallet | the user's device, via Dynamic | full ownership of their portfolio |
+| Sign-in signing keys | the provider's, fetched over JWKS | nothing: the server only verifies |
 | `MANAGER_PRIVATE_KEY` | server only | `RebalanceExecutor.execute` and nothing else |
 | `ORACLE_UPDATER_PRIVATE_KEY` | server only, testnet only | demo oracle prices; refuses to run on mainnet |
 | `DEPLOYER_PRIVATE_KEY` | deployment only | registry admin; transfer to a multisig for mainnet via `Ownable2Step` |
@@ -128,6 +178,14 @@ These are real and deliberate; none is hidden in code comments only.
   falls outside validation.
 - **The demo oracle is owner-pushed.** Use a real oracle on mainnet; `AssetRegistry.setAssetOracle`
   exists for exactly that.
+- **Sign-in trusts the provider.** A compromised sign-in provider could mint a token for an
+  address it does not control. That buys an attacker the ability to make the manager key act on
+  that plan — it does not buy the money, because withdrawal and rule changes are owner-only
+  on-chain and the mandate still refuses anything outside its rules.
+- **Persistence is best-effort by design.** A failed database write is logged and swallowed rather
+  than failing a request that was otherwise about to succeed, because the chain is the source of
+  truth for everything that matters. The visible cost is that the record of refused adjustments
+  can have gaps — `/api/activity` says so rather than implying a complete log.
 - **No formal audit.** This is a hackathon prototype. Do not put meaningful funds behind it.
 
 ## Mainnet checklist
@@ -140,3 +198,8 @@ These are real and deliberate; none is hidden in code comments only.
 - [ ] Verify the CRE forwarder address for Monad mainnet
 - [ ] Re-check `evm_version` against current Monad docs
 - [ ] Rotate every key; never reuse a testnet key
+- [ ] `MODALIS_DEV_AUTH` unset (it is refused on chain 143 regardless) and `/api/status` showing
+      `developmentBypassEnabled: false`
+- [ ] `DYNAMIC_JWKS_URL` or `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` set, so sign-in is verified
+      rather than unconfigured
+- [ ] Supabase row-level security applied, and the service-role key present only server-side

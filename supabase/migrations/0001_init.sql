@@ -12,6 +12,11 @@
 -- Auth model: Dynamic issues a JWT containing a `wallet_address` claim, configured in Supabase as a
 -- third-party / custom JWT provider. RLS keys off that claim. The browser can only READ its own rows
 -- (and write goals / interview answers). Everything financial is written server-side.
+--
+-- Re-appliable: every object is created with IF NOT EXISTS, and triggers and policies are dropped
+-- first, since Postgres has no IF NOT EXISTS for either. Applying this file twice is a no-op, so
+-- it can be re-run against a database that already has it — which is also what makes
+-- supabase/local/01_rls_check.sql usable as a repeatable gate.
 -- =====================================================================================
 
 create extension if not exists pgcrypto;
@@ -70,6 +75,7 @@ create table if not exists public.users (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
+drop trigger if exists users_touch on public.users;
 create trigger users_touch before update on public.users
   for each row execute function public.touch_updated_at();
 
@@ -97,6 +103,7 @@ create table if not exists public.goals (
   updated_at           timestamptz not null default now()
 );
 create index if not exists goals_user_idx on public.goals(user_id);
+drop trigger if exists goals_touch on public.goals;
 create trigger goals_touch before update on public.goals
   for each row execute function public.touch_updated_at();
 
@@ -288,36 +295,50 @@ alter table public.explanations        enable row level security;
 alter table public.scenarios           enable row level security;
 
 -- users: read/update own row only. Provisioning (insert) is done server-side after Dynamic login.
+drop policy if exists users_select_own on public.users;
 create policy users_select_own on public.users for select using (wallet_address = public.current_wallet());
+drop policy if exists users_update_own on public.users;
 create policy users_update_own on public.users for update using (wallet_address = public.current_wallet())
   with check (wallet_address = public.current_wallet());
 
 -- goals / interviews / scenarios: user-authored, full CRUD on own rows.
+drop policy if exists goals_all_own on public.goals;
 create policy goals_all_own on public.goals for all
   using (user_id = public.current_user_id()) with check (user_id = public.current_user_id());
+drop policy if exists interviews_all_own on public.interview_sessions;
 create policy interviews_all_own on public.interview_sessions for all
   using (user_id = public.current_user_id()) with check (user_id = public.current_user_id());
+drop policy if exists scenarios_all_own on public.scenarios;
 create policy scenarios_all_own on public.scenarios for all
   using (user_id = public.current_user_id()) with check (user_id = public.current_user_id());
 
 -- mandates & everything derived from them: READ-ONLY for the browser.
 -- (Mandates are created onchain by the user's wallet; the backend mirrors them with the service role.)
+drop policy if exists mandates_select_own on public.mandates;
 create policy mandates_select_own on public.mandates for select using (user_id = public.current_user_id());
 
+drop policy if exists allocations_select_own on public.mandate_allocations;
 create policy allocations_select_own on public.mandate_allocations for select using (
   exists (select 1 from public.mandates m where m.id = mandate_id and m.user_id = public.current_user_id()));
+drop policy if exists mandate_changes_select_own on public.mandate_changes;
 create policy mandate_changes_select_own on public.mandate_changes for select using (
   exists (select 1 from public.mandates m where m.id = mandate_id and m.user_id = public.current_user_id()));
+drop policy if exists snapshots_select_own on public.portfolio_snapshots;
 create policy snapshots_select_own on public.portfolio_snapshots for select using (
   exists (select 1 from public.mandates m where m.id = mandate_id and m.user_id = public.current_user_id()));
+drop policy if exists positions_select_own on public.positions;
 create policy positions_select_own on public.positions for select using (
   exists (select 1 from public.portfolio_snapshots s join public.mandates m on m.id = s.mandate_id
           where s.id = snapshot_id and m.user_id = public.current_user_id()));
+drop policy if exists proposals_select_own on public.rebalance_proposals;
 create policy proposals_select_own on public.rebalance_proposals for select using (
   exists (select 1 from public.mandates m where m.id = mandate_id and m.user_id = public.current_user_id()));
+drop policy if exists transactions_select_own on public.transactions;
 create policy transactions_select_own on public.transactions for select using (user_id = public.current_user_id());
+drop policy if exists risk_events_select_own on public.risk_events;
 create policy risk_events_select_own on public.risk_events for select using (
   exists (select 1 from public.mandates m where m.id = mandate_id and m.user_id = public.current_user_id()));
+drop policy if exists explanations_select_own on public.explanations;
 create policy explanations_select_own on public.explanations for select using (
   exists (select 1 from public.mandates m where m.id = mandate_id and m.user_id = public.current_user_id()));
 
