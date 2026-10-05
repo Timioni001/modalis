@@ -6,7 +6,7 @@
  * boundary on Modalis's own authority, so letting a server key write one would defeat its purpose.
  */
 import { createPlan, type GoalAnswers } from "@modalis/domain";
-import { domainContext, jsonResponse, route } from "@/lib/api";
+import { domainContext, jsonResponse, rateLimit, route } from "@/lib/api";
 import { readUniverse } from "@/lib/universe";
 import { optionalSession } from "@/lib/api";
 import { errorResponse } from "@/lib/serialize";
@@ -28,6 +28,10 @@ const REQUIRED: (keyof GoalAnswers)[] = [
 
 export async function POST(request: Request): Promise<Response> {
   return route(async () => {
+    // Open to anyone signed in or not, so it needs a limit of its own: it runs the planner and,
+    // when a free-text goal is present, reaches the AI layer.
+    await rateLimit(request, "plan:draft", { max: 30, windowMs: 60_000 });
+
     const body = (await request.json().catch(() => null)) as Partial<GoalAnswers> | null;
     if (!body) return errorResponse("We couldn't read those answers.");
     for (const key of REQUIRED) {

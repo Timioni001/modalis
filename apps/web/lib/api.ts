@@ -18,8 +18,10 @@ import { accountFromPrivateKey } from "@modalis/chain";
 import type { Address } from "viem";
 import { getServerContext } from "./server";
 import { errorResponse, jsonResponse } from "./serialize";
+import { TooManyRequests, callerHint, limit, once } from "./guard";
+import { idempotencyKey, readBody } from "./validate";
 
-export { jsonResponse };
+export { jsonResponse, readBody };
 
 /** Builds the context a domain service needs for this request. */
 export async function domainContext(): Promise<DomainContext> {
@@ -80,13 +82,45 @@ export async function requireOwnerMatching(request: Request, claimed: string): P
   return assertOwns(session, claimed);
 }
 
+/**
+ * Rate limits the routes that cost something, counted against the verified account when there is
+ * one and against the caller hint when there is not.
+ */
+export async function rateLimit(
+  request: Request,
+  operation: string,
+  opts: { max: number; windowMs: number },
+): Promise<void> {
+  const session = await optionalSession(request);
+  limit(session?.walletAddress ?? callerHint(request), operation, opts);
+}
+
+/**
+ * Runs a money-moving handler at most once per one-time key.
+ *
+ * The browser sends the key; a retried tap or a dropped connection replays the original response
+ * instead of doing the work twice. The chain is still what protects the money — this protects the
+ * person from a confusing duplicate, and the manager key from paying gas twice.
+ */
+export async function idempotent(
+  owner: Address,
+  operation: string,
+  body: Record<string, unknown>,
+  work: () => Promise<Response>,
+): Promise<Response> {
+  return once(owner, operation, idempotencyKey(body.requestKey), work);
+}
+
 /** Turns a domain or auth failure into a response a person could read. */
 export function handleError(err: unknown): Response {
   if (err instanceof AuthError || err instanceof DomainError) {
-    return Response.json({ error: err.message, code: err.code }, { status: err.status });
+    const headers: Record<string, string> =
+      err instanceof TooManyRequests ? { "retry-after": String(err.retryAfterSeconds) } : {};
+    return Response.json({ error: err.message, code: err.code }, { status: err.status, headers });
   }
   const message = err instanceof Error ? err.message : String(err);
-  // Never leak a stack or an internal identifier to a consumer surface.
+  // Never leak a stack or an internal identifier to a consumer surface. The server log keeps the
+  // detail; the person gets a sentence and the assurance that nothing changed.
   console.error("[modalis/api]", message);
   return errorResponse("Something went wrong on our side. Nothing was changed.", 500);
 }

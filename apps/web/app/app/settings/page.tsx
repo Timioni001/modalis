@@ -12,17 +12,15 @@ import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain"
 import type { Address, Hex } from "viem";
 import { Badge, Button, Card, KeyValue, Notice, SectionTitle } from "@/components/ui";
 import { ReceiptLink } from "@/components/receipt-link";
-import { PortfolioProvider, usePortfolio } from "@/components/portfolio-provider";
+import { usePortfolio } from "@/components/portfolio-provider";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
 import { moneyLabel, percent, shortAddress, usdFromDecimal } from "@/lib/format";
 
 export default function SettingsPage() {
   return (
-    <PortfolioProvider>
-      <div className="mx-auto max-w-3xl px-5 py-10">
-        <Settings />
-      </div>
-    </PortfolioProvider>
+    <div className="mx-auto max-w-3xl">
+      <Settings />
+    </div>
   );
 }
 

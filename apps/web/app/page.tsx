@@ -1,130 +1,123 @@
 import Link from "next/link";
-import { Badge, Card } from "@/components/ui";
+import type { Metadata } from "next";
+import { Hero } from "@/components/hero";
 import { SystemStatus } from "@/components/system-status";
+
+export const metadata: Metadata = {
+  description:
+    "Set a goal and the limits you're comfortable with. Modalis builds the plan and stays inside them.",
+};
+
+/**
+ * The landing page.
+ *
+ * Copy discipline: a heading of four words or fewer, one sentence under it, nothing else. Every
+ * explanatory paragraph that was here has been cut — if a line needs a second line to explain it,
+ * the first line was wrong.
+ */
+const STEPS = [
+  { n: "01", title: "Say what it's for", body: "Four questions. No jargon." },
+  { n: "02", title: "Approve the plan", body: "You see the limits before anything happens." },
+  { n: "03", title: "Add money", body: "Split the way your plan says. You sign each step." },
+  { n: "04", title: "It stays on plan", body: "Drifts off target, Modalis asks, you approve." },
+];
+
+const LIMITS = [
+  { label: "Most you'd lose", body: "Before the plan gets cautious." },
+  { label: "Kept available", body: "Always easy to withdraw." },
+  { label: "Max in one thing", body: "However well it's doing." },
+  { label: "When to step in", body: "How far off target is too far." },
+];
 
 export default function LandingPage() {
   return (
-    <div className="mx-auto max-w-6xl px-5">
-      {/* ------------------------------------------------------------- hero */}
-      <section className="py-20 sm:py-28">
-        <Badge tone="accent">Onchain Finance &amp; Trading · built on Monad</Badge>
-        <h1 className="mt-6 max-w-3xl text-5xl font-semibold leading-[1.05] tracking-tight text-ink sm:text-6xl">
-          Your goals. Your money. Managed.
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink-soft">
-          Tell Modalis what you&rsquo;re investing for. It builds a portfolio around your goal and
-          keeps it within the rules you approve.
-        </p>
+    <>
+      <Hero />
 
-        <div className="mt-9 flex flex-wrap items-center gap-3">
+      {/* ----------------------------------------------------------------- steps */}
+      <section className="mx-auto max-w-6xl px-5 py-20 sm:py-28">
+        <h2 className="display text-3xl font-semibold text-ink sm:text-5xl">Four steps.</h2>
+
+        <ol className="mt-12 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+          {STEPS.map((step) => (
+            <li key={step.n} className="border-t border-line pt-5">
+              <div className="numeric text-sm font-semibold text-ink-muted">{step.n}</div>
+              <h3 className="mt-3 text-xl font-semibold tracking-[-0.01em] text-ink">
+                {step.title}
+              </h3>
+              <p className="mt-2 text-ink-soft">{step.body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* ---------------------------------------------------------------- limits */}
+      <section className="border-y border-line bg-surface-sunken">
+        <div className="mx-auto max-w-6xl px-5 py-20 sm:py-28">
+          <h2 className="display text-3xl font-semibold text-ink sm:text-5xl">
+            You set four limits.
+          </h2>
+          <p className="mt-5 max-w-md text-lg text-ink-soft">
+            Modalis works inside them. It can&rsquo;t step outside.
+          </p>
+
+          <dl className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+            {LIMITS.map((limit) => (
+              <div key={limit.label} className="bg-surface p-6">
+                <dt className="font-semibold text-ink">{limit.label}</dt>
+                <dd className="mt-1.5 text-sm text-ink-muted">{limit.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------- the claim */}
+      <section className="bg-contrast text-contrast-ink">
+        <div className="mx-auto max-w-6xl px-5 py-24 sm:py-32">
+          <h2 className="display max-w-3xl text-4xl font-semibold sm:text-6xl">
+            Modalis recommends.
+            <br />
+            <span className="text-contrast-soft">Your rules decide.</span>
+          </h2>
+          <p className="mt-8 max-w-lg text-lg text-contrast-soft">
+            It can&rsquo;t move your money out. Not even if it&rsquo;s wrong.
+          </p>
           <Link
-            href="/onboarding"
-            className="inline-flex items-center justify-center rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#1a44ba]"
+            href="/security"
+            className="mt-10 inline-flex min-h-[52px] items-center rounded-xl bg-accent px-7 text-[15px] font-semibold text-accent-ink transition-[filter] hover:brightness-105"
           >
-            Build my portfolio
-          </Link>
-          <Link
-            href="/portfolio"
-            className="inline-flex items-center justify-center rounded-xl border border-line px-6 py-3.5 text-sm font-semibold text-ink transition-colors hover:bg-surface-sunken"
-          >
-            I already have a portfolio
+            How that works
           </Link>
         </div>
+      </section>
 
-        <p className="mt-8 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          No wallet needed to start &mdash; continue with your email and Modalis creates a Monad
-          wallet you own.
+      {/* ------------------------------------------------------------ live status */}
+      <section className="mx-auto max-w-6xl px-5 py-20 sm:py-28">
+        <h2 className="display text-3xl font-semibold text-ink sm:text-5xl">What&rsquo;s running</h2>
+        <p className="mt-5 max-w-md text-lg text-ink-soft">
+          Read live. Anything off says so.
         </p>
-      </section>
-
-      {/* ------------------------------------------------- the actual thesis */}
-      <section className="border-t border-line py-16">
-        <div className="grid gap-10 sm:grid-cols-3">
-          <div>
-            <h2 className="text-base font-semibold text-ink">AI decides what should happen.</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-              It reads your goal, builds an allocation around it, watches the portfolio, and
-              explains every action in plain language.
-            </p>
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-ink">Smart contracts decide what is allowed.</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-              Your limits become an onchain mandate. Any action outside it is rejected by the
-              contract, not by a policy document. The AI never gets unrestricted control of funds.
-            </p>
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-ink">Monad settles what happens.</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-              Your positions, rules and every state change live on Monad. Fast, low-cost settlement
-              is what makes a continuously maintained portfolio practical onchain.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* --------------------------------------------------- the mandate idea */}
-      <section className="border-t border-line py-16">
-        <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:items-start">
-          <div>
-            <h2 className="text-3xl font-semibold tracking-tight text-ink">
-              The Portfolio Mandate
-            </h2>
-            <p className="mt-4 text-ink-soft">
-              Most people can say what they need their money to do. Far fewer can say which assets
-              to own, how much risk they can afford, or when to rebalance.
-            </p>
-            <p className="mt-4 text-ink-soft">
-              Modalis turns your answers into a machine-enforceable investment policy: a target, a
-              date, a drawdown ceiling, a liquidity floor, a concentration limit and a rebalance
-              threshold. That policy is stored onchain, and it is what bounds everything Modalis
-              can do on your behalf.
-            </p>
-            <p className="mt-4 text-ink-soft">
-              You keep withdrawal authority at all times. The manager key that proposes rebalances
-              cannot withdraw your funds or change your rules &mdash; the contract refuses.
-            </p>
-          </div>
-
-          <Card className="bg-surface-sunken">
-            <div className="text-[13px] font-semibold uppercase tracking-[0.08em] text-ink-muted">
-              How a rebalance actually happens
-            </div>
-            <ol className="mt-5 space-y-4 text-sm">
-              {[
-                ["Monitoring", "A Chainlink CRE workflow and the Modalis risk engine read your real onchain positions."],
-                ["Breach", "An asset drifts past a limit you approved."],
-                ["Proposal", "Modalis builds the smallest trade that returns the portfolio to compliance, and explains why."],
-                ["Validation", "The mandate contract checks the result. Outside your rules, the whole transaction reverts."],
-                ["Execution", "A valid trade settles through the configured venue on Monad."],
-                ["Updated state", "Your dashboard reflects the new positions, with the transaction to verify it."],
-              ].map(([title, body], i) => (
-                <li key={title} className="flex gap-3">
-                  <span className="numeric mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-full bg-white text-xs font-semibold text-accent">
-                    {i + 1}
-                  </span>
-                  <span>
-                    <span className="font-semibold text-ink">{title}.</span>{" "}
-                    <span className="text-ink-soft">{body}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </Card>
-        </div>
-      </section>
-
-      {/* -------------------------------------------------------- live status */}
-      <section className="border-t border-line py-16">
-        <h2 className="text-3xl font-semibold tracking-tight text-ink">What is live right now</h2>
-        <p className="mt-3 max-w-2xl text-ink-soft">
-          Read from this deployment, not from a feature list. Anything unconfigured says so.
-        </p>
-        <div className="mt-8">
+        <div className="mt-10">
           <SystemStatus />
         </div>
       </section>
-    </div>
+
+      {/* ------------------------------------------------------------- last word */}
+      <section className="mx-auto max-w-6xl px-5 pb-24">
+        <div className="rounded-3xl bg-surface-sunken px-6 py-16 text-center sm:px-14">
+          <h2 className="display mx-auto max-w-lg text-3xl font-semibold text-ink sm:text-4xl">
+            Start with the goal.
+          </h2>
+          <p className="mt-4 text-ink-soft">Two minutes. Nothing committed until you approve.</p>
+          <Link
+            href="/onboarding"
+            className="mt-8 inline-flex min-h-[52px] items-center rounded-xl bg-accent px-8 text-[15px] font-semibold text-accent-ink transition-[filter] hover:brightness-105"
+          >
+            Build my plan
+          </Link>
+        </div>
+      </section>
+    </>
   );
 }

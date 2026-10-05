@@ -299,7 +299,7 @@ export default function PlanPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           {state === "done" ? (
-            <Button onClick={() => router.push("/portfolio/add-money")}>Add money</Button>
+            <Button onClick={() => router.push("/app/add-money")}>Add money</Button>
           ) : (
             <Button onClick={approve} disabled={!loggedIn || state === "signing"}>
               {state === "signing" ? "Waiting for you to confirm…" : "Approve this plan"}

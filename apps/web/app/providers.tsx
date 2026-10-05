@@ -83,18 +83,35 @@ function DynamicWalletBridge({
    * Bridges Dynamic's wallet to a viem WalletClient. `getWalletClient` is synchronous on some
    * connectors and asynchronous on others, so it is awaited through Promise.resolve rather than
    * assuming either shape.
+   *
+   * The network is then CHECKED rather than assumed. Pinning it in the provider config asks the
+   * wallet to be on the right chain; it does not guarantee the client that comes back is. An
+   * external wallet can hand back a client still pointed somewhere else, and a transaction signed
+   * there is signed against contracts that do not exist at those addresses — the worst kind of
+   * failure, because it looks like it worked.
    */
   const getWalletClient = useCallback(async (): Promise<WalletClient> => {
     if (!primaryWallet) throw new Error("No wallet connected");
     if (!isEthereumWallet(primaryWallet)) {
-      throw new Error("Modalis needs an Ethereum-compatible wallet for Monad");
+      throw new Error("Modalis needs an Ethereum-compatible wallet.");
     }
-    const client = await Promise.resolve(primaryWallet.getWalletClient(String(deployment.chainId)));
+    const client = (await Promise.resolve(
+      primaryWallet.getWalletClient(String(deployment.chainId)),
+    )) as WalletClient | undefined;
     if (!client) {
-      throw new Error("Could not get a wallet client. Check the wallet is on the right network.");
+      throw new Error(
+        `Your wallet isn't on ${deployment.networkName}. Switch networks in your wallet and try again.`,
+      );
     }
-    return client as WalletClient;
-  }, [primaryWallet, deployment.chainId]);
+
+    const actual = client.chain?.id ?? (await client.getChainId().catch(() => undefined));
+    if (actual !== undefined && actual !== deployment.chainId) {
+      throw new Error(
+        `Your wallet is on a different network than Modalis. Switch it to ${deployment.networkName} and try again.`,
+      );
+    }
+    return client;
+  }, [primaryWallet, deployment.chainId, deployment.networkName]);
 
   const value = useMemo<WalletState>(
     () => ({ ...deployment, configured: true, loggedIn: Boolean(loggedIn), address, getWalletClient }),

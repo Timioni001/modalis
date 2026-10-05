@@ -15,10 +15,11 @@ export function WalletButton() {
   if (!configured) {
     return (
       <span
-        className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-ink-muted"
-        title="Set NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID to enable wallet onboarding"
+        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-current opacity-55"
+        title="Set NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID to enable sign-in"
       >
-        Wallet onboarding not configured
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
+        Sign-in not set up
       </span>
     );
   }

@@ -65,3 +65,43 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
     }),
   );
 }
+
+/**
+ * A one-time key for a request that moves money.
+ *
+ * Generated once per attempt and reused across retries of THAT attempt, so a dropped connection
+ * or a double tap replays the first answer instead of doing the work twice. A new attempt — the
+ * person pressing the button again after seeing a failure — gets a new key, because that is a new
+ * intent rather than a repeat.
+ */
+export function requestKey(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Posts a money-moving request under a one-time key.
+ *
+ * Retries only what is safe to retry: a network failure or a 5xx, where the request may never
+ * have been seen. A refusal (4xx) is the server's considered answer and is returned as-is.
+ */
+export async function apiPostOnce<T>(
+  path: string,
+  body: Record<string, unknown> = {},
+  opts: { key?: string; retries?: number } = {},
+): Promise<T> {
+  const key = opts.key ?? requestKey();
+  const retries = opts.retries ?? 1;
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await apiPost<T>(path, { ...body, requestKey: key });
+    } catch (err) {
+      const retryable =
+        !(err instanceof ApiError) || (err.status >= 500 && err.status !== 501);
+      if (!retryable || attempt >= retries) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 600 * (attempt + 1)));
+    }
+  }
+}

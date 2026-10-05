@@ -27,7 +27,7 @@ import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
-import { apiPost } from "@/lib/client-api";
+import { apiPostOnce } from "@/lib/client-api";
 import { moneyLabel, percent } from "@/lib/format";
 
 export default function AddMoneyPage() {
@@ -62,7 +62,7 @@ function AddMoney() {
     setWorking(true);
     setFinished(false);
     try {
-      const { funding: built } = await apiPost<{ funding: FundingPlan }>(
+      const { funding: built } = await apiPostOnce<{ funding: FundingPlan }>(
         "/api/money/funding-plan",
         { amount: amount.trim() },
       );
@@ -112,7 +112,9 @@ function AddMoney() {
             receipt: { reference: hash, confirmed: true, at: new Date().toISOString() },
           });
 
-          await apiPost("/api/money/confirm", { receipt: hash, kind: step.kind }).catch(
+          // Recorded under a one-time key, so a retry after a dropped connection replays the
+          // first answer instead of writing the same deposit twice.
+          await apiPostOnce("/api/money/confirm", { receipt: hash, kind: step.kind }).catch(
             () => undefined,
           );
         } catch (err) {
@@ -304,7 +306,7 @@ function AddMoney() {
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             {done ? (
-              <Button onClick={() => router.push("/portfolio")}>See my plan</Button>
+              <Button onClick={() => router.push("/app/money")}>See my plan</Button>
             ) : (
               <Button onClick={run} disabled={working || !loggedIn}>
                 {working
@@ -314,7 +316,7 @@ function AddMoney() {
                     : `Add ${moneyLabel(funding.total)}`}
               </Button>
             )}
-            <Button variant="quiet" href="/portfolio">
+            <Button variant="quiet" href="/app">
               Not now
             </Button>
           </div>

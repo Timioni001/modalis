@@ -8,7 +8,7 @@
  * framed in money the person adds, never in a return Modalis would be guessing at.
  */
 import { createPlan, type GoalAnswers } from "@modalis/domain";
-import { domainContext, jsonResponse, route } from "@/lib/api";
+import { domainContext, jsonResponse, rateLimit, route } from "@/lib/api";
 import { readUniverse } from "@/lib/universe";
 import { errorResponse } from "@/lib/serialize";
 
@@ -16,6 +16,8 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
   return route(async () => {
+    await rateLimit(request, "plan:compare", { max: 40, windowMs: 60_000 });
+
     const body = (await request.json().catch(() => null)) as {
       answers?: GoalAnswers;
       changes?: Partial<GoalAnswers>;

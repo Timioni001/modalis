@@ -1,13 +1,15 @@
 "use client";
 
 /**
- * How the person's money is spread, against where their plan says it should be.
+ * Where the money is, against where the plan says it should be.
  *
- * Anything outside its allowed range is marked by colour AND a word, so the state survives
- * greyscale and colour-blind readers.
+ * Each row carries three facts: what it is now, what the plan wants, and the band it has to stay
+ * inside. Anything outside its band is marked by colour AND by a word, so the state survives a
+ * colour-blind reader and a greyscale screenshot.
  */
 import { RangeBar, Badge } from "./ui";
 import { usePortfolio } from "./portfolio-provider";
+import { moneyLabel } from "@/lib/format";
 
 export function AllocationTable() {
   const { money, plan } = usePortfolio();
@@ -16,49 +18,42 @@ export function AllocationTable() {
   const rangeFor = (id: string) => plan.howMoneyIsSpread.find((h) => h.id === id)?.allowedRange;
 
   return (
-    <ul className="space-y-5">
+    <ul className="space-y-6">
       {money.holdings.map((h) => {
         const range = rangeFor(h.id) ?? { minPercent: 0, maxPercent: 100 };
         const outside = h.sharePercent > range.maxPercent || h.sharePercent < range.minPercent;
-        const drifting = Math.abs(h.offTargetByPercent) > plan.rules.adjustWhenOffTargetByPercent;
+        const drifting =
+          Math.abs(h.offTargetByPercent) > plan.rules.adjustWhenOffTargetByPercent;
         const tone = outside ? "breach" : drifting ? "warn" : "ok";
 
         return (
           <li key={h.id}>
-            <div className="flex items-baseline justify-between gap-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-ink">{h.name}</span>
                 {h.isAvailableCash ? (
                   <span className="text-xs text-ink-muted">kept available</span>
                 ) : null}
                 {outside ? <Badge tone="breach">Outside your range</Badge> : null}
+                {!outside && drifting ? <Badge tone="warn">Off target</Badge> : null}
               </div>
               <div className="numeric text-right">
-                <span className="font-semibold text-ink">{h.sharePercent}%</span>
+                <span className="font-semibold text-ink">{moneyLabel(h.value)}</span>
                 <span className="ml-2 text-xs text-ink-muted">
-                  plan says {h.targetPercent}% ({h.offTargetByPercent > 0 ? "+" : ""}
-                  {h.offTargetByPercent}%)
+                  {h.sharePercent}% &middot; plan says {h.targetPercent}%
                 </span>
               </div>
             </div>
 
-            <div className="mt-2">
+            <div className="mt-2.5">
               <RangeBar
-                currentBps={Math.round(h.sharePercent * 100)}
-                targetBps={Math.round(h.targetPercent * 100)}
-                minBps={Math.round(range.minPercent * 100)}
-                maxBps={Math.round(range.maxPercent * 100)}
+                currentPercent={h.sharePercent}
+                targetPercent={h.targetPercent}
+                minPercent={range.minPercent}
+                maxPercent={range.maxPercent}
                 tone={tone}
+                label={`${h.name}: ${h.sharePercent}% now, plan says ${h.targetPercent}%, allowed between ${range.minPercent}% and ${range.maxPercent}%`}
               />
-            </div>
-
-            <div className="numeric mt-1.5 flex justify-between text-xs text-ink-muted">
-              <span>
-                {h.units} {h.name} · ${h.value.amount}
-              </span>
-              <span>
-                can range {range.minPercent}%–{range.maxPercent}%
-              </span>
             </div>
           </li>
         );

@@ -14,9 +14,21 @@
  *     caller, and RebalanceExecutor re-checks authorisation, plan version, deadline, replay,
  *     price protection, venue and post-trade compliance with every rule. It is the final
  *     authority, and nothing here can talk it out of a refusal.
+ *
+ * On top of those: a one-time key, so a double tap replays the first answer instead of spending
+ * the manager key's gas twice, and a rate limit, because this is the one route a signed-in person
+ * can use to make the server pay for something.
  */
 import { executeAdjustment, getPlan } from "@modalis/domain";
-import { domainContext, jsonResponse, requireOwner, route } from "@/lib/api";
+import {
+  domainContext,
+  idempotent,
+  jsonResponse,
+  rateLimit,
+  readBody,
+  requireOwner,
+  route,
+} from "@/lib/api";
 import { getManagerWallet } from "@/lib/server";
 import { getServerContext } from "@/lib/server";
 import { errorResponse } from "@/lib/serialize";
@@ -25,30 +37,35 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
   return route(async () => {
+    await rateLimit(request, "adjustment:execute", { max: 6, windowMs: 60_000 });
     const owner = await requireOwner(request);
-    const ctx = await domainContext();
+    const body = await readBody(request);
 
-    // The person must have granted Modalis permission to adjust their plan.
-    const plan = await getPlan(ctx, owner);
-    if (!plan.adjustmentsEnabled) {
-      return errorResponse(
-        "You haven't given Modalis permission to adjust your plan. You can turn that on in your settings.",
-        403,
-      );
-    }
-    if (plan.status === "paused") {
-      return errorResponse("Your plan is paused, so Modalis won't make any changes.", 409);
-    }
+    return idempotent(owner, "adjustment:execute", body, async () => {
+      const ctx = await domainContext();
 
-    const { rpc } = await getServerContext();
-    const wallet = getManagerWallet(rpc);
-    if (!wallet) {
-      return errorResponse(
-        "Modalis can't make adjustments on this deployment because it has no signing key configured.",
-        503,
-      );
-    }
+      // The person must have granted Modalis permission to adjust their plan.
+      const plan = await getPlan(ctx, owner);
+      if (!plan.adjustmentsEnabled) {
+        return errorResponse(
+          "You haven't given Modalis permission to adjust your plan. You can turn that on in your settings.",
+          403,
+        );
+      }
+      if (plan.status === "paused") {
+        return errorResponse("Your plan is paused, so Modalis won't make any changes.", 409);
+      }
 
-    return jsonResponse({ adjustment: await executeAdjustment(ctx, owner, wallet) });
+      const { rpc } = await getServerContext();
+      const wallet = getManagerWallet(rpc);
+      if (!wallet) {
+        return errorResponse(
+          "Modalis can't make adjustments on this deployment because it has no signing key configured.",
+          503,
+        );
+      }
+
+      return jsonResponse({ adjustment: await executeAdjustment(ctx, owner, wallet) });
+    });
   });
 }

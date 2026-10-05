@@ -10,19 +10,22 @@
  * to sign.
  */
 import { buildFundingPlan } from "@modalis/domain";
-import { domainContext, jsonResponse, requireOwner, route } from "@/lib/api";
-import { errorResponse } from "@/lib/serialize";
+import { domainContext, jsonResponse, rateLimit, readBody, requireOwner, route } from "@/lib/api";
+import { money } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
   return route(async () => {
+    // Working out a funding plan reads the chain several times; it is not free, and nobody needs
+    // to do it more than a few times a minute.
+    await rateLimit(request, "money:funding-plan", { max: 20, windowMs: 60_000 });
     const owner = await requireOwner(request);
-    const body = (await request.json().catch(() => null)) as { amount?: string } | null;
-    if (!body?.amount) return errorResponse("How much would you like to add?");
+    const body = await readBody(request);
+    const amount = money(body.amount, "an amount");
 
     const ctx = await domainContext();
-    const funding = await buildFundingPlan(ctx, owner, { amount: String(body.amount) });
+    const funding = await buildFundingPlan(ctx, owner, { amount });
 
     return jsonResponse({
       funding,

@@ -14,17 +14,18 @@
     "@dynamic-labs/ethereum": "^5.9.3",
     "@dynamic-labs/sdk-react-core": "^5.9.3",
     "@modalis/ai": "workspace:*",
+    "@modalis/auth": "workspace:*",
     "@modalis/chain": "workspace:*",
+    "@modalis/db": "workspace:*",
+    "@modalis/domain": "workspace:*",
     "@modalis/execution": "workspace:*",
     "@modalis/portfolio": "workspace:*",
     "@modalis/risk-monitor": "workspace:*",
+    "geist": "^1.7.2",
     "next": "^16.3.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "viem": "^2.57.2",
-    "@modalis/domain": "workspace:*",
-    "@modalis/auth": "workspace:*",
-    "@modalis/db": "workspace:*"
+    "viem": "^2.57.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",

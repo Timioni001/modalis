@@ -15,6 +15,8 @@ export * from "./terms.ts";
 export * from "./models.ts";
 export * from "./translate.ts";
 export * from "./context.ts";
+export * from "./projection.ts";
+export * from "./services/goal.ts";
 export * from "./services/plans.ts";
 export * from "./services/money.ts";
 export * from "./services/progress.ts";

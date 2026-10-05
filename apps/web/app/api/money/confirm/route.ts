@@ -8,22 +8,34 @@
 import { getMoney } from "@modalis/domain";
 import { recordTransaction, serverClient, upsertUser, activeMandate } from "@modalis/db";
 import { getAddress, type Hex } from "viem";
-import { domainContext, jsonResponse, requireOwner, route } from "@/lib/api";
+import {
+  domainContext,
+  idempotent,
+  jsonResponse,
+  rateLimit,
+  readBody,
+  requireOwner,
+  route,
+} from "@/lib/api";
+import { oneOf, receiptReference } from "@/lib/validate";
 import { errorResponse } from "@/lib/serialize";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request): Promise<Response> {
   return route(async () => {
+    await rateLimit(request, "money:confirm", { max: 40, windowMs: 60_000 });
     const owner = await requireOwner(request);
-    const body = (await request.json().catch(() => null)) as { receipt?: string; kind?: string } | null;
-    const hash = body?.receipt;
+    const body = await readBody(request);
+    const hash = body.receipt === undefined ? undefined : receiptReference(body.receipt);
+    const kind = body.kind === undefined ? undefined : oneOf(body.kind, "step", ["allow", "add"] as const);
 
+    // The receipt itself is the natural one-time key: confirming the same transaction twice
+    // should record it once and replay the same answer.
+    return idempotent(owner, "money:confirm", { requestKey: hash ?? "no-receipt-read" }, async () => {
     const ctx = await domainContext();
 
     if (hash) {
-      if (!/^0x[0-9a-fA-F]{64}$/.test(hash)) return errorResponse("That isn't a valid receipt.");
-
       // Verify it on-chain before recording anything.
       const receipt = await ctx.client.getTransactionReceipt({ hash: hash as Hex }).catch(() => null);
       if (!receipt) return errorResponse("We couldn't find that transaction yet. Try again shortly.", 404);
@@ -48,7 +60,7 @@ export async function POST(request: Request): Promise<Response> {
             userId: user.id,
             mandateId: plan?.id,
             txHash: hash,
-            type: body?.kind === "allow" ? "approve" : "deposit",
+            type: kind === "allow" ? "approve" : "deposit",
             status: "confirmed",
             chainId: ctx.deployment.chainId,
             blockNumber: String(receipt.blockNumber),
@@ -58,5 +70,6 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     return jsonResponse({ recorded: Boolean(hash), money: await getMoney(ctx, owner) });
+    });
   });
 }

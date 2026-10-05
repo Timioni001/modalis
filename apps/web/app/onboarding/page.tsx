@@ -11,8 +11,8 @@
  * Nothing here is written anywhere yet. The answers become a plan on the next screen, and only
  * the person's own signature makes that plan real.
  */
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 import type { GoalAnswers } from "@modalis/domain";
 import { Badge, Button, Card, Notice } from "@/components/ui";
 import { monthsToHuman } from "@/lib/format";
@@ -49,9 +49,51 @@ const DRAWDOWN: { value: GoalAnswers["ifItFellResponse"]; label: string }[] = [
 ];
 
 export default function OnboardingPage() {
+  // useSearchParams needs a Suspense boundary, or the whole route opts out of static rendering.
+  return (
+    <Suspense fallback={<div className="mx-auto h-96 max-w-2xl px-5 py-14" />}>
+      <Onboarding />
+    </Suspense>
+  );
+}
+
+/**
+ * Picks up anything the person already told us in the hero.
+ *
+ * Someone who has typed their goal on the landing page should not be asked for it again — being
+ * made to repeat yourself is the fastest way to lose someone two screens in. Every value is
+ * bounded here, because it arrived in a URL and a URL is caller-controlled.
+ */
+function answersFromQuery(params: URLSearchParams): Partial<GoalAnswers> {
+  const num = (key: string, min: number, max: number): number | undefined => {
+    const raw = params.get(key);
+    if (raw === null) return undefined;
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return undefined;
+    return Math.min(max, Math.max(min, Math.round(value)));
+  };
+
+  const kind = params.get("goal");
+  const valid = GOALS.some((g) => g.value === kind);
+
+  return {
+    ...(valid ? { goalKind: kind as GoalAnswers["goalKind"] } : {}),
+    ...(num("amount", 500, 5_000_000) !== undefined ? { targetAmount: num("amount", 500, 5_000_000)! } : {}),
+    ...(num("months", 6, 360) !== undefined ? { monthsUntilNeeded: num("months", 6, 360)! } : {}),
+    ...(num("monthly", 0, 100_000) !== undefined
+      ? { contributionAmount: num("monthly", 0, 100_000)! }
+      : {}),
+  };
+}
+
+function Onboarding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<GoalAnswers>(DEFAULT_ANSWERS);
+  const [answers, setAnswers] = useState<GoalAnswers>(() => ({
+    ...DEFAULT_ANSWERS,
+    ...answersFromQuery(new URLSearchParams(searchParams?.toString() ?? "")),
+  }));
   const [description, setDescription] = useState("");
 
   const set = <K extends keyof GoalAnswers>(key: K, value: GoalAnswers[K]) =>

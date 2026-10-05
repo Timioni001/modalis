@@ -12,7 +12,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { useWallet } from "./wallet-context";
 import { ApiError, apiGet } from "@/lib/client-api";
-import type { Adjustment, MoneyView, Plan, Progress } from "@modalis/domain";
+import type { Adjustment, GoalView, MoneyView, Plan, Progress } from "@modalis/domain";
 import type { SystemStatus } from "@/lib/api-types";
 
 type PlanStatusView = {
@@ -30,6 +30,7 @@ type ContextValue = {
   walletConfigured: boolean;
   status: SystemStatus | null;
   plan: Plan | null;
+  goal: GoalView | null;
   money: MoneyView | null;
   progress: Progress | null;
   planStatus: PlanStatusView | null;
@@ -47,6 +48,7 @@ const Ctx = createContext<ContextValue>({
   walletConfigured: false,
   status: null,
   plan: null,
+  goal: null,
   money: null,
   progress: null,
   planStatus: null,
@@ -61,6 +63,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const { address, loggedIn, configured } = useWallet();
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
+  const [goal, setGoal] = useState<GoalView | null>(null);
   const [money, setMoney] = useState<MoneyView | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [planStatus, setPlanStatus] = useState<PlanStatusView | null>(null);
@@ -81,6 +84,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
     if (!loggedIn || !address) {
       setPlan(null);
+      setGoal(null);
       setMoney(null);
       setProgress(null);
       setPlanStatus(null);
@@ -99,6 +103,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       if (err instanceof ApiError && err.code === "no_plan") {
         setNeedsPlan(true);
         setPlan(null);
+        setGoal(null);
         setMoney(null);
         setProgress(null);
         setPlanStatus(null);
@@ -112,16 +117,18 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }
 
     // Each of these is useful on its own, so one failing should not blank the others.
-    const [m, p, s, a] = await Promise.allSettled([
+    const [m, p, s, a, g] = await Promise.allSettled([
       apiGet<{ money: MoneyView }>("/api/money"),
       apiGet<{ progress: Progress }>("/api/progress"),
       apiGet<PlanStatusView>("/api/plan/status"),
       apiGet<{ adjustment: Adjustment }>("/api/adjustment"),
+      apiGet<GoalView>("/api/goal"),
     ]);
     if (m.status === "fulfilled") setMoney(m.value.money);
     if (p.status === "fulfilled") setProgress(p.value.progress);
     if (s.status === "fulfilled") setPlanStatus(s.value);
     if (a.status === "fulfilled") setAdjustment(a.value.adjustment);
+    if (g.status === "fulfilled") setGoal(g.value);
 
     setLoading(false);
   }, [address, loggedIn]);
@@ -139,6 +146,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         walletConfigured: configured,
         status,
         plan,
+        goal,
         money,
         progress,
         planStatus,
