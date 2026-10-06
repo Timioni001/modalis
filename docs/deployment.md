@@ -65,6 +65,26 @@ So a fresh deployment reports "Modalis isn't set up on this network" until the c
 deployed to Monad and their addresses are set as environment variables. `/api/status` says so
 plainly rather than failing at the point of use.
 
+### Putting it on Monad testnet
+
+```bash
+# A key that exists only for this testnet. Never one that holds anything on a live network.
+cast wallet new
+# Fund its address at https://faucet.monad.xyz, then:
+DEPLOYER_PRIVATE_KEY=0x... bash scripts/deploy-testnet.sh
+```
+
+The script checks the key has gas, deploys the protocol, writes
+`contracts/deployments/10143.json`, and prints the exact `NEXT_PUBLIC_*_ADDRESS` lines to paste
+into Vercel. It never writes, prints or commits the key itself.
+
+`packages/chain` reads addresses from the environment **first** and falls back to the file only
+when a variable is absent, so a hosted build is configured entirely by those variables and the
+gitignored file is never needed there.
+
+Deploying again produces new contracts and new addresses. Anyone whose plan was on the old ones
+will not see it on the new ones, so redeploy only when the contracts themselves changed.
+
 ## Environment variables
 
 Nothing below is required for the site to build. Each one that is missing turns a capability off

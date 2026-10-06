@@ -3,10 +3,13 @@
 /**
  * The public navigation.
  *
- * A product menu rather than a flat link bar, because the three questions a visitor to a money
- * product arrives with — *what is it, how does it work, why would I trust it* — each deserve more
- * than one word. The panel answers them with a sentence apiece instead of making someone guess
- * from a label.
+ * A floating pill rather than a full-width bar. On a white page a bar needs a border to exist at
+ * all, and that border cuts the page in two; a pill sits *on* the page instead, which keeps the
+ * hero as the first thing you see.
+ *
+ * The product menu answers the three questions a visitor to a money product arrives with — what
+ * is it, how does it work, why would I trust it — with a sentence apiece instead of a one-word
+ * label to guess from.
  *
  * Mechanics that matter more than the look: the menu opens on click (never hover, which strands
  * touch users and fires on a mouse passing through), closes on Escape and on an outside click,
@@ -15,6 +18,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { ModalisLogo } from "./brand";
 import { WalletButton } from "./wallet-button";
 
@@ -58,21 +62,29 @@ const TRUST: MenuItem[] = [
 
 export function SiteNav() {
   const pathname = usePathname();
-  const [open, setOpen] = useState<string | null>(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const navRef = useRef<HTMLElement>(null);
+  const [open, setOpen] = useState(false);
+  const [mobile, setMobile] = useState(false);
+  const shell = useRef<HTMLDivElement>(null);
 
-  // Close on Escape and on a click outside. Both are expected of a menu and neither is free.
+  // Any navigation closes everything. Without this the panel survives a route change.
   useEffect(() => {
-    if (!open && !mobileOpen) return;
+    setOpen(false);
+    setMobile(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open && !mobile) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setOpen(null);
-        setMobileOpen(false);
+        setOpen(false);
+        setMobile(false);
       }
     };
     const onClick = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) setOpen(null);
+      if (shell.current && !shell.current.contains(e.target as Node)) {
+        setOpen(false);
+        setMobile(false);
+      }
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onClick);
@@ -80,171 +92,201 @@ export function SiteNav() {
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onClick);
     };
-  }, [open, mobileOpen]);
-
-  // A route change should never leave a menu hanging open over the new page.
-  useEffect(() => {
-    setOpen(null);
-    setMobileOpen(false);
-  }, [pathname]);
+  }, [open, mobile]);
 
   return (
-    // Dark on the public site, so the bar and the hero below it read as one band rather than a
-    // white strip floating on top of it.
-    <header
-      ref={navRef}
-      className="sticky top-0 z-40 border-b border-[#1d212b] bg-[#0c0e13]/90 text-[#f4f4f2] backdrop-blur-xl"
-    >
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-5">
-        <Link href="/" className="mr-4" aria-label="Modalis home">
-          <ModalisLogo size={26} />
-        </Link>
+    <header className="sticky top-0 z-40 px-4 pt-4 sm:px-5 sm:pt-5">
+      <div ref={shell} className="relative mx-auto max-w-6xl">
+        <nav
+          aria-label="Main"
+          className="flex items-center gap-2 rounded-full bg-surface/90 px-3 py-2.5 shadow-[var(--shadow-card)] backdrop-blur-xl sm:px-4"
+        >
+          <Link
+            href="/"
+            className="flex min-h-[44px] items-center rounded-full pl-1 pr-2 text-ink"
+            aria-label="Modalis home"
+          >
+            <ModalisLogo />
+          </Link>
 
-        <nav className="hidden items-center md:flex" aria-label="Main">
-          <MenuTrigger label="Product" id="product" open={open} setOpen={setOpen} items={PRODUCT} />
-          <MenuTrigger label="Trust" id="trust" open={open} setOpen={setOpen} items={TRUST} />
-          <TopLink href="/how-it-works">How it works</TopLink>
+          <div className="ml-1 hidden items-center gap-1 md:flex">
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              aria-haspopup="true"
+              className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full px-4 text-[14px] font-semibold transition-colors ${
+                open ? "bg-sunken text-ink" : "text-ink-soft hover:bg-sunken hover:text-ink"
+              }`}
+            >
+              Product
+              <svg
+                aria-hidden
+                viewBox="0 0 12 12"
+                className={`h-3 w-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+                fill="none"
+              >
+                <path
+                  d="M3 4.5 6 7.5 9 4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            <NavLink href="/security" active={pathname === "/security"}>
+              Security
+            </NavLink>
+            <NavLink href="/contact" active={pathname === "/contact"}>
+              Contact
+            </NavLink>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <div className="hidden sm:block">
+              <WalletButton />
+            </div>
+            <Link
+              href="/onboarding"
+              className="inline-flex min-h-[42px] items-center rounded-full bg-accent px-5 text-[14px] font-semibold text-accent-ink transition-[filter] hover:brightness-[1.04]"
+            >
+              Build my plan
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMobile((v) => !v)}
+              aria-expanded={mobile}
+              aria-label={mobile ? "Close menu" : "Open menu"}
+              className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-full text-ink hover:bg-sunken md:hidden"
+            >
+              <svg aria-hidden viewBox="0 0 20 20" className="h-5 w-5" fill="none">
+                {mobile ? (
+                  <path
+                    d="M5 5l10 10M15 5L5 15"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <path
+                    d="M3.5 6.5h13M3.5 13.5h13"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                )}
+              </svg>
+            </button>
+          </div>
         </nav>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/app"
-            className="hidden min-h-[40px] items-center rounded-lg px-4 text-sm font-semibold text-[#b4bac4] transition-colors hover:text-[#f4f4f2] sm:inline-flex"
-          >
-            Open Modalis
-          </Link>
-          <WalletButton />
-          <button
-            type="button"
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav"
-            className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-lg text-[#b4bac4] hover:text-[#f4f4f2] md:hidden"
-          >
-            <span className="sr-only">{mobileOpen ? "Close menu" : "Open menu"}</span>
-            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden fill="none">
-              {mobileOpen ? (
-                <path
-                  d="M4 4l10 10M14 4L4 14"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                />
-              ) : (
-                <path
-                  d="M2 5h14M2 13h14"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                />
-              )}
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* The panel sits under the whole bar, which gives the blurbs room to be sentences. */}
-      {open ? (
-        <div className="absolute inset-x-0 top-16 hidden border-b border-[#1d212b] bg-[#14171e] md:block">
-          <div className="mx-auto grid max-w-6xl gap-1 px-5 py-6 sm:grid-cols-3">
-            {(open === "product" ? PRODUCT : TRUST).map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="rounded-xl p-4 transition-colors hover:bg-[#1d212b]"
-              >
-                <div className="text-sm font-semibold text-[#f4f4f2]">{item.label}</div>
-                <div className="mt-1 text-sm text-[#8b919c]">{item.blurb}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {mobileOpen ? (
-        <div id="mobile-nav" className="border-t border-[#1d212b] bg-[#14171e] md:hidden">
-          <div className="space-y-6 px-5 py-6">
-            <MobileGroup title="Product" items={PRODUCT} />
-            <MobileGroup title="Trust" items={TRUST} />
-            <Link
-              href="/app"
-              className="flex min-h-[48px] items-center justify-center rounded-xl bg-[#d6f34a] px-5 font-semibold text-[#10131a]"
+        {/* ------------------------------------------------------ product panel */}
+        <AnimatePresence>
+          {open ? (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute left-0 right-0 top-[calc(100%+10px)] hidden overflow-hidden rounded-[28px] bg-surface p-3 shadow-[var(--shadow-float)] md:block"
             >
-              Open Modalis
-            </Link>
-          </div>
-        </div>
-      ) : null}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <MenuColumn title="The product" items={PRODUCT} />
+                <MenuColumn title="Trust" items={TRUST} />
+              </div>
+              <div className="mt-2 rounded-[20px] bg-sunken px-5 py-4 text-[13.5px] text-ink-soft">
+                A technical demonstration on Monad testnet. Not an investment adviser, broker or
+                fund.
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        {/* ------------------------------------------------------- mobile sheet */}
+        <AnimatePresence>
+          {mobile ? (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute left-0 right-0 top-[calc(100%+10px)] rounded-[28px] bg-surface p-3 shadow-[var(--shadow-float)] md:hidden"
+            >
+              <ul className="space-y-1">
+                {[...PRODUCT.slice(0, 1), ...TRUST].map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="block rounded-[18px] px-4 py-3.5 text-[15px] font-semibold text-ink hover:bg-sunken"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link
+                    href="/contact"
+                    className="block rounded-[18px] px-4 py-3.5 text-[15px] font-semibold text-ink hover:bg-sunken"
+                  >
+                    Contact
+                  </Link>
+                </li>
+              </ul>
+              <div className="mt-2 border-t border-line px-4 pt-4 sm:hidden">
+                <WalletButton />
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
     </header>
   );
 }
 
-function MenuTrigger({
-  label,
-  id,
-  open,
-  setOpen,
-  items,
+function NavLink({
+  href,
+  active,
+  children,
 }: {
-  label: string;
-  id: string;
-  open: string | null;
-  setOpen: (v: string | null) => void;
-  items: MenuItem[];
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
 }) {
-  const isOpen = open === id;
-  return (
-    <button
-      type="button"
-      onClick={() => setOpen(isOpen ? null : id)}
-      aria-expanded={isOpen}
-      className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors ${
-        isOpen ? "text-[#f4f4f2]" : "text-[#b4bac4] hover:text-[#f4f4f2]"
-      }`}
-    >
-      {label}
-      <svg
-        width="10"
-        height="10"
-        viewBox="0 0 10 10"
-        aria-hidden
-        className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-      >
-        <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-      </svg>
-      <span className="sr-only">{items.length} links</span>
-    </button>
-  );
-}
-
-function TopLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="inline-flex min-h-[40px] items-center rounded-lg px-3 text-sm font-medium text-[#b4bac4] transition-colors hover:text-[#f4f4f2]"
+      aria-current={active ? "page" : undefined}
+      className={`inline-flex min-h-[40px] items-center rounded-full px-4 text-[14px] font-semibold transition-colors ${
+        active ? "bg-sunken text-ink" : "text-ink-soft hover:bg-sunken hover:text-ink"
+      }`}
     >
       {children}
     </Link>
   );
 }
 
-function MobileGroup({ title, items }: { title: string; items: MenuItem[] }) {
+function MenuColumn({ title, items }: { title: string; items: MenuItem[] }) {
   return (
     <div>
-      <div className="text-[12px] font-semibold uppercase tracking-[0.09em] text-[#707887]">
+      <div className="px-4 pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
         {title}
       </div>
-      <div className="mt-2 space-y-1">
+      <ul>
         {items.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex min-h-[44px] items-center rounded-lg px-1 text-[15px] font-medium text-[#f4f4f2]"
-          >
-            {item.label}
-          </Link>
+          <li key={item.href}>
+            <Link
+              href={item.href}
+              className="block rounded-[20px] px-4 py-3 transition-colors hover:bg-sunken"
+            >
+              <span className="block text-[14.5px] font-semibold text-ink">{item.label}</span>
+              <span className="mt-0.5 block text-[13px] leading-snug text-ink-muted">
+                {item.blurb}
+              </span>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

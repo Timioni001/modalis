@@ -9,6 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildFundingPlan, getMoney, getWalletBalances } from "../src/services/money.ts";
 import { DomainError } from "../src/context.ts";
+import { money, moneyInSentence } from "../src/models.ts";
 import { fakeContext, noPlan, offPlan, onPlan, OWNER, SOMEONE_ELSE, TOKENS } from "./fake-chain.ts";
 
 test("adding money splits it the way the plan says", async () => {
@@ -172,4 +173,28 @@ test("wallet balances are reported in the person's own vocabulary", async () => 
   for (const h of holdings) {
     assert.match(h.value, /^\d+(\.\d+)?$/, "a value should be a plain decimal string");
   }
+});
+
+/**
+ * Money inside prose.
+ *
+ * Two separate failures were visible on screen before this existed: a plan summary reading
+ * "You're saving $20000", and a goal summary reading "You're $8968.33 away". Thousands need
+ * separators, and cents inside a sentence read as a machine talking.
+ */
+test("money in a sentence is grouped and rounded to whole dollars", () => {
+  assert.equal(moneyInSentence(money("20000")), "$20,000");
+  assert.equal(moneyInSentence(money("8968.33")), "$8,968");
+  assert.equal(moneyInSentence(money("149.47")), "$149");
+  assert.equal(moneyInSentence(money("0")), "$0");
+  assert.equal(moneyInSentence(money("1234567.89")), "$1,234,567");
+  assert.equal(moneyInSentence(money("-250.10")), "-$250");
+});
+
+/** The grouping must not depend on the machine's locale, or the same copy differs per server. */
+test("grouping is the same whatever the host locale", () => {
+  const before = process.env.LANG;
+  process.env.LANG = "de_DE.UTF-8";
+  assert.equal(moneyInSentence(money("1234.56")), "$1,234");
+  process.env.LANG = before;
 });

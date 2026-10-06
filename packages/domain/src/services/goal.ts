@@ -15,7 +15,7 @@ import { getAddress, type Address } from "viem";
 import { activeMandate, findUserByWallet, latestGoal } from "@modalis/db";
 import { DomainError, type DomainContext } from "../context.ts";
 import { monthsUntil, toGoal } from "../translate.ts";
-import { moneyFromE18, type Goal, type Money } from "../models.ts";
+import { moneyFromE18, moneyInSentence, type Goal, type Money } from "../models.ts";
 import {
   defaultScenarios,
   healthLabel,
@@ -182,18 +182,18 @@ function summaryFor(
   if (contributionUnknown) {
     return projection.shortfallE18 === 0n
       ? `You've already reached your goal amount. ${timeLeft}`
-      : `You're $${projection.shortfall.amount} away. ${timeLeft} Adding about $${projection.requiredMonthly.amount} a month would get you there — that figure assumes your money neither grows nor falls.`;
+      : `You're ${moneyInSentence(projection.shortfall)} away. ${timeLeft} Adding about ${moneyInSentence(projection.requiredMonthly)} a month would get you there — that figure assumes your money neither grows nor falls.`;
   }
 
   switch (projection.health) {
     case "on_track":
       return `You're on track. ${timeLeft} At what you're adding now, you'd reach your goal on time.`;
     case "needs_attention":
-      return `You're close. ${timeLeft} About $${projection.extraMonthly.amount} more a month would put you back on track.`;
+      return `You're close. ${timeLeft} About ${moneyInSentence(projection.extraMonthly)} more a month would put you back on track.`;
     case "off_track":
       return months <= 0
-        ? `Your goal date has passed and you're $${projection.shortfall.amount} short. You can move the date or lower the target.`
-        : `At what you're adding now, you'd finish about $${projection.shortfall.amount} short. Adding $${projection.extraMonthly.amount} more a month would close it.`;
+        ? `Your goal date has passed and you're ${moneyInSentence(projection.shortfall)} short. You can move the date or lower the target.`
+        : `At what you're adding now, you'd finish about ${moneyInSentence(projection.shortfall)} short. Adding ${moneyInSentence(projection.extraMonthly)} more a month would close it.`;
     default:
       return timeLeft;
   }

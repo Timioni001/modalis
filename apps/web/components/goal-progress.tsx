@@ -22,7 +22,7 @@ export function GoalProgress() {
           </span>
         </div>
         <div
-          className="mt-3 h-3 w-full overflow-hidden rounded-full bg-surface-sunken"
+          className="mt-3 h-3 w-full overflow-hidden rounded-full bg-sunken"
           role="progressbar"
           aria-valuenow={Math.min(100, progress.percentComplete)}
           aria-valuemin={0}

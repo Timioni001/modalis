@@ -44,7 +44,7 @@ export default function ErrorPage({
         </button>
         <Link
           href="/app"
-          className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-line px-6 text-sm font-semibold text-ink hover:bg-surface-sunken"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-line px-6 text-sm font-semibold text-ink hover:bg-sunken"
         >
           Go to my money
         </Link>

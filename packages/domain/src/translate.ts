@@ -13,6 +13,7 @@ import type { RiskAssessment, Violation } from "@modalis/portfolio";
 import type { MandateDraft, RiskProfile } from "@modalis/ai";
 import {
   moneyFromE18,
+  moneyInSentence,
   money,
   percentFromBps,
   type Goal,
@@ -299,7 +300,7 @@ export function planFromChain(
 /** The plan in one paragraph, for the approval screen and for any summary view. */
 export function planSummary(rules: PlanRules, goal: Goal): string {
   return [
-    `You're saving ${goal.target.currency === "USD" ? "$" : ""}${goal.target.amount} for ${goal.name.toLowerCase()}.`,
+    `You're saving ${moneyInSentence(goal.target)} for ${goal.name.toLowerCase()}.`,
     `No single investment may go above ${rules.maxInOneInvestmentPercent}% of your money,`,
     `at least ${rules.moneyKeptAvailablePercent}% stays available to withdraw,`,
     `and Modalis steps in when anything drifts more than ${rules.adjustWhenOffTargetByPercent}% from where it should be.`,

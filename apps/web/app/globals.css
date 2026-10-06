@@ -3,130 +3,97 @@
 /*
  * MODALIS design tokens.
  *
- * The brief for this palette: a premium consumer money product, not a trading terminal. That
- * rules out the two obvious defaults. No green-on-black — that is a terminal, and it makes every
- * number look like a trade. No saturated fintech blue gradient — that is every crypto dashboard
- * ever shipped.
+ * White dominant. The page is a light grey canvas, the content sits on white cards that float on
+ * it, and the one black panel per screen is where the headline number lives. That hierarchy does
+ * the work: your eye lands on the black card first, then reads the white ones around it.
  *
- * What is left is close to print: a warm near-white page, near-black ink, one restrained accent
- * used sparingly enough that it still means "this is the thing to press", and semantic colours
- * for plan health that are muted rather than alarming. A plan that needs attention should read as
- * a note, not a siren.
+ * One accent, a signal lime, used for exactly two things — the primary action, and the "inside
+ * your limits" state. Nothing else is allowed to use it, which is what keeps it meaning
+ * "this is the thing to press".
  *
- * Every state is also carried by a WORD, never by colour alone, so it survives a colour-blind
- * reader, a greyscale print and a screenshot.
+ * Every state also carries a WORD, never colour alone, so it survives a colour-blind reader and a
+ * greyscale screenshot.
  */
 @theme {
-  /* Text, from most to least prominent. */
-  --color-ink: #10131a;
-  --color-ink-soft: #454c59;
-  --color-ink-muted: #707887;
+  /* Text */
+  --color-ink: #0e0e10;
+  --color-ink-soft: #52525b;
+  --color-ink-muted: #8b8b94;
 
-  /* Surfaces. The page is very slightly warm: pure #fff reads clinical at full-page scale. */
+  /* Surfaces. The canvas is grey so white cards can lift off it without a heavy shadow. */
+  --color-canvas: #f4f4f5;
   --color-surface: #ffffff;
-  --color-surface-sunken: #f6f6f4;
-  --color-surface-raised: #ffffff;
-  --color-line: #e5e5e1;
-  --color-line-strong: #d4d4cf;
+  --color-sunken: #fafafa;
+  --color-line: #ececee;
+  --color-line-strong: #dcdce0;
 
-  /* Ink-on-ink, for the inverted sections that carry the product's weight. */
-  --color-contrast: #10131a;
-  --color-contrast-ink: #f7f7f5;
-  --color-contrast-soft: #9aa1ad;
-  --color-contrast-line: #282d38;
+  /* The black panel. One per screen, for the number that matters. */
+  --color-panel: #121214;
+  --color-panel-ink: #ffffff;
+  --color-panel-soft: #9a9aa2;
+  --color-panel-line: #262629;
 
-  /*
-   * The accent: a signal lime on near-black.
-   *
-   * It appears on exactly one thing per screen — the action to take — which is what keeps it
-   * meaning "press this". Text on it is always near-black, never white: lime is a light colour
-   * and white on it fails contrast badly.
-   */
-  --color-accent: #d6f34a;
-  --color-accent-ink: #10131a;
-  --color-accent-soft: #f4fbd7;
-  --color-accent-line: #dcedb0;
+  /* The signal. Primary action and "inside your limits" only. */
+  --color-accent: #c8f250;
+  --color-accent-ink: #121214;
+  --color-accent-soft: #f2fbd9;
+  --color-accent-line: #dcf29a;
 
-  /* On light surfaces lime has nothing like enough contrast for a link, so text borrows ink. */
-  --color-link: #10131a;
-
-  /* Plan health. Muted on purpose — see the note above. */
-  --color-ok: #0d6b45;
-  --color-ok-soft: #e8f4ee;
-  --color-warn: #8a5600;
-  --color-warn-soft: #fbf2e0;
-  --color-breach: #a32526;
-  --color-breach-soft: #fceced;
+  /* Plan health. Muted, because a plan needing attention is a note, not a siren. */
+  --color-ok: #15803d;
+  --color-ok-soft: #effaf1;
+  --color-warn: #a16207;
+  --color-warn-soft: #fdf8e8;
+  --color-breach: #b91c1c;
+  --color-breach-soft: #fdf0f0;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  /* Display only. Never used for an amount — see the note in layout.tsx. */
   --font-display: var(--font-display-face), var(--font-geist-sans), ui-sans-serif, system-ui,
     sans-serif;
 
-  /* Motion. One duration scale and one easing, so nothing feels out of step with anything else. */
+  /* Soft, close shadows. A card should look like paper on a desk, not like it is levitating. */
+  --shadow-card: 0 1px 2px rgb(16 16 20 / 0.04), 0 4px 16px -4px rgb(16 16 20 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(16 16 20 / 0.05), 0 12px 32px -8px rgb(16 16 20 / 0.12);
+  --shadow-float: 0 8px 40px -8px rgb(16 16 20 / 0.18);
+
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 /*
- * Dark mode follows the system. The inversion is not a filter: the page becomes the same near-
- * black used by the inverted sections in light mode, so the product reads as one object in both.
+ * Dark mode inverts the canvas, not the idea: the grey page becomes near-black, the white cards
+ * become raised dark cards, and the black panel becomes the one light surface.
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --color-ink: #f4f4f2;
-    --color-ink-soft: #b4bac4;
-    --color-ink-muted: #878e9b;
-
-    --color-surface: #0c0e13;
-    --color-surface-sunken: #14171e;
-    --color-surface-raised: #171a22;
-    --color-line: #242833;
-    --color-line-strong: #333845;
-
-    --color-contrast: #f4f4f2;
-    --color-contrast-ink: #10131a;
-    --color-contrast-soft: #4c5361;
-    --color-contrast-line: #dcdcd8;
-
-    --color-accent: #d6f34a;
-    --color-accent-ink: #10131a;
-    --color-accent-soft: #1e2410;
+    --color-ink: #f7f7f8;
+    --color-ink-soft: #a9a9b2;
+    --color-ink-muted: #7b7b84;
+    --color-canvas: #0b0b0d;
+    --color-surface: #141416;
+    --color-sunken: #1a1a1d;
+    --color-line: #232327;
+    --color-line-strong: #32323a;
+    --color-panel: #f7f7f8;
+    --color-panel-ink: #0e0e10;
+    --color-panel-soft: #6b6b74;
+    --color-panel-line: #dededf;
+    --color-accent: #c8f250;
+    --color-accent-ink: #121214;
+    --color-accent-soft: #1d2410;
     --color-accent-line: #39441c;
-
-    --color-ok: #5fcf9e;
-    --color-ok-soft: #10231b;
-    --color-warn: #e0ae55;
-    --color-warn-soft: #251c0c;
-    --color-breach: #f08c8d;
-    --color-breach-soft: #2a1416;
+    --color-ok: #4ade80;
+    --color-ok-soft: #10231a;
+    --color-warn: #fbbf24;
+    --color-warn-soft: #251d0a;
+    --color-breach: #f87171;
+    --color-breach-soft: #2a1313;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px -4px rgb(0 0 0 / 0.4);
+    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px -8px rgb(0 0 0 / 0.5);
+    --shadow-float: 0 8px 40px -8px rgb(0 0 0 / 0.6);
   }
-}
-
-:root[data-theme="dark"] {
-  --color-ink: #f4f4f2;
-  --color-ink-soft: #b4bac4;
-  --color-ink-muted: #878e9b;
-  --color-surface: #0c0e13;
-  --color-surface-sunken: #14171e;
-  --color-surface-raised: #171a22;
-  --color-line: #242833;
-  --color-line-strong: #333845;
-  --color-contrast: #f4f4f2;
-  --color-contrast-ink: #10131a;
-  --color-contrast-soft: #4c5361;
-  --color-contrast-line: #dcdcd8;
-  --color-accent: #d6f34a;
-  --color-accent-ink: #10131a;
-  --color-accent-soft: #1e2410;
-  --color-accent-line: #39441c;
-  --color-ok: #5fcf9e;
-  --color-ok-soft: #10231b;
-  --color-warn: #e0ae55;
-  --color-warn-soft: #251c0c;
-  --color-breach: #f08c8d;
-  --color-breach-soft: #2a1416;
 }
 
 html {
@@ -135,82 +102,140 @@ html {
 }
 
 body {
-  background: var(--color-surface);
+  background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv11" 1;
 }
 
 /*
- * Money and percentages.
- *
- * Tabular figures so a column of amounts aligns and a live number does not make the row twitch
- * as its digits change — which, in a product showing someone's balance, is the difference between
- * calm and nervous.
+ * Money and percentages. Tabular figures so a column of amounts lines up and a live number does
+ * not make its row twitch as the digits change.
  */
-/*
- * Display type.
- *
- * Monda, tightened — large text at default tracking looks loose and amateur. Numbers are pushed
- * back to Geist here, because Monda has no tabular figures and a headline amount still has to
- * agree with the same amount in a table below it.
- */
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.015em;
+}
+
 .display {
   font-family: var(--font-display);
-  letter-spacing: -0.035em;
-  line-height: 1.02;
+  letter-spacing: -0.03em;
+  line-height: 1.04;
 }
 
 .display .numeric,
 .numeric {
   font-family: var(--font-sans);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1, "cv11" 1;
-  letter-spacing: -0.012em;
 }
 
+/*
+ * Focus.
+ *
+ * `:focus-visible`, never `:focus`. The deployed build was drawing a ring on every control a
+ * mouse touched, including number inputs and selects, which made the whole page look like it was
+ * in an error state. Keyboard users still get a clear ring; mouse users get nothing.
+ */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-ink);
   outline-offset: 2px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
-/* A visible target for keyboard users without a permanent box for mouse users. */
 ::selection {
   background: var(--color-accent);
   color: var(--color-accent-ink);
 }
 
 /*
- * The one decorative element in the system: a fine grid that gives large empty areas a surface
- * instead of a void. It is a texture, not a feature, so it never carries information.
+ * Number inputs.
+ *
+ * The spinner arrows are removed everywhere. They are tiny, they are a mouse-only affordance, and
+ * on a money field they invite someone to nudge a figure one unit at a time when they meant to
+ * type it.
  */
-.grid-field {
-  background-image:
-    linear-gradient(to right, var(--color-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-line) 1px, transparent 1px);
-  background-size: 64px 64px;
-  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 20%, transparent 75%);
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-/* The same texture for a dark section, where the light one is invisible. */
-.grid-field-dark {
-  background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.055) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.055) 1px, transparent 1px);
-  background-size: 72px 72px;
-  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 10%, transparent 78%);
-  mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 10%, transparent 78%);
+/*
+ * Selects.
+ *
+ * A native select renders as a raw OS widget — white box, blue highlight, system font — which is
+ * exactly what the deployed build was showing. The arrow is drawn here instead and the control is
+ * styled like every other field.
+ */
+select.field {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5' fill='none' stroke='%238b8b94' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 38px;
 }
 
-/* Entrance motion. Used where something genuinely arrives, never as decoration. */
-@keyframes rise-in {
+/*
+ * Range inputs.
+ *
+ * One definition for every slider in the product. A native range is styled per-engine and the
+ * rules do not merge, so each engine's track and thumb are written out in full. `--track` is set
+ * inline by the component so the filled portion follows the value.
+ *
+ * The thumb is 20px — comfortably above the 24px-diagonal target a thumb needs — and carries a
+ * shadow so it reads as the grabbable thing rather than as a dot printed on the line.
+ */
+.range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+}
+.range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track, var(--color-line));
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-panel);
+  box-shadow: var(--shadow-card), 0 0 0 2px var(--color-surface);
+}
+.range::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--track, var(--color-line));
+}
+.range::-moz-range-thumb {
+  border: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--color-panel);
+  box-shadow: var(--shadow-card), 0 0 0 2px var(--color-surface);
+}
+.range:focus-visible {
+  outline-offset: 4px;
+}
+
+/* Entrance. Used where something genuinely arrives, never as decoration. */
+@keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -218,11 +243,11 @@ body {
   }
 }
 
-.rise-in {
-  animation: rise-in 0.5s var(--ease-out-soft) both;
+.rise {
+  animation: rise 0.45s var(--ease-out-soft) both;
 }
 
-@keyframes sweep {
+@keyframes shimmer {
   from {
     transform: translateX(-100%);
   }
@@ -231,18 +256,17 @@ body {
   }
 }
 
-/* A progress bar that is loading rather than at zero. */
-.sweeping::after {
+.shimmer::after {
   content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(90deg, transparent, var(--color-line-strong), transparent);
-  animation: sweep 1.4s var(--ease-out-soft) infinite;
+  animation: shimmer 1.4s var(--ease-out-soft) infinite;
 }
 
 /*
  * Reduced motion is honoured completely rather than shortened. Someone who asks for no motion is
- * often asking for a reason — vestibular disorders are not a preference.
+ * often asking for a reason.
  */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -254,6 +278,5 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }

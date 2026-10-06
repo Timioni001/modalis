@@ -10,7 +10,7 @@
 import { useCallback, useState } from "react";
 import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain";
 import type { Address, Hex } from "viem";
-import { Badge, Button, Card, KeyValue, Notice, SectionTitle } from "@/components/ui";
+import { Badge, Button, Card, KeyValue, Notice, PageHeader, SectionTitle } from "@/components/ui";
 import { ReceiptLink } from "@/components/receipt-link";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
@@ -68,8 +68,8 @@ function Settings() {
   const adjustmentsAllowed = Boolean(plan?.adjustmentsEnabled);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-semibold tracking-tight text-ink">Settings</h1>
+    <div className="space-y-4">
+      <PageHeader title="Settings" lede="What you have allowed, and how to take it back." />
 
       {/* ------------------------------------------------------- your account */}
       <Card>
@@ -178,7 +178,7 @@ function Settings() {
       ) : null}
 
       {/* ----------------------------------------------------------- the exit */}
-      <Card className="border-breach/30">
+      <Card className="shadow-[0_0_0_1.5px_var(--color-breach-soft),var(--shadow-card)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionTitle hint="Returns everything you hold to your own account, in one go.">
             Take all my money out

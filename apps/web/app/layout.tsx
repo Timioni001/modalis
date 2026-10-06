@@ -69,8 +69,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0c0e13" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f4f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0b0d" },
   ],
 };
 
@@ -78,7 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const cfg = publicConfig();
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${display.variable}`}>
-      <body className="min-h-screen bg-surface text-ink antialiased">
+      <body className="min-h-screen bg-canvas text-ink antialiased">
         {/* The first stop for a keyboard or screen-reader user on every page. */}
         <a
           href="#main"

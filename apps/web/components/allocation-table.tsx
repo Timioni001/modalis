@@ -7,7 +7,7 @@
  * inside. Anything outside its band is marked by colour AND by a word, so the state survives a
  * colour-blind reader and a greyscale screenshot.
  */
-import { RangeBar, Badge } from "./ui";
+import { Corridor, Badge } from "./ui";
 import { usePortfolio } from "./portfolio-provider";
 import { moneyLabel } from "@/lib/format";
 
@@ -24,7 +24,7 @@ export function AllocationTable() {
         const outside = h.sharePercent > range.maxPercent || h.sharePercent < range.minPercent;
         const drifting =
           Math.abs(h.offTargetByPercent) > plan.rules.adjustWhenOffTargetByPercent;
-        const tone = outside ? "breach" : drifting ? "warn" : "ok";
+        const tone = outside ? "breach" : drifting ? "warn" : "default";
 
         return (
           <li key={h.id}>
@@ -46,11 +46,11 @@ export function AllocationTable() {
             </div>
 
             <div className="mt-2.5">
-              <RangeBar
-                currentPercent={h.sharePercent}
-                targetPercent={h.targetPercent}
-                minPercent={range.minPercent}
-                maxPercent={range.maxPercent}
+              <Corridor
+                percent={h.sharePercent}
+                target={h.targetPercent}
+                bandFrom={range.minPercent}
+                bandTo={range.maxPercent}
                 tone={tone}
                 label={`${h.name}: ${h.sharePercent}% now, plan says ${h.targetPercent}%, allowed between ${range.minPercent}% and ${range.maxPercent}%`}
               />

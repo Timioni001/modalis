@@ -1,69 +1,66 @@
 "use client";
 
 /**
- * The goal interview.
+ * The goal questions.
  *
- * Questions are human, not financial: what the money is for, how much, by when, and what the
- * person would actually do in a downturn. The behavioural question is the one that produces
- * useful information — "sell everything" and "invest more" describe very different investors
- * even when both say they tolerate a 15% fall.
+ * Five steps, one question-group each, nothing financial in the wording. The step that matters is
+ * the behavioural one — "your money falls 12%, what do you do" — because "sell everything" and
+ * "add more while it's cheap" describe very different people even when both say they'd accept a
+ * 15% drop.
  *
- * Nothing here is written anywhere yet. The answers become a plan on the next screen, and only
- * the person's own signature makes that plan real.
+ * Nothing is written anywhere until the plan is approved on the next screen.
  */
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import type { GoalAnswers } from "@modalis/domain";
-import { Badge, Button, Card, Notice } from "@/components/ui";
-import { monthsToHuman } from "@/lib/format";
+import {
+  Button,
+  Card,
+  Choices,
+  Field,
+  MoneyField,
+  Notice,
+  SelectField,
+  Slider,
+  TextField,
+} from "@/components/ui";
 import { DEFAULT_ANSWERS, saveAnswers } from "@/lib/goal-answers";
+import { monthsToHuman } from "@/lib/format";
 
-type Step = { id: string; title: string; hint?: string };
-
-const STEPS: Step[] = [
-  { id: "goal", title: "What are you investing for?" },
-  { id: "amount", title: "How much do you need, and by when?" },
+const STEPS = [
+  { id: "goal", title: "What are you saving for?" },
+  { id: "amount", title: "How much, and by when?" },
   { id: "funding", title: "How much can you put in?" },
-  {
-    id: "behaviour",
-    title: "A quick question about market falls",
-    hint: "There is no right answer. This tells Modalis how much volatility your plan should carry.",
-  },
-  { id: "constraints", title: "Your limits" },
+  { id: "behaviour", title: "One question about falls" },
+  { id: "limits", title: "Your limits" },
+] as const;
+
+const GOALS: { value: GoalAnswers["goalKind"]; label: string; hint: string }[] = [
+  { value: "house", label: "A home", hint: "A deposit or a purchase" },
+  { value: "emergency_reserve", label: "A safety net", hint: "Money that must stay reachable" },
+  { value: "education", label: "Education", hint: "Tuition or study costs" },
+  { value: "long_term_wealth", label: "Long-term", hint: "No fixed purpose yet" },
+  { value: "retirement", label: "Retirement", hint: "A long horizon" },
+  { value: "custom", label: "Something else", hint: "Describe it yourself" },
 ];
 
-const GOALS: { value: GoalAnswers["goalKind"]; label: string; blurb: string }[] = [
-  { value: "house", label: "A home", blurb: "A deposit or a purchase" },
-  { value: "education", label: "Education", blurb: "Tuition or study costs" },
-  { value: "long_term_wealth", label: "Long-term wealth", blurb: "No fixed purpose yet" },
-  { value: "emergency_reserve", label: "Emergency reserve", blurb: "Money that must stay reachable" },
-  { value: "retirement", label: "Retirement", blurb: "A long horizon" },
-  { value: "custom", label: "Something else", blurb: "Describe it yourself" },
-];
-
-const DRAWDOWN: { value: GoalAnswers["ifItFellResponse"]; label: string }[] = [
+const FALL_RESPONSES: { value: GoalAnswers["ifItFellResponse"]; label: string }[] = [
   { value: "sell_everything", label: "Sell everything" },
   { value: "sell_some", label: "Sell some of it" },
   { value: "do_nothing", label: "Do nothing and wait" },
-  { value: "invest_more", label: "Invest more while prices are lower" },
+  { value: "invest_more", label: "Add more while it's cheaper" },
 ];
 
 export default function OnboardingPage() {
-  // useSearchParams needs a Suspense boundary, or the whole route opts out of static rendering.
   return (
-    <Suspense fallback={<div className="mx-auto h-96 max-w-2xl px-5 py-14" />}>
+    <Suspense fallback={<div className="mx-auto h-96 max-w-xl px-5 py-14" />}>
       <Onboarding />
     </Suspense>
   );
 }
 
-/**
- * Picks up anything the person already told us in the hero.
- *
- * Someone who has typed their goal on the landing page should not be asked for it again — being
- * made to repeat yourself is the fastest way to lose someone two screens in. Every value is
- * bounded here, because it arrived in a URL and a URL is caller-controlled.
- */
+/** Anything the person already told us in the hero, bounded — it arrived in a URL. */
 function answersFromQuery(params: URLSearchParams): Partial<GoalAnswers> {
   const num = (key: string, min: number, max: number): number | undefined => {
     const raw = params.get(key);
@@ -72,7 +69,6 @@ function answersFromQuery(params: URLSearchParams): Partial<GoalAnswers> {
     if (!Number.isFinite(value)) return undefined;
     return Math.min(max, Math.max(min, Math.round(value)));
   };
-
   const kind = params.get("goal");
   const valid = GOALS.some((g) => g.value === kind);
 
@@ -80,9 +76,7 @@ function answersFromQuery(params: URLSearchParams): Partial<GoalAnswers> {
     ...(valid ? { goalKind: kind as GoalAnswers["goalKind"] } : {}),
     ...(num("amount", 500, 5_000_000) !== undefined ? { targetAmount: num("amount", 500, 5_000_000)! } : {}),
     ...(num("months", 6, 360) !== undefined ? { monthsUntilNeeded: num("months", 6, 360)! } : {}),
-    ...(num("monthly", 0, 100_000) !== undefined
-      ? { contributionAmount: num("monthly", 0, 100_000)! }
-      : {}),
+    ...(num("monthly", 0, 100_000) !== undefined ? { contributionAmount: num("monthly", 0, 100_000)! } : {}),
   };
 }
 
@@ -90,6 +84,7 @@ function Onboarding() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [answers, setAnswers] = useState<GoalAnswers>(() => ({
     ...DEFAULT_ANSWERS,
     ...answersFromQuery(new URLSearchParams(searchParams?.toString() ?? "")),
@@ -102,191 +97,223 @@ function Onboarding() {
   const problems = useMemo(() => validate(answers, step), [answers, step]);
   const last = step === STEPS.length - 1;
 
+  function go(next: number) {
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function next() {
     if (problems.length > 0) return;
-    if (!last) {
-      setStep((s) => s + 1);
-      return;
-    }
+    if (!last) return go(step + 1);
     saveAnswers({ ...answers, inTheirWords: description.trim() || undefined });
     router.push("/plan");
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-5 py-14">
-      <div className="flex items-center justify-between">
-        <Badge tone="accent">
-          Step {step + 1} of {STEPS.length}
-        </Badge>
-        <span className="text-sm text-ink-muted">Nothing is committed yet</span>
+    <div className="mx-auto max-w-xl px-5 py-10 sm:py-14">
+      {/* ------------------------------------------------------------ progress */}
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-[13px] font-semibold text-ink">
+          Step {step + 1}
+          <span className="text-ink-muted"> of {STEPS.length}</span>
+        </span>
+        <span className="text-[13px] text-ink-muted">Nothing is committed yet</span>
+      </div>
+      <div className="mt-3 flex gap-1.5" role="presentation">
+        {STEPS.map((s, i) => (
+          <span
+            key={s.id}
+            className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
+              i <= step ? "bg-accent" : "bg-line"
+            }`}
+          />
+        ))}
       </div>
 
-      <div className="mt-5 h-1 w-full overflow-hidden rounded-full bg-surface-sunken">
-        <div
-          className="h-full rounded-full bg-accent transition-[width] duration-300"
-          style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
-        />
-      </div>
+      {/* --------------------------------------------------------- the question */}
+      <AnimatePresence mode="wait" initial={false} custom={direction}>
+        <motion.div
+          key={step}
+          custom={direction}
+          initial={{ opacity: 0, x: direction * 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: direction * -16 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <h1 className="display mt-9 text-[30px] font-semibold text-ink sm:text-[34px]">
+            {STEPS[step].title}
+          </h1>
 
-      <h1 className="mt-8 text-3xl font-semibold tracking-tight text-ink">{STEPS[step].title}</h1>
-      {STEPS[step].hint ? <p className="mt-3 text-ink-soft">{STEPS[step].hint}</p> : null}
-
-      <div className="mt-8 space-y-6">
-        {STEPS[step].id === "goal" ? (
-          <>
-            <fieldset className="grid gap-3 sm:grid-cols-2">
-              <legend className="sr-only">Goal type</legend>
-              {GOALS.map((g) => (
-                <label
-                  key={g.value}
-                  className={`cursor-pointer rounded-xl border p-4 transition-colors ${
-                    answers.goalKind === g.value
-                      ? "border-accent bg-accent-soft"
-                      : "border-line hover:bg-surface-sunken"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="goalKind"
-                    className="sr-only"
-                    checked={answers.goalKind === g.value}
-                    onChange={() => set("goalKind", g.value)}
-                  />
-                  <span className="block font-semibold text-ink">{g.label}</span>
-                  <span className="mt-0.5 block text-sm text-ink-muted">{g.blurb}</span>
-                </label>
-              ))}
-            </fieldset>
-
-            <Field
-              label="In your own words (optional)"
-              hint="Modalis will read this and confirm what it understood."
-            >
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                placeholder="I want $20,000 for a house deposit in about five years."
-                className="w-full rounded-xl border border-line p-3 text-ink outline-none focus:border-accent"
-              />
-            </Field>
-          </>
-        ) : null}
-
-        {STEPS[step].id === "amount" ? (
-          <>
-            <Field label="How much do you need?">
-              <MoneyInput value={answers.targetAmount} onChange={(v) => set("targetAmount", v)} />
-            </Field>
-            <Field label="When do you need it?" hint={monthsToHuman(answers.monthsUntilNeeded)}>
-              <input
-                type="range"
-                min={6}
-                max={360}
-                step={6}
-                value={answers.monthsUntilNeeded}
-                onChange={(e) => set("monthsUntilNeeded", Number(e.target.value))}
-                className="w-full accent-accent"
-              />
-              <div className="mt-1 flex justify-between text-xs text-ink-muted">
-                <span>6 months</span>
-                <span>30 years</span>
-              </div>
-            </Field>
-          </>
-        ) : null}
-
-        {STEPS[step].id === "funding" ? (
-          <>
-            <Field label="How much do you have to start?">
-              <MoneyInput value={answers.startingAmount} onChange={(v) => set("startingAmount", v)} />
-            </Field>
-            <Field label="How much can you add regularly?">
-              <div className="flex gap-3">
-                <MoneyInput
-                  value={answers.contributionAmount}
-                  onChange={(v) => set("contributionAmount", v)}
+          <div className="mt-7 space-y-6">
+            {STEPS[step].id === "goal" ? (
+              <>
+                <Choices
+                  name="goal"
+                  value={answers.goalKind}
+                  onChange={(v) => set("goalKind", v)}
+                  options={GOALS}
+                  columns={2}
                 />
-                <select
-                  value={answers.contributionCadence}
-                  onChange={(e) =>
-                    set("contributionCadence", e.target.value as GoalAnswers["contributionCadence"])
-                  }
-                  className="rounded-xl border border-line px-3 text-ink outline-none focus:border-accent"
+                <Field
+                  label="In your own words"
+                  hint="Optional. Modalis will read this and confirm what it understood."
+                  htmlFor="own-words"
                 >
-                  <option value="weekly">per week</option>
-                  <option value="monthly">per month</option>
-                  <option value="quarterly">per quarter</option>
-                </select>
-              </div>
-            </Field>
-            <Field label="How steady is your income?">
-              <Choices
-                value={answers.incomeSteadiness}
-                onChange={(v) => set("incomeSteadiness", v)}
-                options={[
-                  { value: "unstable", label: "It varies a lot" },
-                  { value: "stable", label: "Fairly steady" },
-                  { value: "very_stable", label: "Very steady" },
-                ]}
-              />
-            </Field>
-          </>
-        ) : null}
+                  <TextField
+                    id="own-words"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="A deposit for a flat, in about five years"
+                    maxLength={300}
+                  />
+                </Field>
+              </>
+            ) : null}
 
-        {STEPS[step].id === "behaviour" ? (
-          <>
-            <Card className="bg-surface-sunken">
-              <p className="text-ink">
-                Your money falls <span className="numeric font-semibold">12%</span> during a market
-                downturn. What would you most likely do?
-              </p>
-            </Card>
-            <Choices
-              value={answers.ifItFellResponse}
-              onChange={(v) => set("ifItFellResponse", v)}
-              options={DRAWDOWN}
-              stacked
-            />
-          </>
-        ) : null}
+            {STEPS[step].id === "amount" ? (
+              <>
+                <Field label="How much do you need?" htmlFor="target">
+                  <MoneyField
+                    id="target"
+                    value={answers.targetAmount}
+                    min={500}
+                    max={5_000_000}
+                    onChange={(v) => set("targetAmount", v)}
+                  />
+                </Field>
+                <Field label="When do you need it?" htmlFor="months">
+                  <Slider
+                    id="months"
+                    value={answers.monthsUntilNeeded}
+                    min={6}
+                    max={360}
+                    step={6}
+                    onChange={(v) => set("monthsUntilNeeded", v)}
+                    format={monthsToHuman}
+                    minLabel="6 months"
+                    maxLabel="30 years"
+                  />
+                </Field>
+              </>
+            ) : null}
 
-        {STEPS[step].id === "constraints" ? (
-          <>
-            <Field
-              label="What is the largest fall you would accept?"
-              hint={`Modalis will hold your money to no more than ${answers.comfortableLosingPercent}% — or tighter, if your plan calls for it.`}
-            >
-              <input
-                type="range"
-                min={2}
-                max={40}
-                step={1}
-                value={answers.comfortableLosingPercent}
-                onChange={(e) => set("comfortableLosingPercent", Number(e.target.value))}
-                className="w-full accent-accent"
-              />
-              <div className="numeric mt-1 text-2xl font-semibold text-ink">
-                {answers.comfortableLosingPercent}%
-              </div>
-            </Field>
-            <Field
-              label="How much needs to stay reachable?"
-              hint="Held in cash-like assets you can withdraw at any time."
-            >
-              <Choices
-                value={answers.moneyKeptAvailable}
-                onChange={(v) => set("moneyKeptAvailable", v)}
-                options={[
-                  { value: "none", label: "Very little" },
-                  { value: "some", label: "Some of it" },
-                  { value: "significant", label: "A large share" },
-                ]}
-              />
-            </Field>
-          </>
-        ) : null}
-      </div>
+            {STEPS[step].id === "funding" ? (
+              <>
+                <Field label="How much do you have to start?" htmlFor="starting">
+                  <MoneyField
+                    id="starting"
+                    value={answers.startingAmount}
+                    max={5_000_000}
+                    onChange={(v) => set("startingAmount", v)}
+                  />
+                </Field>
+                <Field label="How much can you add regularly?" htmlFor="contribution">
+                  <div className="flex gap-2.5">
+                    <div className="flex-1">
+                      <MoneyField
+                        id="contribution"
+                        value={answers.contributionAmount}
+                        max={100_000}
+                        onChange={(v) => set("contributionAmount", v)}
+                      />
+                    </div>
+                    <SelectField
+                      aria-label="How often you add"
+                      value={answers.contributionCadence}
+                      onChange={(e) =>
+                        set("contributionCadence", e.target.value as GoalAnswers["contributionCadence"])
+                      }
+                      className="w-[150px] flex-none"
+                    >
+                      <option value="weekly">per week</option>
+                      <option value="monthly">per month</option>
+                      <option value="quarterly">per quarter</option>
+                    </SelectField>
+                  </div>
+                </Field>
+                <Field label="How steady is your income?" htmlFor="income">
+                  <Choices
+                    name="income"
+                    value={answers.incomeSteadiness}
+                    onChange={(v) => set("incomeSteadiness", v)}
+                    options={[
+                      { value: "unstable", label: "It varies" },
+                      { value: "stable", label: "Fairly steady" },
+                      { value: "very_stable", label: "Very steady" },
+                    ]}
+                  />
+                </Field>
+              </>
+            ) : null}
+
+            {STEPS[step].id === "behaviour" ? (
+              <>
+                <Card className="bg-sunken shadow-none">
+                  <p className="text-[17px] leading-relaxed text-ink">
+                    Your money falls <span className="numeric font-semibold">12%</span> over a few
+                    months. What would you actually do?
+                  </p>
+                  <p className="mt-2 text-sm text-ink-muted">
+                    There&rsquo;s no right answer. This is the question that tells Modalis how much
+                    movement your plan should carry.
+                  </p>
+                </Card>
+                <Choices
+                  name="fall"
+                  value={answers.ifItFellResponse}
+                  onChange={(v) => set("ifItFellResponse", v)}
+                  options={FALL_RESPONSES}
+                  columns={1}
+                />
+              </>
+            ) : null}
+
+            {STEPS[step].id === "limits" ? (
+              <>
+                <Field
+                  label="The most you'd be willing to lose"
+                  hint="Modalis keeps your plan inside this. Below it, the plan gets more cautious."
+                  htmlFor="drawdown"
+                >
+                  <Slider
+                    id="drawdown"
+                    value={answers.comfortableLosingPercent}
+                    min={2}
+                    max={40}
+                    onChange={(v) => set("comfortableLosingPercent", v)}
+                    format={(v) => `${v}%`}
+                    minLabel="2%"
+                    maxLabel="40%"
+                  />
+                  <p className="mt-3 text-sm text-ink-soft">
+                    On {`$${answers.targetAmount.toLocaleString("en-US")}`}, that&rsquo;s about{" "}
+                    <span className="numeric font-semibold text-ink">
+                      $
+                      {Math.round(
+                        (answers.targetAmount * answers.comfortableLosingPercent) / 100,
+                      ).toLocaleString("en-US")}
+                    </span>{" "}
+                    in a bad year.
+                  </p>
+                </Field>
+                <Field label="How much needs to stay reachable?" htmlFor="liquidity">
+                  <Choices
+                    name="liquidity"
+                    value={answers.moneyKeptAvailable}
+                    onChange={(v) => set("moneyKeptAvailable", v)}
+                    options={[
+                      { value: "none", label: "Very little" },
+                      { value: "some", label: "Some of it" },
+                      { value: "significant", label: "A large share" },
+                    ]}
+                  />
+                </Field>
+              </>
+            ) : null}
+          </div>
+        </motion.div>
+      </AnimatePresence>
 
       {problems.length > 0 ? (
         <div className="mt-6">
@@ -294,11 +321,19 @@ function Onboarding() {
         </div>
       ) : null}
 
-      <div className="mt-10 flex items-center justify-between">
-        <Button variant="quiet" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>
-          Back
-        </Button>
-        <Button onClick={next} disabled={problems.length > 0}>
+      {/* ------------------------------------------------------------- actions */}
+      <div className="mt-10 flex items-center gap-3">
+        {step > 0 ? (
+          <Button variant="quiet" onClick={() => go(step - 1)}>
+            Back
+          </Button>
+        ) : null}
+        <Button
+          className="ml-auto"
+          size="lg"
+          onClick={next}
+          disabled={problems.length > 0}
+        >
           {last ? "See my plan" : "Continue"}
         </Button>
       </div>
@@ -306,63 +341,7 @@ function Onboarding() {
   );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="block text-sm font-semibold text-ink">{label}</span>
-      {hint ? <span className="mt-1 block text-sm text-ink-muted">{hint}</span> : null}
-      <div className="mt-3">{children}</div>
-    </label>
-  );
-}
-
-function MoneyInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return (
-    <div className="flex items-center rounded-xl border border-line focus-within:border-accent">
-      <span className="pl-4 text-ink-muted">$</span>
-      <input
-        type="number"
-        min={0}
-        step={50}
-        value={Number.isFinite(value) ? value : 0}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="numeric w-full bg-transparent px-2 py-3 text-lg font-semibold text-ink outline-none"
-      />
-    </div>
-  );
-}
-
-function Choices<T extends string>({
-  value,
-  onChange,
-  options,
-  stacked = false,
-}: {
-  value: T;
-  onChange: (v: T) => void;
-  options: { value: T; label: string }[];
-  stacked?: boolean;
-}) {
-  return (
-    <div className={stacked ? "grid gap-3" : "grid gap-3 sm:grid-cols-3"}>
-      {options.map((o) => (
-        <label
-          key={o.value}
-          className={`cursor-pointer rounded-xl border p-4 text-sm font-medium transition-colors ${
-            value === o.value
-              ? "border-accent bg-accent-soft text-accent"
-              : "border-line text-ink hover:bg-surface-sunken"
-          }`}
-        >
-          <input type="radio" className="sr-only" checked={value === o.value} onChange={() => onChange(o.value)} />
-          {o.label}
-        </label>
-      ))}
-    </div>
-  );
-}
-
-/** Client-side checks that match the pipeline's own preconditions, so errors land here. */
+/** Client-side checks that mirror the planner's own preconditions, so errors land here. */
 function validate(a: GoalAnswers, step: number): string[] {
   const id = STEPS[step].id;
   const out: string[] = [];
@@ -371,7 +350,6 @@ function validate(a: GoalAnswers, step: number): string[] {
     if (a.monthsUntilNeeded < 1) out.push("Choose when you need the money.");
   }
   if (id === "funding") {
-    if (a.startingAmount < 0 || a.contributionAmount < 0) out.push("Amounts cannot be negative.");
     if (a.startingAmount === 0 && a.contributionAmount === 0) {
       out.push("Add a starting amount or a regular contribution — a plan needs money in it.");
     }

@@ -12,7 +12,7 @@
  */
 import { useEffect, useState } from "react";
 import type { ActivityItem } from "@modalis/domain";
-import { Badge, Card, Empty, Notice } from "@/components/ui";
+import { Badge, Empty, Notice, PageHeader, Rows, Row, Skeleton } from "@/components/ui";
 import { ReceiptLink } from "@/components/receipt-link";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
@@ -63,16 +63,14 @@ function Activity() {
   }, [signedIn]);
 
   if (error) return <Notice tone="warn">{error}</Notice>;
-  if (!feed) return <div className="h-64 animate-pulse rounded-2xl bg-surface-sunken" />;
+  if (!feed) return <Skeleton className="h-64" />;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">Activity</h1>
-        <p className="mt-2 text-ink-soft">
-          Everything that has happened to your money, with a receipt for each one.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Activity"
+        lede="Everything that has happened to your money, with a receipt for each one."
+      />
 
       {!feed.sources.chain ? (
         <Notice tone="warn">
@@ -91,34 +89,32 @@ function Activity() {
           Add money to your plan and everything Modalis does with it will appear here.
         </Empty>
       ) : (
-        <Card>
-          <ul className="divide-y divide-line">
-            {feed.items.map((item) => (
-              <li key={item.id} className="py-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <Badge tone={TONES[item.kind] ?? "default"}>{item.title}</Badge>
-                    {item.amount ? (
-                      <span className="numeric text-sm font-semibold text-ink">
-                        {moneyLabel(item.amount)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <span className="numeric text-xs text-ink-muted">
-                    {whenLabel(item.at)}
-                    {item.receipt ? (
-                      <>
-                        {" · "}
-                        <ReceiptLink reference={item.receipt.reference} />
-                      </>
-                    ) : null}
-                  </span>
+        <Rows>
+          {feed.items.map((item) => (
+            <Row key={item.id} className="py-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <Badge tone={TONES[item.kind] ?? "default"}>{item.title}</Badge>
+                  {item.amount ? (
+                    <span className="numeric text-sm font-semibold text-ink">
+                      {moneyLabel(item.amount)}
+                    </span>
+                  ) : null}
                 </div>
-                {item.detail ? <p className="mt-2 text-sm text-ink-soft">{item.detail}</p> : null}
-              </li>
-            ))}
-          </ul>
-        </Card>
+                <span className="numeric text-xs text-ink-muted">
+                  {whenLabel(item.at)}
+                  {item.receipt ? (
+                    <>
+                      {" \u00b7 "}
+                      <ReceiptLink reference={item.receipt.reference} />
+                    </>
+                  ) : null}
+                </span>
+              </div>
+              {item.detail ? <p className="mt-2 text-sm text-ink-soft">{item.detail}</p> : null}
+            </Row>
+          ))}
+        </Rows>
       )}
     </div>
   );

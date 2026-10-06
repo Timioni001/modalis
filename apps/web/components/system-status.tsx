@@ -47,7 +47,7 @@ export function SystemStatus() {
     return <Notice tone="warn">We couldn&apos;t read this deployment&apos;s status.</Notice>;
   }
   if (!status) {
-    return <div className="h-40 animate-pulse rounded-2xl bg-surface-sunken" />;
+    return <div className="h-40 animate-pulse rounded-2xl bg-sunken" />;
   }
 
   const network = status.network;
@@ -106,7 +106,7 @@ export function SystemStatus() {
       ) : null}
 
       {status.ready && status.technical?.contracts ? (
-        <details className="rounded-xl border border-line p-4 text-sm">
+        <details className="rounded-2xl bg-surface p-5 text-sm shadow-[var(--shadow-card)]">
           <summary className="cursor-pointer font-semibold text-ink">
             For anyone who wants to check: the addresses holding your limits
           </summary>

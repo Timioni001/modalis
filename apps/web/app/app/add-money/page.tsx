@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation";
 import { approveToken, deposit } from "@modalis/chain";
 import type { FundingPlan, FundingStep } from "@modalis/domain";
 import type { Address, Hex } from "viem";
-import { Badge, Button, Card, Notice, SectionTitle } from "@/components/ui";
+import { Badge, Button, Card, Notice, PageHeader, SectionTitle } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
@@ -146,14 +146,11 @@ function AddMoney() {
   const where = useMemo(() => plan?.howMoneyIsSpread ?? [], [plan]);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-ink">Add money</h1>
-        <p className="mt-2 text-ink-soft">
-          Modalis splits whatever you add the way your plan says, so your money lands on plan
-          rather than needing an adjustment straight away.
-        </p>
-      </div>
+    <div className="mx-auto max-w-2xl space-y-4">
+      <PageHeader
+        title="Add money"
+        lede="Modalis splits whatever you add the way your plan says, so your money lands on plan rather than needing an adjustment straight away."
+      />
 
       {money && !money.isEmpty ? (
         <p className="text-sm text-ink-muted">
@@ -164,8 +161,8 @@ function AddMoney() {
       {/* ------------------------------------------------------- how much */}
       <Card>
         <SectionTitle>How much would you like to add?</SectionTitle>
-        <div className="flex items-center rounded-xl border border-line focus-within:border-accent">
-          <span className="pl-4 text-ink-muted">$</span>
+        <div className="flex items-center rounded-2xl bg-sunken focus-within:shadow-[0_0_0_2px_var(--color-ink)]">
+          <span className="pl-5 text-[22px] text-ink-muted">$</span>
           <input
             inputMode="decimal"
             value={amount}
@@ -175,7 +172,7 @@ function AddMoney() {
               setSteps([]);
               setFinished(false);
             }}
-            className="numeric w-full bg-transparent px-2 py-3 text-2xl font-semibold text-ink outline-none"
+            className="numeric w-full bg-transparent px-2 py-4 text-[28px] font-semibold text-ink outline-none"
             aria-label="Amount to add, in dollars"
           />
         </div>
@@ -190,10 +187,10 @@ function AddMoney() {
                 setSteps([]);
                 setFinished(false);
               }}
-              className={`rounded-xl border px-4 py-2 text-sm font-medium transition-colors ${
+              className={`min-h-[42px] rounded-full px-4 text-[14px] font-semibold transition-colors ${
                 amount === a
-                  ? "border-accent bg-accent-soft text-accent"
-                  : "border-line text-ink hover:bg-surface-sunken"
+                  ? "bg-panel text-panel-ink"
+                  : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
               }`}
             >
               ${Number(a).toLocaleString("en-US")}
@@ -249,18 +246,18 @@ function AddMoney() {
             </Notice>
           ) : null}
 
-          <ol className="mt-4 divide-y divide-line">
+          <ol className="mt-4 space-y-px overflow-hidden rounded-2xl bg-line">
             {steps.map((step, i) => (
-              <li key={step.id} className="flex items-start justify-between gap-4 py-4">
+              <li key={step.id} className="flex items-start justify-between gap-4 bg-surface px-4 py-4">
                 <div className="flex items-start gap-3">
                   <span
                     aria-hidden
-                    className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                    className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
                       step.status === "done"
                         ? "bg-ok-soft text-ok"
                         : step.status === "failed"
                           ? "bg-breach-soft text-breach"
-                          : "bg-surface-sunken text-ink-muted"
+                          : "bg-sunken text-ink-muted"
                     }`}
                   >
                     {step.status === "done" ? "✓" : i + 1}

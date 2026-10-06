@@ -11,7 +11,17 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { Scenario, ScenarioResult } from "@modalis/domain";
-import { Badge, Button, Card, Failure, Loading, Notice, SectionTitle } from "@/components/ui";
+import {
+  Button,
+  Card,
+  Failure,
+  Loading,
+  Notice,
+  PageHeader,
+  Rows,
+  Row,
+  SectionTitle,
+} from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { apiPost, ApiError } from "@/lib/client-api";
 
@@ -71,14 +81,11 @@ function Scenarios() {
   if (!set && !error) return <Loading label="Loading your goal" />;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="display text-3xl font-semibold text-ink">What if?</h1>
-        <p className="mt-2 max-w-xl text-ink-soft">
-          Change one thing and see what it would do to your goal. Nothing here touches your real
-          plan.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="What if?"
+        lede="Change one thing and see what it would do to your goal. Nothing here touches your real plan."
+      />
 
       {error ? (
         <Failure
@@ -101,10 +108,10 @@ function Scenarios() {
                   onClick={() => ask(scenario)}
                   disabled={busy}
                   aria-pressed={active}
-                  className={`min-h-[44px] rounded-xl border px-4 text-sm font-medium transition-colors disabled:opacity-60 ${
+                  className={`min-h-[46px] rounded-full px-5 text-[14px] font-semibold transition-colors disabled:opacity-60 ${
                     active
-                      ? "border-ink bg-ink text-surface"
-                      : "border-line text-ink-soft hover:bg-surface-sunken hover:text-ink"
+                      ? "bg-panel text-panel-ink"
+                      : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
                   }`}
                 >
                   {scenario.question}
@@ -120,22 +127,31 @@ function Scenarios() {
       {result ? (
         <>
           {/* The answer, as a sentence, before any numbers. */}
-          <Card className={result.fixesTheGoal ? "border-ok/40 bg-ok-soft/40" : ""}>
-            <div className="flex items-start justify-between gap-4">
-              <SectionTitle>The answer</SectionTitle>
-              {result.fixesTheGoal ? <Badge tone="ok">That fixes it</Badge> : null}
+          <section className="rounded-[28px] bg-panel p-6 text-panel-ink shadow-[var(--shadow-lift)] sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-panel-soft">
+                The answer
+              </h2>
+              {result.fixesTheGoal ? (
+                <span className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink">
+                  That fixes it
+                </span>
+              ) : null}
             </div>
-            <p aria-live="polite" className="text-lg leading-relaxed text-ink">
+            <p
+              aria-live="polite"
+              className="mt-4 text-[20px] leading-relaxed sm:text-[23px]"
+            >
               {result.answer}
             </p>
-          </Card>
+          </section>
 
           {result.differences.length > 0 ? (
             <Card>
               <SectionTitle>What moves</SectionTitle>
-              <ul className="divide-y divide-line">
+              <Rows>
                 {result.differences.map((d) => (
-                  <li key={d.label} className="flex items-baseline justify-between gap-4 py-3">
+                  <Row key={d.label} className="flex items-baseline justify-between gap-4">
                     <span className="text-sm text-ink-muted">{d.label}</span>
                     <span className="numeric text-sm">
                       <span className="text-ink-muted line-through">{d.before}</span>
@@ -145,9 +161,9 @@ function Scenarios() {
                       <span className="font-semibold text-ink">{d.after}</span>
                       <span className="sr-only">changes to {d.after}</span>
                     </span>
-                  </li>
+                  </Row>
                 ))}
-              </ul>
+              </Rows>
             </Card>
           ) : null}
 

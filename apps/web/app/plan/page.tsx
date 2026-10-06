@@ -15,7 +15,18 @@ import { useCallback, useEffect, useState } from "react";
 import { setManager as setManagerOnChain, setMandate, type MandateParams } from "@modalis/chain";
 import type { Plan } from "@modalis/domain";
 import type { Address, Hex } from "viem";
-import { Badge, Button, Card, KeyValue, Notice, SectionTitle, Stat } from "@/components/ui";
+import { motion } from "motion/react";
+import {
+  Badge,
+  Button,
+  Card,
+  KeyValue,
+  Notice,
+  Row,
+  Rows,
+  SectionTitle,
+  Skeleton,
+} from "@/components/ui";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
 import { loadAnswers } from "@/lib/goal-answers";
 import { apiGet, apiPost } from "@/lib/client-api";
@@ -152,9 +163,10 @@ export default function PlanPage() {
 
   if (!data) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-16">
-        <div className="h-8 w-56 animate-pulse rounded bg-surface-sunken" />
-        <div className="mt-6 h-64 animate-pulse rounded-2xl bg-surface-sunken" />
+      <div className="mx-auto max-w-3xl space-y-4 px-5 py-14">
+        <Skeleton className="h-10 w-56" />
+        <Skeleton className="h-64" />
+        <Skeleton className="h-40" />
       </div>
     );
   }
@@ -163,12 +175,18 @@ export default function PlanPage() {
   const { goal, rules } = plan;
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-14">
-      <Badge tone="accent">Your plan</Badge>
-      <h1 className="mt-5 text-4xl font-semibold tracking-tight text-ink">
-        This is how Modalis will manage your money.
-      </h1>
-      <p className="mt-4 text-ink-soft">{plan.summary}</p>
+    <div className="mx-auto max-w-3xl px-5 py-10 sm:py-14">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <Badge tone="accent">Ready for your approval</Badge>
+        <h1 className="display mt-5 text-[32px] font-semibold text-ink sm:text-[42px]">
+          This is how Modalis will manage your money.
+        </h1>
+        <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-soft">{plan.summary}</p>
+      </motion.div>
 
       {data.understoodAs ? (
         <div className="mt-6">
@@ -179,29 +197,40 @@ export default function PlanPage() {
       ) : null}
 
       {/* ---------------------------------------------------------- the goal */}
-      <Card className="mt-8">
-        <div className="grid gap-8 sm:grid-cols-3">
-          <Stat label="Your goal" value={usdFromDecimal(goal.target.amount, 0)} size="lg" />
-          <Stat
-            label="You need it by"
-            value={new Date(goal.targetDate).toLocaleDateString("en-US", {
-              month: "long",
-              year: "numeric",
-            })}
-            size="md"
-            sub={monthsToHuman(goal.monthsRemaining)}
-          />
-          <Stat
-            label="You're adding"
-            value={usdFromDecimal(goal.contribution.amount.amount, 0)}
-            size="md"
-            sub={`per ${goal.contribution.cadence.replace("ly", "")}`}
-          />
+      <section className="mt-8 rounded-[28px] bg-panel p-6 text-panel-ink shadow-[var(--shadow-lift)] sm:p-8">
+        <div className="text-[13px] font-semibold uppercase tracking-[0.09em] text-panel-soft">
+          Your goal
         </div>
-      </Card>
+        <div className="numeric mt-4 text-[48px] font-semibold leading-none tracking-[-0.03em] sm:text-[60px]">
+          {usdFromDecimal(goal.target.amount, 0)}
+        </div>
+        <dl className="mt-8 grid gap-6 sm:grid-cols-2">
+          <div>
+            <dt className="text-[13px] text-panel-soft">You need it by</dt>
+            <dd className="numeric mt-1.5 text-[22px] font-semibold">
+              {new Date(goal.targetDate).toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </dd>
+            <dd className="mt-0.5 text-[12.5px] text-panel-soft">
+              {monthsToHuman(goal.monthsRemaining)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[13px] text-panel-soft">You&rsquo;re adding</dt>
+            <dd className="numeric mt-1.5 text-[22px] font-semibold">
+              {usdFromDecimal(goal.contribution.amount.amount, 0)}
+            </dd>
+            <dd className="mt-0.5 text-[12.5px] text-panel-soft">
+              per {goal.contribution.cadence.replace("ly", "")}
+            </dd>
+          </div>
+        </dl>
+      </section>
 
       {/* --------------------------------------------------------- the limits */}
-      <Card className="mt-5">
+      <Card className="mt-4">
         <SectionTitle hint="Modalis can only act inside these. Anything outside them is refused — not by Modalis, but by the rules themselves.">
           The limits you are setting
         </SectionTitle>
@@ -222,13 +251,13 @@ export default function PlanPage() {
       </Card>
 
       {/* --------------------------------------------- how money is spread */}
-      <Card className="mt-5">
+      <Card className="mt-4">
         <SectionTitle hint="Each one has a target and a range it has to stay inside.">
           How your money is spread
         </SectionTitle>
-        <ul className="divide-y divide-line">
+        <Rows>
           {plan.howMoneyIsSpread.map((holding) => (
-            <li key={holding.id} className="flex items-center justify-between gap-4 py-3">
+            <Row key={holding.id} className="flex items-center justify-between gap-4">
               <div>
                 <span className="font-semibold text-ink">{holding.name}</span>
                 {holding.isAvailableCash ? (
@@ -244,13 +273,13 @@ export default function PlanPage() {
                   {percent(holding.allowedRange.maxPercent)}
                 </div>
               </div>
-            </li>
+            </Row>
           ))}
-        </ul>
+        </Rows>
       </Card>
 
       {/* ------------------------------------------------------- the reasoning */}
-      <Card className="mt-5 bg-surface-sunken">
+      <Card className="mt-4 bg-sunken shadow-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionTitle>Why this plan</SectionTitle>
           <Badge tone="default">{riskLabel(plan.riskLevel.level)}</Badge>
@@ -270,18 +299,44 @@ export default function PlanPage() {
       {/* ------------------------------------------------------------ approve */}
       <div className="mt-8 space-y-4">
         {state === "done" ? (
-          <Notice tone="ok" title="Your plan is live">
-            <div className="space-y-2">
-              <p>Next: add money, and Modalis starts managing it to this plan.</p>
-              <ul className="space-y-1">
-                {receipts.map((r) => (
-                  <li key={r.hash}>
-                    {r.label}: <ReceiptLink reference={r.hash} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Notice>
+          <motion.section
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.45, ease: [0.34, 1.4, 0.64, 1] }}
+            className="rounded-[28px] bg-panel p-7 text-panel-ink shadow-[var(--shadow-float)]"
+          >
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.12, duration: 0.4, ease: [0.34, 1.4, 0.64, 1] }}
+              aria-hidden
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-accent"
+            >
+              <svg viewBox="0 0 20 20" className="h-6 w-6 text-accent-ink" fill="none">
+                <path
+                  d="M4.5 10.5l3.6 3.6L15.5 6.5"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </motion.span>
+            <h2 className="display mt-5 text-[26px] font-semibold sm:text-[32px]">
+              Your plan is live.
+            </h2>
+            <p className="mt-3 max-w-md text-[15px] leading-relaxed text-panel-soft">
+              Your limits are now on record where Modalis has no authority to change them. Add
+              money and it starts managing it to this plan.
+            </p>
+            <ul className="mt-6 space-y-2 text-[13px] text-panel-soft">
+              {receipts.map((r) => (
+                <li key={r.hash} className="flex flex-wrap items-center gap-2">
+                  {r.label}: <ReceiptLink reference={r.hash} />
+                </li>
+              ))}
+            </ul>
+          </motion.section>
         ) : null}
 
         {error ? <Notice tone="breach">{error}</Notice> : null}

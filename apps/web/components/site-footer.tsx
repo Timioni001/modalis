@@ -4,15 +4,17 @@
  * The footer.
  *
  * Most money products bury their limitations in grey 10px type. Modalis's whole argument is that
- * its limits are the feature, so the limitations ARE the footer: two columns, equal weight, can
- * beside can't.
+ * its limits are the feature, so the limitations ARE the footer: two cards, equal size, equal
+ * weight, can beside can't. Nothing on the page says more clearly what this product is.
  *
  * Each line is a phrase, not a sentence. A footer nobody finishes reading is a footer that
  * disclosed nothing.
+ *
+ * It closes on the wordmark set oversized and cropped by the viewport — the one piece of pure
+ * decoration in the product, and it earns its place by being the full stop.
  */
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ModalisMark } from "./brand";
 import type { SystemStatus } from "@/lib/api-types";
 
 const CAN = [
@@ -63,15 +65,15 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-line bg-surface-sunken">
-      <div className="mx-auto max-w-6xl px-5">
-        {/* ------------------------------------------- the argument, in two columns */}
-        <section className="grid gap-10 border-b border-line py-14 sm:grid-cols-2 sm:gap-16">
-          <div>
+    <footer className="overflow-hidden">
+      <div className="mx-auto max-w-6xl px-5 pb-6">
+        {/* ------------------------------------------- the argument, in two cards */}
+        <section className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-[28px] bg-surface p-6 shadow-[var(--shadow-card)] sm:p-8">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
               Modalis can
             </h2>
-            <ul className="mt-5 space-y-3">
+            <ul className="mt-5 space-y-3.5">
               {CAN.map((line) => (
                 <li key={line} className="flex gap-3 text-[15px] text-ink">
                   <CheckIcon />
@@ -81,11 +83,11 @@ export function SiteFooter() {
             </ul>
           </div>
 
-          <div>
+          <div className="rounded-[28px] bg-surface p-6 shadow-[var(--shadow-card)] sm:p-8">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
               Modalis can&rsquo;t
             </h2>
-            <ul className="mt-5 space-y-3">
+            <ul className="mt-5 space-y-3.5">
               {CANNOT.map((line) => (
                 <li key={line} className="flex gap-3 text-[15px] text-ink-soft">
                   <BarIcon />
@@ -93,7 +95,7 @@ export function SiteFooter() {
                 </li>
               ))}
             </ul>
-            <p className="mt-5 text-sm text-ink-muted">
+            <p className="mt-6 text-sm text-ink-muted">
               Enforced, not promised.{" "}
               <Link href="/security" className="font-medium text-ink underline underline-offset-2">
                 Here&rsquo;s how
@@ -104,7 +106,7 @@ export function SiteFooter() {
         </section>
 
         {/* ------------------------------------------------------------------ links */}
-        <nav className="grid gap-10 border-b border-line py-12 sm:grid-cols-3" aria-label="Footer">
+        <nav className="grid gap-8 py-12 sm:grid-cols-3" aria-label="Footer">
           {COLUMNS.map((column) => (
             <div key={column.title}>
               <div className="text-[13px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
@@ -115,7 +117,7 @@ export function SiteFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="-mx-1 flex min-h-[36px] items-center rounded px-1 text-[15px] text-ink-soft transition-colors hover:text-ink"
+                      className="-mx-2 flex min-h-[38px] items-center rounded-full px-2 text-[15px] text-ink-soft transition-colors hover:text-ink"
                     >
                       {link.label}
                     </Link>
@@ -126,27 +128,17 @@ export function SiteFooter() {
           ))}
         </nav>
 
-        {/* ------------------------------------------- the wordmark, as an anchor */}
-        <div className="relative py-12">
-          <div
-            aria-hidden
-            className="display select-none text-[19vw] font-semibold leading-[0.78] text-ink/[0.06] sm:text-[13rem]"
-          >
-            Modalis
-          </div>
-          <div className="pointer-events-none absolute bottom-12 right-0 text-ink/10">
-            <ModalisMark size={96} />
-          </div>
-        </div>
-
         {/* ---------------------------------------------------------- the disclosure */}
-        <div className="space-y-4 border-t border-line py-10 text-xs leading-relaxed text-ink-muted">
+        <div className="space-y-4 border-t border-line pt-10 text-xs leading-relaxed text-ink-muted">
           <p className="max-w-2xl">
             <strong className="font-semibold text-ink-soft">A technical demonstration.</strong>{" "}
             Modalis is not an investment adviser, broker, bank or fund, and holds no licence
             anywhere. Nothing here is advice. No return is promised. You could lose what you put
             in, and the demo investments aren&rsquo;t real assets.{" "}
-            <Link href="/legal/risk" className="font-medium text-ink-soft underline underline-offset-2">
+            <Link
+              href="/legal/risk"
+              className="font-medium text-ink-soft underline underline-offset-2"
+            >
               Full risks
             </Link>
             .
@@ -157,6 +149,16 @@ export function SiteFooter() {
             <p>&copy; {new Date().getFullYear()} Modalis</p>
           </div>
         </div>
+      </div>
+
+      {/* The full stop. Cropped on purpose — a wordmark that fits looks like a logo, one that
+          runs off the edge looks like the end of the document. */}
+      <div
+        aria-hidden
+        className="display select-none px-5 text-center text-[23vw] font-semibold leading-[0.72] tracking-[-0.04em] text-ink/[0.07]"
+        style={{ marginBottom: "-0.14em" }}
+      >
+        Modalis
       </div>
     </footer>
   );
@@ -183,12 +185,15 @@ function NetworkLine() {
   }, []);
 
   if (failed) return <p>Status unavailable.</p>;
-  if (!status) return <p className="opacity-0">Checking…</p>;
+  if (!status) return <p className="opacity-0">Checking&hellip;</p>;
 
   const reachable = status.network.reachable;
   return (
     <p className="flex items-center gap-2">
-      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${reachable ? "bg-ok" : "bg-breach"}`} />
+      <span
+        aria-hidden
+        className={`h-1.5 w-1.5 rounded-full ${reachable ? "bg-ok" : "bg-breach"}`}
+      />
       {reachable ? (
         <>
           {status.network.name}
@@ -205,7 +210,14 @@ function NetworkLine() {
 
 function CheckIcon() {
   return (
-    <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-1 flex-none text-ok">
+    <svg
+      aria-hidden
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className="mt-1 flex-none text-ok"
+    >
       <path
         d="M3 8.5l3.2 3.2L13 5"
         stroke="currentColor"

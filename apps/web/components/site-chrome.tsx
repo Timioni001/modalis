@@ -11,6 +11,10 @@
  */
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { Toaster } from "sonner";
+import { ModalisLogo } from "./brand";
+import { WalletButton } from "./wallet-button";
 import { SiteNav } from "./site-nav";
 import { SiteFooter } from "./site-footer";
 import { AppNav } from "./app-nav";
@@ -18,30 +22,84 @@ import { AppNav } from "./app-nav";
 /** Routes that are somebody's money rather than a marketing page. */
 const APP_PREFIXES = ["/app", "/onboarding", "/plan"];
 
+/**
+ * Routes where someone is making a plan, not managing one.
+ *
+ * They get the mark and nothing else. Tabs to Money, Plan and Activity are meaningless to someone
+ * who has no plan yet, and offering a way out of a five-step form is a way to lose them halfway.
+ */
+const FOCUSED = ["/onboarding", "/plan"];
+
 export function SiteChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
   const inApp = APP_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-
-  if (inApp) {
-    return (
-      <div className="flex min-h-screen flex-col bg-surface">
-        <AppNav />
-        <main id="main" className="flex-1">
-          {children}
-        </main>
-        <AppFootnote />
-      </div>
-    );
-  }
+  const focused = FOCUSED.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <SiteNav />
-      <main id="main" className="flex-1">
-        {children}
-      </main>
-      <SiteFooter />
-    </div>
+    <>
+      {focused ? (
+        <div className="flex min-h-screen flex-col bg-canvas">
+          <FocusedNav />
+          <main id="main" className="flex-1">
+            {children}
+          </main>
+          <AppFootnote />
+        </div>
+      ) : inApp ? (
+        <div className="flex min-h-screen flex-col bg-canvas">
+          <AppNav />
+          <main id="main" className="flex-1">
+            {children}
+          </main>
+          <AppFootnote />
+        </div>
+      ) : (
+        <div className="flex min-h-screen flex-col bg-canvas">
+          <SiteNav />
+          <main id="main" className="flex-1">
+            {children}
+          </main>
+          <SiteFooter />
+        </div>
+      )}
+
+      {/*
+        Confirmations, not decoration. A toast is used only where something actually happened and
+        the person has already moved on from the control that caused it — a sent transaction, a
+        copied address. Anything they are waiting on stays on the screen instead.
+      */}
+      <Toaster
+        position="bottom-center"
+        offset={inApp ? 76 : 20}
+        toastOptions={{
+          className: "modalis-toast",
+          style: {
+            borderRadius: "16px",
+            border: "none",
+            background: "var(--color-panel)",
+            color: "var(--color-panel-ink)",
+            boxShadow: "var(--shadow-float)",
+            fontSize: "14px",
+          },
+        }}
+      />
+    </>
+  );
+}
+
+/** Just the mark and the way to sign in. Nothing to click away with. */
+function FocusedNav() {
+  return (
+    <header className="px-4 pt-4 sm:px-5 sm:pt-5">
+      <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-full bg-surface/90 px-4 py-2.5 shadow-[var(--shadow-card)] backdrop-blur-xl">
+        <Link href="/" className="flex min-h-[44px] items-center text-ink" aria-label="Modalis home">
+          <ModalisLogo size={24} />
+        </Link>
+        <div className="ml-auto">
+          <WalletButton />
+        </div>
+      </div>
+    </header>
   );
 }
 
@@ -53,8 +111,8 @@ export function SiteChrome({ children }: { children: ReactNode }) {
  */
 function AppFootnote() {
   return (
-    <footer className="mt-16 border-t border-line">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-6 text-xs text-ink-muted">
+    <footer className="mt-12">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-8 text-xs text-ink-muted">
         <p className="max-w-xl">
           A technical demonstration. Modalis is not an investment adviser, broker or fund, no
           return is promised, and the demo investments are not real assets.

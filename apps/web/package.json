@@ -22,9 +22,11 @@
     "@modalis/portfolio": "workspace:*",
     "@modalis/risk-monitor": "workspace:*",
     "geist": "^1.7.2",
+    "motion": "^14.0.0",
     "next": "^16.3.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "sonner": "^2.0.8",
     "viem": "^2.57.2"
   },
   "devDependencies": {

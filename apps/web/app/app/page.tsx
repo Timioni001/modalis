@@ -3,20 +3,29 @@
 /**
  * The overview — the screen somebody opens the app to see.
  *
- * It answers three questions in order of how often they are asked: how much do I have, am I going
- * to get there, and is there anything I need to do. Everything else is a tap away.
+ * It answers three questions in the order they are asked: am I going to get there, is there
+ * anything I need to do, and where is my money. The answer to the first one is the single black
+ * panel on the screen, so there is never a moment of hunting for it.
  *
  * Deliberately not a dashboard. No widget grid, no sparkline, no "portfolio performance" chart —
- * this product does not promise performance, so charting it would be inventing a story. One
- * number, one sentence, one action.
+ * this product does not promise performance, so charting it would be inventing a story.
  */
 import Link from "next/link";
-import { Badge, Button, Card, Loading, Notice, ProgressBar, SectionTitle } from "@/components/ui";
+import { motion } from "motion/react";
+import {
+  Badge,
+  Button,
+  Card,
+  Corridor,
+  Loading,
+  Notice,
+  SectionTitle,
+} from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { PendingAction } from "@/components/pending-action";
 import { DemoControls } from "@/components/demo-controls";
-import { moneyLabel } from "@/lib/format";
+import { moneyLabel, monthYear, percent } from "@/lib/format";
 import type { Tone } from "@/components/ui";
 
 export default function OverviewPage() {
@@ -40,101 +49,117 @@ function Overview() {
   if (!money || !plan) return <Loading label="Loading your money" />;
 
   const empty = money.isEmpty;
+  const tone = goal ? (HEALTH_TONE[goal.health] ?? "default") : "default";
 
   return (
-    <div className="space-y-6">
-      {/* ------------------------------------------------- how much do I have */}
-      <header className="rise-in">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
-            {goal?.goal.name ?? "Your money"}
-          </h1>
-          {goal ? (
-            <Badge tone={HEALTH_TONE[goal.health] ?? "default"} dot>
-              {goal.healthLabel}
-            </Badge>
-          ) : null}
-        </div>
-
-        <div className="numeric mt-3 text-5xl font-semibold tracking-[-0.03em] text-ink sm:text-6xl">
-          {moneyLabel(money.total)}
-        </div>
-
-        {goal ? (
-          <p className="mt-4 max-w-xl leading-relaxed text-ink-soft">{goal.summary}</p>
-        ) : null}
-
-        <div className="mt-6 flex flex-wrap gap-3">
-          <Button href="/app/add-money">{empty ? "Add your first money" : "Add money"}</Button>
-          <Button href="/app/money" variant="secondary">
-            See where it is
-          </Button>
-        </div>
-      </header>
-
-      {/* ---------------------------------------------- is there anything to do */}
-      <PendingAction />
-
-      {/* ------------------------------------------------- am I going to get there */}
-      {goal && !empty ? (
-        <Card>
-          <SectionTitle
-            action={
-              <Link
-                href="/app/scenarios"
-                className="text-sm font-medium text-ink-soft underline-offset-2 hover:text-ink hover:underline"
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="space-y-4"
+    >
+      {/* ============================================== am I going to get there */}
+      <section className="overflow-hidden rounded-[28px] bg-panel text-panel-ink shadow-[var(--shadow-lift)]">
+        <div className="p-6 sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-panel-soft">
+              Your money
+            </h1>
+            {goal ? (
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  tone === "ok"
+                    ? "bg-accent text-accent-ink"
+                    : tone === "warn"
+                      ? "bg-warn text-panel"
+                      : tone === "breach"
+                        ? "bg-breach text-panel-ink"
+                        : "bg-panel-line text-panel-ink"
+                }`}
               >
-                What if?
-              </Link>
-            }
-          >
-            Progress
-          </SectionTitle>
-
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="numeric text-3xl font-semibold text-ink">
-              {goal.projection.percentComplete}%
-            </span>
-            <span className="numeric text-sm text-ink-muted">
-              {moneyLabel(goal.saved)} of {moneyLabel(goal.goal.target, 0)}
-            </span>
+                {goal.healthLabel}
+              </span>
+            ) : null}
           </div>
 
-          <div className="mt-4">
-            <ProgressBar
-              percent={goal.projection.percentComplete}
-              tone={HEALTH_TONE[goal.health] === "breach" ? "warn" : "accent"}
-              label={`${goal.projection.percentComplete}% of the way to your goal`}
-            />
+          <div className="numeric mt-5 text-[48px] font-semibold leading-none tracking-[-0.03em] sm:text-[64px]">
+            {moneyLabel(money.total)}
           </div>
 
-          <dl className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-3">
-            <Figure
+          {goal ? (
+            <>
+              <div className="mt-7">
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-panel-line">
+                  <motion.div
+                    className={`h-full rounded-full ${
+                      tone === "breach" ? "bg-breach" : tone === "warn" ? "bg-warn" : "bg-accent"
+                    }`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, goal.projection.percentComplete)}%` }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-[13.5px]">
+                  <span className="numeric font-semibold">
+                    {percent(goal.projection.percentComplete)} of{" "}
+                    {moneyLabel(goal.goal.target, 0)}
+                    <span className="font-normal text-panel-soft">
+                      {" "}
+                      toward {goal.goal.name.toLowerCase()}
+                    </span>
+                  </span>
+                  <span className="text-panel-soft">
+                    needed by {monthYear(goal.goal.targetDate)}
+                  </span>
+                </div>
+              </div>
+
+              <p className="mt-6 max-w-xl text-[15.5px] leading-relaxed text-panel-soft">
+                {goal.summary}
+              </p>
+            </>
+          ) : null}
+
+          <div className="mt-7 flex flex-wrap gap-2.5">
+            <Link
+              href="/app/add-money"
+              className="inline-flex min-h-[48px] items-center rounded-full bg-accent px-6 text-[14.5px] font-semibold text-accent-ink transition-[filter] hover:brightness-[1.04] active:scale-[0.985]"
+            >
+              {empty ? "Add your first money" : "Add money"}
+            </Link>
+            <Link
+              href="/app/money"
+              className="inline-flex min-h-[48px] items-center rounded-full bg-panel-line px-6 text-[14.5px] font-semibold text-panel-ink transition-colors hover:brightness-125"
+            >
+              See where it is
+            </Link>
+          </div>
+        </div>
+
+        {/* The three figures that follow from the headline, on a shelf under it. */}
+        {goal && !empty ? (
+          <dl className="grid grid-cols-3 gap-px bg-panel-line">
+            <Shelf
               label="Time left"
               value={
                 goal.goal.monthsRemaining >= 24
-                  ? `${Math.round(goal.goal.monthsRemaining / 12)} years`
-                  : `${goal.goal.monthsRemaining} months`
+                  ? `${Math.round(goal.goal.monthsRemaining / 12)} yrs`
+                  : `${goal.goal.monthsRemaining} mo`
               }
             />
-            <Figure label="Still to find" value={moneyLabel(goal.projection.shortfall, 0)} />
-            <Figure
-              label="Needed each month"
+            <Shelf label="Still to find" value={moneyLabel(goal.projection.shortfall, 0)} />
+            <Shelf
+              label="Per month"
               value={moneyLabel(goal.projection.requiredMonthly, 0)}
-              hint="assuming no growth"
+              hint="no growth assumed"
             />
           </dl>
+        ) : null}
+      </section>
 
-          {goal.contributionUnknown ? (
-            <p className="mt-5 text-xs leading-relaxed text-ink-muted">
-              Modalis doesn&rsquo;t know what you add regularly, so it can&rsquo;t say whether
-              you&rsquo;re on pace &mdash; only what the goal needs.
-            </p>
-          ) : null}
-        </Card>
-      ) : null}
+      {/* ============================================= is there anything to do */}
+      <PendingAction />
 
-      {/* ----------------------------------------------------- the first step */}
       {empty ? (
         <Notice
           tone="accent"
@@ -146,6 +171,122 @@ function Overview() {
         </Notice>
       ) : null}
 
+      {/* ===================================================== where is my money */}
+      {!empty ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <SectionTitle
+              action={
+                <Link
+                  href="/app/money"
+                  className="-mr-2 inline-flex min-h-[36px] items-center rounded-full px-2 text-[13.5px] font-semibold text-ink-soft hover:bg-sunken hover:text-ink"
+                >
+                  All of it
+                </Link>
+              }
+            >
+              Where it is
+            </SectionTitle>
+            <ul className="space-y-4">
+              {money.holdings.slice(0, 4).map((h) => {
+                const band = plan.howMoneyIsSpread.find((p) => p.id === h.id)?.allowedRange;
+                const outside =
+                  band !== undefined &&
+                  (h.sharePercent > band.maxPercent || h.sharePercent < band.minPercent);
+                return (
+                  <li key={h.id}>
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-[14.5px] font-medium text-ink">{h.name}</span>
+                      <span className="numeric flex-none text-[14.5px] font-semibold text-ink">
+                        {moneyLabel(h.value, 0)}
+                        <span className="ml-2 font-normal text-ink-muted">
+                          {percent(h.sharePercent)}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      <Corridor
+                        percent={h.sharePercent}
+                        target={h.targetPercent}
+                        bandFrom={band?.minPercent ?? 0}
+                        bandTo={band?.maxPercent ?? 100}
+                        tone={outside ? "breach" : "default"}
+                        label={`${h.name}: ${h.sharePercent}% now, plan says ${h.targetPercent}%`}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+
+          <Card>
+            <SectionTitle
+              action={
+                <Link
+                  href="/app/plan"
+                  className="-mr-2 inline-flex min-h-[36px] items-center rounded-full px-2 text-[13.5px] font-semibold text-ink-soft hover:bg-sunken hover:text-ink"
+                >
+                  Change
+                </Link>
+              }
+            >
+              Your limits
+            </SectionTitle>
+            <dl className="space-y-px overflow-hidden rounded-2xl bg-line">
+              <Limit
+                label="Most you'd lose"
+                value={percent(plan.rules.comfortableLosingPercent)}
+              />
+              <Limit label="Kept available" value={percent(plan.rules.moneyKeptAvailablePercent)} />
+              <Limit
+                label="Max in one thing"
+                value={percent(plan.rules.maxInOneInvestmentPercent)}
+              />
+              <Limit
+                label="Step in when off by"
+                value={percent(plan.rules.adjustWhenOffTargetByPercent)}
+              />
+            </dl>
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <Badge tone={plan.adjustmentsEnabled ? "ok" : "default"} dot>
+                {plan.adjustmentsEnabled ? "Adjustments on" : "Adjustments paused"}
+              </Badge>
+              <Link
+                href="/app/settings"
+                className="inline-flex min-h-[36px] items-center rounded-full px-2 text-[13px] font-semibold text-ink-soft hover:bg-sunken hover:text-ink"
+              >
+                {plan.adjustmentsEnabled ? "Pause" : "Resume"}
+              </Link>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {/* What-if, offered rather than buried in a menu. */}
+      {goal && !empty ? (
+        <Link
+          href="/app/scenarios"
+          className="flex items-center justify-between gap-4 rounded-[28px] bg-surface p-6 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
+        >
+          <div>
+            <div className="text-[16px] font-semibold text-ink">What if something changed?</div>
+            <p className="mt-1 text-[14px] text-ink-muted">
+              Add more, retire earlier, markets fall 20%. Nothing is saved.
+            </p>
+          </div>
+          <svg aria-hidden viewBox="0 0 20 20" className="h-5 w-5 flex-none text-ink-muted" fill="none">
+            <path
+              d="M7.5 4.5L13 10l-5.5 5.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </Link>
+      ) : null}
+
       <DemoControls />
 
       {loading ? (
@@ -153,16 +294,27 @@ function Overview() {
           Refreshing&hellip;
         </p>
       ) : null}
+    </motion.div>
+  );
+}
+
+function Shelf({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="bg-panel px-4 py-5 sm:px-6">
+      <dt className="text-[12.5px] text-panel-soft">{label}</dt>
+      <dd className="numeric mt-1.5 text-[19px] font-semibold text-panel-ink sm:text-[22px]">
+        {value}
+      </dd>
+      {hint ? <dd className="mt-0.5 text-[11.5px] text-panel-soft">{hint}</dd> : null}
     </div>
   );
 }
 
-function Figure({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Limit({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-sm text-ink-muted">{label}</dt>
-      <dd className="numeric mt-1 text-xl font-semibold text-ink">{value}</dd>
-      {hint ? <dd className="mt-0.5 text-xs text-ink-muted">{hint}</dd> : null}
+    <div className="flex items-baseline justify-between gap-4 bg-surface px-4 py-3.5">
+      <dt className="text-[14px] text-ink-soft">{label}</dt>
+      <dd className="numeric text-[16px] font-semibold text-ink">{value}</dd>
     </div>
   );
 }

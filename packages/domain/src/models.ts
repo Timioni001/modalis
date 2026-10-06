@@ -36,6 +36,23 @@ export function moneyFromE18(valueE18: bigint, decimalPlaces = 2): Money {
   return money(negative ? `-${text}` : text);
 }
 
+/**
+ * Money as it appears inside a SENTENCE: "$8,968".
+ *
+ * Grouped and rounded to whole dollars, because cents inside prose are noise — "$8,968.33 away"
+ * reads as a machine talking. Tables and figures keep their cents; this is only for copy.
+ *
+ * Grouping is done by hand rather than through `toLocaleString`, so the same sentence comes out
+ * identically on a server in any locale and in any browser.
+ */
+export function moneyInSentence(value: Money): string {
+  const [whole = "0"] = value.amount.split(".");
+  const negative = whole.startsWith("-");
+  const digits = negative ? whole.slice(1) : whole;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${negative ? "-" : ""}$${grouped}`;
+}
+
 /** Basis points -> a percentage number. 3000 -> 30. */
 export const percentFromBps = (bps: number, decimalPlaces = 1): number =>
   Number((bps / 100).toFixed(decimalPlaces));

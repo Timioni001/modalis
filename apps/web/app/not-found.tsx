@@ -29,7 +29,7 @@ export default function NotFound() {
         </Link>
         <Link
           href="/"
-          className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-line px-6 text-sm font-semibold text-ink hover:bg-surface-sunken"
+          className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-line px-6 text-sm font-semibold text-ink hover:bg-sunken"
         >
           Back to the start
         </Link>

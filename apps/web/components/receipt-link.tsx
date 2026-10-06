@@ -18,7 +18,7 @@ export function ReceiptLink({ reference, address }: { reference?: string; addres
 
   if (!explorerUrl) {
     return (
-      <code className="numeric text-xs text-ink-soft" title={value}>
+      <code className="numeric text-xs text-current opacity-70" title={value}>
         {label}
       </code>
     );
@@ -31,7 +31,7 @@ export function ReceiptLink({ reference, address }: { reference?: string; addres
       href={href}
       target="_blank"
       rel="noreferrer noopener"
-      className="numeric text-xs font-medium text-accent underline"
+      className="numeric text-xs font-medium text-current underline decoration-current/35 underline-offset-2 transition-colors hover:decoration-current"
       title={value}
     >
       {label}
