@@ -25,3 +25,6 @@ apps/web/next-env.d.ts
 # Installed agent skills (tooling, not project source — see skills-lock.json)
 .agents/
 .claude/skills/
+
+# Screenshots taken during verification. Not part of the build.
+apps/web/.screenshots/
