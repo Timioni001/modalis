@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Current — limits approval</title>
+<style>
+  /* Baseline: the tokens and components shipping today, applied to the same content so the
+     three directions are compared against the real thing rather than against nothing. */
+  @font-face{font-family:Geist;src:url(fonts/Geist-Regular.woff2) format('woff2');font-weight:400;font-display:block}
+  @font-face{font-family:Geist;src:url(fonts/Geist-Medium.woff2) format('woff2');font-weight:500;font-display:block}
+  @font-face{font-family:Geist;src:url(fonts/Geist-SemiBold.woff2) format('woff2');font-weight:600;font-display:block}
+  @font-face{font-family:Monda;src:url(fonts/Monda-Bold.ttf) format('truetype');font-weight:700;font-display:block}
+
+  :root{
+    --ink:#10131a; --ink-soft:#454c59; --ink-muted:#707887;
+    --surface:#fff; --sunken:#f6f6f4; --line:#e5e5e1; --line-strong:#d4d4cf;
+    --accent:#d6f34a; --accent-ink:#10131a; --ok:#0d6b45; --ok-soft:#e8f4ee;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--surface);color:var(--ink);font:400 15px/1.5 Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .numeric{font-variant-numeric:tabular-nums;letter-spacing:-.012em}
+  .display{font-family:Monda,Geist,sans-serif;letter-spacing:-.035em;line-height:1.02}
+
+  .nav{position:sticky;top:0;border-bottom:1px solid var(--line);background:rgba(255,255,255,.85);backdrop-filter:blur(14px)}
+  .nav-in{max-width:1024px;margin:0 auto;height:64px;display:flex;align-items:center;gap:24px;padding:0 20px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-family:Monda,Geist,sans-serif;letter-spacing:-.02em;font-size:18px}
+  .tabs{display:flex;gap:4px}
+  .tabs a{padding:0 12px;height:40px;display:inline-flex;align-items:center;border-radius:8px;font-size:14px;font-weight:500;color:var(--ink-soft);text-decoration:none}
+  .tabs a.on{background:var(--sunken);color:var(--ink)}
+
+  .page{max-width:1024px;margin:0 auto;padding:32px 20px 40px}
+  .head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  h1{font-size:30px;font-weight:600}
+  .lede{margin-top:8px;color:var(--ink-soft);max-width:36rem}
+  .pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid transparent;background:var(--ok-soft);color:var(--ok);padding:4px 10px;font-size:12px;font-weight:600}
+  .pill i{width:6px;height:6px;border-radius:50%;background:var(--ok);display:block}
+
+  .card{margin-top:24px;border:1px solid var(--line);border-radius:16px;background:#fff;padding:24px}
+  .ctitle{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--ink-muted)}
+  .chint{margin-top:6px;font-size:14px;color:var(--ink-muted);max-width:65ch}
+
+  .limits{margin-top:16px}
+  .limit{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:16px 0;border-bottom:1px solid var(--line)}
+  .limit:last-child{border-bottom:0}
+  .limit:first-child{padding-top:0}
+  .limit .name{font-weight:500}
+  .limit .desc{margin-top:4px;font-size:14px;color:var(--ink-muted);max-width:24rem;line-height:1.5}
+  .limit .figure{font-variant-numeric:tabular-nums;font-size:24px;font-weight:600;flex:none}
+
+  .kv{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .kv:last-child{border-bottom:0}
+  .kv dt{font-size:14px;color:var(--ink-muted)}
+  .kv dd{font-variant-numeric:tabular-nums;font-size:14px;font-weight:600}
+
+  .spread li{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .spread li:last-child{border-bottom:0}
+  .spread .r{text-align:right}
+  .spread .r b{display:block;font-variant-numeric:tabular-nums;font-weight:600}
+  .spread .r span{display:block;font-size:12px;color:var(--ink-muted);font-variant-numeric:tabular-nums}
+
+  .btn{appearance:none;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font:600 14px Geist,sans-serif;min-height:44px;padding:0 20px;cursor:pointer}
+  .btn.sec{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .actions{margin-top:20px;display:flex;gap:12px;flex-wrap:wrap}
+  .note{margin-top:16px;font-size:12px;color:var(--ink-muted);line-height:1.6}
+
+  @media(max-width:620px){
+    .tabs{display:none}
+    h1{font-size:25px}
+    .limit{flex-direction:column;gap:6px}
+    .limit .figure{font-size:22px}
+  }
+</style>
+</head>
+<body>
+  <nav class="nav"><div class="nav-in">
+    <span class="logo">
+      <svg width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <rect x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4" stroke="currentColor" stroke-width="2"/>
+        <path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="currentColor" stroke-width="2.4"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>Modalis</span>
+    <span class="tabs"><a href="#">Overview</a><a href="#">Money</a><a href="#" class="on">Plan</a><a href="#">Activity</a></span>
+  </div></nav>
+
+  <div class="page">
+    <div class="head">
+      <div>
+        <h1 class="display">Your plan</h1>
+        <p class="lede">$40,000 by 2031, adding $400 a month. Modalis keeps your money inside the
+          limits below and asks before it changes anything.</p>
+      </div>
+      <span class="pill"><i></i>Running</span>
+    </div>
+
+    <section class="card">
+      <div class="ctitle">The limits you set</div>
+      <div class="chint">This is the whole of what Modalis may do. Anything outside these is refused
+        before it can happen.</div>
+      <div class="limits">
+        <div class="limit">
+          <div>
+            <div class="name">How much you're comfortable losing</div>
+            <div class="desc">The largest drop your plan is built to tolerate before it gets more cautious.</div>
+          </div>
+          <div class="figure">15%</div>
+        </div>
+        <div class="limit">
+          <div>
+            <div class="name">Money kept available</div>
+            <div class="desc">Stays easy to withdraw, so your plan never traps money you might need.</div>
+          </div>
+          <div class="figure">30%</div>
+        </div>
+        <div class="limit">
+          <div>
+            <div class="name">Maximum in one investment</div>
+            <div class="desc">No single investment may grow past this share, however well it's doing.</div>
+          </div>
+          <div class="figure">40%</div>
+        </div>
+        <div class="limit">
+          <div>
+            <div class="name">When Modalis steps in</div>
+            <div class="desc">How far off target something can drift before Modalis suggests a change.</div>
+          </div>
+          <div class="figure">5%</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="ctitle">What it&rsquo;s for</div>
+      <dl style="margin-top:12px">
+        <div class="kv"><dt>Goal</dt><dd>A home</dd></div>
+        <div class="kv"><dt>Target</dt><dd>$40,000</dd></div>
+        <div class="kv"><dt>By</dt><dd>March 2031</dd></div>
+        <div class="kv"><dt>You said you&rsquo;d add</dt><dd>$400 per month</dd></div>
+      </dl>
+    </section>
+
+    <section class="card">
+      <div class="ctitle">How your money is meant to be spread</div>
+      <div class="chint">Each one has a target and a range it has to stay inside.</div>
+      <ul class="spread" style="margin-top:12px">
+        <li><span>Cash <span style="font-size:12px;color:var(--ink-muted);margin-left:8px">kept available</span></span>
+            <span class="r"><b>30%</b><span>20%&ndash;45%</span></span></li>
+        <li><span>Bitcoin</span><span class="r"><b>35%</b><span>25%&ndash;40%</span></span></li>
+        <li><span>Ethereum</span><span class="r"><b>20%</b><span>12%&ndash;30%</span></span></li>
+        <li><span>Bonds</span><span class="r"><b>15%</b><span>10%&ndash;25%</span></span></li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <div class="ctitle">Changing your plan</div>
+      <div class="chint">Changing your plan replaces it. Anything Modalis had already worked out
+        against the old limits stops being valid at that moment.</div>
+      <div class="actions">
+        <button class="btn">Approve these limits</button>
+        <button class="btn sec">See what a change would do first</button>
+      </div>
+      <p class="note">Nothing moves until you approve. No fees.</p>
+    </section>
+  </div>
+</body>
+</html>

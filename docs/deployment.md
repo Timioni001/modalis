@@ -23,13 +23,47 @@ chain and holds a signing key, which is the shape Vercel is built around.
 
 ## Deploying
 
+**There is exactly one setting to get right: set the project's Root Directory to `apps/web`.**
+
+Vercel detects a framework by looking for it in the `package.json` of the root directory. The
+repository root has no `next` dependency — it is a pnpm workspace whose root package only holds
+scripts — so pointing Vercel at the repository root makes the build fail with:
+
+```
+Error: No Next.js version detected. Make sure your package.json has "next"
+in either "dependencies" or "devDependencies".
+```
+
+That is what a root-level `vercel.json` with `"framework": "nextjs"` produces, and it is not
+fixable from inside the repository: forcing the framework does not create the dependency Vercel is
+looking for. `apps/web/package.json` does have `next`, so pointing the root directory there lets
+detection work normally.
+
+**In the Vercel project:**
+
+| Setting | Value |
+|---|---|
+| Root Directory | `apps/web` |
+| Include files outside the root directory | **On** (default) — the workspace packages live above it |
+| Framework | Next.js (detected automatically) |
+| Install / build / output commands | Leave as detected |
+
+Vercel sees the pnpm workspace and installs from the repository root on its own, so the workspace
+packages resolve. `apps/web/vercel.json` carries only the region and the API cache headers.
+
 ```bash
-# From the repository root. Vercel reads vercel.json for the workspace build.
 npx vercel --prod
 ```
 
-Set the root directory to the repository root, not `apps/web` — the build needs the workspace
-packages, which live above it.
+## The contract addresses are not in the repository
+
+`contracts/deployments/<chainId>.json` is gitignored, so a hosted build never sees it. That is
+deliberate: the file currently in a local checkout holds **local anvil addresses**, and committing
+those would point a hosted deployment at contracts that do not exist on Monad.
+
+So a fresh deployment reports "Modalis isn't set up on this network" until the contracts are
+deployed to Monad and their addresses are set as environment variables. `/api/status` says so
+plainly rather than failing at the point of use.
 
 ## Environment variables
 

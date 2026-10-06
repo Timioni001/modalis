@@ -33,8 +33,5 @@
     "db:check": "bash supabase/scripts/db-local.sh check",
     "db:down": "bash supabase/scripts/db-local.sh down",
     "db:types": "pnpm --filter @modalis/db gen-types"
-  },
-  "devDependencies": {
-    "playwright": "^1.63.0"
   }
 }

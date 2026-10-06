@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger — limits approval</title>
+<style>
+  @font-face{font-family:Geist;src:url(fonts/Geist-Regular.woff2) format('woff2');font-weight:400;font-display:block}
+  @font-face{font-family:Geist;src:url(fonts/Geist-Medium.woff2) format('woff2');font-weight:500;font-display:block}
+  @font-face{font-family:Geist;src:url(fonts/Geist-SemiBold.woff2) format('woff2');font-weight:600;font-display:block}
+  @font-face{font-family:GeistMono;src:url(fonts/GeistMono-Regular.woff2) format('woff2');font-weight:400;font-display:block}
+  @font-face{font-family:GeistMono;src:url(fonts/GeistMono-Medium.woff2) format('woff2');font-weight:500;font-display:block}
+
+  :root{
+    --paper:#ffffff; --ink:#0a0a0a; --ink-2:#5c5c5c; --ink-3:#8a8a8a;
+    --rule:#0a0a0a; --hair:#e2e2e2; --accent:#0033ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font:400 15px/1.45 Geist,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .num{font-family:GeistMono,ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+  .wrap{max-width:860px;margin:0 auto;border-left:1px solid var(--hair);border-right:1px solid var(--hair);min-height:100vh}
+
+  /* ---- masthead: reads like the top of a statement ---- */
+  .top{display:flex;justify-content:space-between;align-items:baseline;padding:18px 24px;border-bottom:1px solid var(--rule)}
+  .mark{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:-.02em}
+  .doc{font-family:GeistMono,monospace;font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}
+
+  .head{padding:30px 24px 26px;border-bottom:1px solid var(--rule)}
+  h1{font-size:34px;line-height:1.04;letter-spacing:-.035em;font-weight:600}
+  .sub{margin-top:10px;color:var(--ink-2);max-width:44ch}
+  .ctx{margin-top:18px;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--hair)}
+  .ctx div{padding:11px 13px;border-right:1px solid var(--hair)}
+  .ctx div:last-child{border-right:0}
+  .ctx dt{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+  .ctx dd{margin-top:4px;font-weight:500;font-size:16px}
+
+  /* ---- the four limits, as ledger rows ---- */
+  .rows{border-bottom:1px solid var(--rule)}
+  .row{display:grid;grid-template-columns:1fr 268px;gap:0;border-bottom:1px solid var(--hair);align-items:stretch}
+  .row:last-child{border-bottom:0}
+  .cell{padding:20px 24px}
+  .cell.right{border-left:1px solid var(--hair);background:#fafafa;display:flex;flex-direction:column;justify-content:center}
+  .lineno{font-family:GeistMono,monospace;font-size:11px;color:var(--ink-3);letter-spacing:.06em}
+  .lbl{margin-top:7px;font-size:17px;font-weight:600;letter-spacing:-.015em}
+  .val{margin-top:14px;display:flex;align-items:baseline;gap:9px}
+  .val b{font-family:GeistMono,monospace;font-weight:500;font-size:30px;letter-spacing:-.03em}
+  .val span{font-size:12px;color:var(--ink-3);font-family:GeistMono,monospace}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;margin-top:14px;height:18px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--hair)}
+  input[type=range]::-moz-range-track{height:2px;background:var(--hair)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:2px;height:18px;background:var(--ink);margin-top:-8px}
+  input[type=range]::-moz-range-thumb{border:0;border-radius:0;width:2px;height:18px;background:var(--ink)}
+  input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .scale{display:flex;justify-content:space-between;margin-top:5px;font-family:GeistMono,monospace;font-size:10px;color:var(--ink-3)}
+
+  .conseq{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+  .conseq-v{margin-top:7px;font-size:15px;line-height:1.35;font-weight:500}
+  .conseq-v em{font-style:normal;font-family:GeistMono,monospace;font-weight:500}
+
+  /* ---- what-if, before you sign ---- */
+  .whatif{padding:20px 24px;border-bottom:1px solid var(--rule);display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+  .whatif h2{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);font-weight:500}
+  .bars{display:flex;gap:3px;align-items:flex-end;height:36px}
+  .bars i{display:block;width:16px;background:var(--hair)}
+  .bars i.on{background:var(--ink)}
+  .whatif p{font-size:14px;color:var(--ink-2);max-width:40ch}
+
+  /* ---- the ceremony ---- */
+  .sign{padding:22px 24px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  .sign small{display:block;color:var(--ink-3);font-size:12.5px;max-width:34ch;margin-top:7px}
+  .sign strong{font-size:15px;font-weight:600}
+  .btn{appearance:none;border:0;background:var(--accent);color:#fff;font:600 15px Geist,sans-serif;padding:0 26px;height:48px;cursor:pointer;letter-spacing:-.01em}
+  .btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .guard{border-top:1px solid var(--hair);padding:13px 24px;font-size:12px;color:var(--ink-3);display:flex;gap:7px;align-items:center}
+  .dot{width:5px;height:5px;background:var(--accent)}
+
+  @media(max-width:620px){
+    .wrap{border:0}
+    .row{grid-template-columns:1fr}
+    .cell.right{border-left:0;border-top:1px solid var(--hair)}
+    .ctx{grid-template-columns:1fr;}
+    .ctx div{border-right:0;border-bottom:1px solid var(--hair)}
+    .ctx div:last-child{border-bottom:0}
+    h1{font-size:27px}
+    .btn{width:100%}
+    .sign{flex-direction:column;align-items:stretch}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="mark">
+      <svg width="17" height="17" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="currentColor" stroke-width="2.6"
+              stroke-linecap="square"/>
+      </svg>Modalis</span>
+    <span class="doc">Limits · for approval</span>
+  </header>
+
+  <div class="head">
+    <h1>These are the limits.</h1>
+    <p class="sub">Modalis works inside them and cannot step outside. You can change them later; it never can.</p>
+    <dl class="ctx">
+      <div><dt>Goal</dt><dd class="num">$40,000</dd></div>
+      <div><dt>By</dt><dd class="num">2031</dd></div>
+      <div><dt>Adding</dt><dd class="num">$400<span style="font-size:12px;color:#8a8a8a">/mo</span></dd></div>
+    </dl>
+  </div>
+
+  <div class="rows">
+    <div class="row">
+      <div class="cell">
+        <div class="lineno">01</div>
+        <div class="lbl">Most you'd lose</div>
+        <div class="val"><b id="v1">15%</b><span>of your money</span></div>
+        <input type="range" min="5" max="40" value="15" step="1" id="s1" aria-label="Most you'd lose, percent">
+        <div class="scale"><span>5%</span><span>40%</span></div>
+      </div>
+      <div class="cell right">
+        <div class="conseq">In a bad year</div>
+        <div class="conseq-v">You could lose up to <em id="c1">$6,000</em>, leaving <em id="c1b">$34,000</em>.</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="cell">
+        <div class="lineno">02</div>
+        <div class="lbl">Kept available</div>
+        <div class="val"><b id="v2">30%</b><span>easy to withdraw</span></div>
+        <input type="range" min="0" max="80" value="30" step="5" id="s2" aria-label="Money kept available, percent">
+        <div class="scale"><span>0%</span><span>80%</span></div>
+      </div>
+      <div class="cell right">
+        <div class="conseq">Reachable today</div>
+        <div class="conseq-v"><em id="c2">$12,000</em> you can take out at any time, without selling anything.</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="cell">
+        <div class="lineno">03</div>
+        <div class="lbl">Max in one investment</div>
+        <div class="val"><b id="v3">40%</b><span>ceiling</span></div>
+        <input type="range" min="10" max="100" value="40" step="5" id="s3" aria-label="Maximum in one investment, percent">
+        <div class="scale"><span>10%</span><span>100%</span></div>
+      </div>
+      <div class="cell right">
+        <div class="conseq">Hard ceiling</div>
+        <div class="conseq-v">Nothing grows past <em id="c3">$16,000</em>, however well it does.</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="cell">
+        <div class="lineno">04</div>
+        <div class="lbl">Step in when off by</div>
+        <div class="val"><b id="v4">5%</b><span>drift</span></div>
+        <input type="range" min="1" max="20" value="5" step="1" id="s4" aria-label="Step in when off target by, percent">
+        <div class="scale"><span>1%</span><span>20%</span></div>
+      </div>
+      <div class="cell right">
+        <div class="conseq">Expect roughly</div>
+        <div class="conseq-v"><em id="c4">4</em> adjustments a year. Each one asks you first.</div>
+      </div>
+    </div>
+  </div>
+
+  <section class="whatif">
+    <h2>If markets fall 20%</h2>
+    <div class="bars" aria-hidden="true">
+      <i class="on" style="height:100%"></i><i class="on" style="height:78%"></i>
+      <i class="on" style="height:64%"></i><i style="height:71%"></i><i style="height:86%"></i>
+    </div>
+    <p>Your limits hold at <strong class="num" id="w1">$34,000</strong>. Modalis sells nothing automatically — it asks.</p>
+  </section>
+
+  <div class="sign">
+    <div>
+      <strong>Approving puts these on record.</strong>
+      <small>Enforced where Modalis has no authority. You can pause or change them any time.</small>
+    </div>
+    <button class="btn">Approve these limits</button>
+  </div>
+  <div class="guard"><span class="dot"></span> Nothing moves until you approve. No fees.</div>
+</div>
+
+<script>
+  var T = 40000;
+  var money = function (n) { return "$" + Math.round(n).toLocaleString("en-US"); };
+  function bind(slider, out, fn) {
+    var s = document.getElementById(slider);
+    s.addEventListener("input", function () {
+      document.getElementById(out).textContent = s.value + "%";
+      fn(Number(s.value));
+    });
+  }
+  bind("s1", "v1", function (v) {
+    document.getElementById("c1").textContent = money(T * v / 100);
+    document.getElementById("c1b").textContent = money(T - T * v / 100);
+    document.getElementById("w1").textContent = money(T - T * v / 100);
+  });
+  bind("s2", "v2", function (v) { document.getElementById("c2").textContent = money(T * v / 100); });
+  bind("s3", "v3", function (v) { document.getElementById("c3").textContent = money(T * v / 100); });
+  bind("s4", "v4", function (v) {
+    document.getElementById("c4").textContent = Math.max(1, Math.round(22 / v));
+  });
+</script>
+</body>
+</html>

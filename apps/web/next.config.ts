@@ -66,13 +66,6 @@ const nextConfig: NextConfig = {
   ],
   typedRoutes: false,
 
-  // The deploy script writes contracts/deployments/<chainId>.json, which the server reads as its
-  // default source of contract addresses. Without this the file is outside the traced bundle and
-  // a hosted deployment silently falls back to environment variables only.
-  outputFileTracingIncludes: {
-    "/api/**": ["../../contracts/deployments/**"],
-  },
-
   async headers() {
     return [
       { source: "/:path*", headers: SECURITY_HEADERS },

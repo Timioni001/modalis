@@ -21,3 +21,7 @@ apps/web/next-env.d.ts
 *.tsbuildinfo
 # Throwaway local Postgres cluster (supabase/scripts/db-local.sh)
 .pgdata/
+
+# Installed agent skills (tooling, not project source — see skills-lock.json)
+.agents/
+.claude/skills/

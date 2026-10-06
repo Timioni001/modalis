@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "project": "Modalis",
+  "brief": "Limits approval — the product's signature screen. A person sets four plain-language limits on what Modalis may do with their money, sees the consequence of each one in dollars as they move it, previews a bad year, and approves. Approval is the moment the plan goes live, so the screen is treated as a signing ceremony rather than a settings form. Same content and same four limits in every direction; only the visual and interaction language changes.",
+  "round": "01",
+  "candidates": [
+    {
+      "id": "current",
+      "name": "Current",
+      "concept": "What ships today: rounded cards on a warm white page, limits as a read-only list, lime accent on the action.",
+      "typography": "Monda 700 for headings, Geist 400/500/600 for everything else, tabular figures for money",
+      "palette": ["#ffffff", "#10131a", "#d6f34a"],
+      "traits": ["16px radii", "stacked cards", "limits are read-only", "no consequence shown"],
+      "baseline": true,
+      "kind": "html",
+      "source": "00-current.html"
+    },
+    {
+      "id": "ledger",
+      "name": "Ledger",
+      "concept": "This is a financial instrument, so make it read like one. Hairline rules, a fixed grid, every consequence sitting in its own column — the density itself is the reassurance.",
+      "typography": "Geist 400/500/600 for text, Geist Mono for every number, 34px tight headline",
+      "palette": ["#ffffff", "#0a0a0a", "#0033ff"],
+      "traits": ["0px radii", "1px hairline grid", "two-column rows: control left, consequence right", "mono numerals throughout", "densest of the three"],
+      "interactive": true,
+      "kind": "html",
+      "source": "01-ledger.html"
+    },
+    {
+      "id": "corridor",
+      "name": "Corridor",
+      "concept": "A limit is a room to move in, so draw the room. Each limit is a band with your line inside it — the central metaphor of the product made literal and reused on Home.",
+      "typography": "Geist 600 at 46px tight for display, Geist Mono for amounts, generous line height",
+      "palette": ["#0a0a0a", "#ffffff", "#c6f24e"],
+      "traits": ["dark and calm", "each limit drawn as a band you sit inside", "one accent marks your position and the primary action", "most spatial", "carries straight into the Home corridor"],
+      "interactive": true,
+      "kind": "html",
+      "source": "02-corridor.html"
+    },
+    {
+      "id": "editorial",
+      "name": "Editorial",
+      "concept": "People sign what they have read. Set each limit as a sentence with the number in it, in a serif, with the consequence in the margin like a footnote.",
+      "typography": "Georgia serif at 62px for display and headings, Geist for UI, Geist Mono for labels",
+      "palette": ["#ffffff", "#0a0a0a", "#ff3b00"],
+      "traits": ["serif display, asymmetric three-column grid", "limits read as sentences, not controls", "consequences set as margin notes", "roman numerals", "most document-like"],
+      "interactive": true,
+      "kind": "html",
+      "source": "03-editorial.html"
+    }
+  ]
+}
