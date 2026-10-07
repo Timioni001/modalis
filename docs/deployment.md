@@ -97,7 +97,7 @@ and `/api/status` reports it as unconfigured rather than failing at the point of
 | `NEXT_PUBLIC_SITE_URL` | Share cards and the sitemap fall back to the Vercel URL |
 | `NEXT_PUBLIC_MONAD_CHAIN_ID` | Defaults to `10143` (testnet). **Never defaults to mainnet.** |
 | `NEXT_PUBLIC_MONAD_RPC_URL` | Falls back to the chain's public endpoint |
-| `NEXT_PUBLIC_MONAD_EXPLORER_URL` | Receipts render as plain text instead of links |
+| `NEXT_PUBLIC_MONAD_EXPLORER_URL` | Falls back to the explorer in the chain definition; set it only for a private or alternative one |
 | `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` | Nobody can sign in; the app says so |
 | `NEXT_PUBLIC_ALCHEMY_API_KEY` | Uses the public RPC |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Goals and history aren't saved |

@@ -5,6 +5,8 @@
  * key. No secret is referenced: NEXT_PUBLIC_ variables are compiled into the bundle, so a server
  * key placed here would be published to every visitor.
  */
+import { chainById } from "@modalis/chain";
+
 export type PublicConfig = {
   chainId: number;
   networkName: string;
@@ -15,10 +17,26 @@ export type PublicConfig = {
 };
 
 export function publicConfig(): PublicConfig {
+  const chainId = Number(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID ?? 10143);
+  // viem already carries Monad's explorer, so requiring the variable only to get a correct URL we
+  // already hold would turn every receipt into plain text for no reason. The variable still wins,
+  // for a deployment pointed at a private or alternative explorer.
+  const chain = (() => {
+    try {
+      return chainById(chainId);
+    } catch {
+      return undefined;
+    }
+  })();
+
   return {
-    chainId: Number(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID ?? 10143),
-    networkName: process.env.NEXT_PUBLIC_MONAD_NETWORK_NAME ?? "Monad Testnet",
-    explorerUrl: process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL || undefined,
+    chainId,
+    networkName:
+      process.env.NEXT_PUBLIC_MONAD_NETWORK_NAME ?? chain?.name ?? "Monad Testnet",
+    explorerUrl:
+      process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL ||
+      chain?.blockExplorers?.default.url ||
+      undefined,
     dynamicEnvironmentId: process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || undefined,
     rpcUrl: process.env.NEXT_PUBLIC_MONAD_RPC_URL || undefined,
     demoMode: (process.env.NEXT_PUBLIC_DEMO_MODE ?? "false").toLowerCase() === "true",
