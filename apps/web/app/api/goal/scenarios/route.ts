@@ -21,6 +21,8 @@ const KINDS = [
   "raise_target",
   "lower_target",
   "pause_contributions",
+  "add_lump_sum",
+  "withdraw",
 ] as const satisfies readonly ScenarioKind[];
 
 export async function POST(request: Request): Promise<Response> {

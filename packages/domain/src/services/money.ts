@@ -9,6 +9,7 @@
  * That is also why the server never holds a user key: the worst a compromised Modalis server
  * could do is suggest a bad funding plan, which the person would have to sign.
  */
+import { routeContribution } from "../contributions.ts";
 import {
   AssetRegistryAbi,
   MockERC20Abi,
@@ -51,7 +52,8 @@ export type FundingRequest = {
 };
 
 /**
- * Works out how to put money in, split across investments according to the plan's targets.
+ * Works out how to put money in: what is below the plan's target is filled first (see
+ * `routeContribution`), and anything left over is split by target.
  *
  * Returns the steps in the order they must happen. Adding money takes two actions per
  * investment — granting permission, then the transfer — and the person sees that as progress
@@ -79,9 +81,15 @@ export async function buildFundingPlan(
   const steps: FundingStep[] = [];
   const shortfalls: FundingPlan["shortfalls"] = [];
 
+  // Fill what is below target first, so adding money reduces drift instead of carrying it.
+  const routed = routeContribution(
+    state.positions.map((p) => ({ id: p.token, valueE18: p.valueE18, targetBps: p.targetBps })),
+    totalE18,
+  );
+  const shareOf = new Map(routed.map((r) => [r.id, r.amountE18]));
+
   for (const position of state.positions) {
-    // Split by the plan's own target shares, so new money lands the portfolio on plan.
-    const shareE18 = (totalE18 * BigInt(position.targetBps)) / 10_000n;
+    const shareE18 = shareOf.get(position.token) ?? 0n;
     if (shareE18 === 0n) continue;
 
     const units = await usdToTokenAmount(

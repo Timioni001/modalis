@@ -28,7 +28,7 @@ import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
 import { apiPostOnce } from "@/lib/client-api";
-import { moneyLabel, percent } from "@/lib/format";
+import { moneyLabel } from "@/lib/format";
 
 export default function AddMoneyPage() {
   return (
@@ -199,8 +199,10 @@ function AddMoney() {
         </div>
 
         {where.length > 0 ? (
-          <p className="mt-4 text-sm text-ink-soft">
-            It will go in as {where.map((h) => `${percent(h.sharePercent)} ${h.name}`).join(", ")}.
+          <p className="mt-4 text-sm leading-relaxed text-ink-soft">
+            It goes first to whatever is below your plan&rsquo;s target, so adding money brings you
+            back on plan without selling anything. You&rsquo;ll see the exact split before you
+            confirm.
           </p>
         ) : null}
 

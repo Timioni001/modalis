@@ -33,6 +33,9 @@ conversation and never committed. This map is built from the code.
 | Ask Modalis | Conversation UI on the evidence engine; no language model in the path | `/app/ask` |
 | Trust test | Every figure in every answer must appear in its evidence or inputs | `packages/domain/test/health.test.ts` |
 
+| Contribution router (§7) | New money fills what is below target first; overweight holdings get none, nothing is sold | `packages/domain/src/contributions.ts`, used by `buildFundingPlan` |
+| Withdrawal impact + lump sum (§23, §25) | "What if I take out $500?" answers how much later the goal arrives, from the same projection the goal uses | `projection.ts` scenarios `withdraw`, `add_lump_sum` |
+
 The evidence test caught a real defect during this pass: an unknown balance was reported as
 "$0". Unknown now makes no claim.
 
@@ -43,13 +46,11 @@ Each of these needs the one above it. None is started, and none is claimed.
 1. **Multi-goal accounting (§5, §6)** — the contracts hold one mandate per owner. Several goals
    over one portfolio need internal accounting in the database first; priority (§6) and the
    contribution router (§7) both depend on it.
-2. **Contribution router (§7)** — fund the most under-target holding first instead of splitting
-   by target. Small change to `buildFundingPlan`; worth doing before multi-goal.
 3. **Glide paths (§8)** — needs plan versioning (§14) so a scheduled risk change is a new version
    the person approved, not a silent mutation.
 4. **Plan versioning (§14)** — `plan.version` exists on-chain; the database needs `plan_versions`.
-5. **Withdrawal planner (§23)** — today withdrawal is the owner's emergency exit. A partial,
-   goal-aware withdrawal needs a contract path and the goal impact maths (which exists).
+5. **Partial withdrawal (§23)** — the goal-impact preview is built. Actually taking out part of
+   the money needs a contract path; today the only withdrawal is the owner's full exit.
 6. **Exposure graph, asset & strategy registries (§11–13)** — the on-chain `AssetRegistry` covers
    the asset half; strategies are currently derived by `packages/ai` and would move to a registry.
 7. **Notifications + domain events (§36, §37)** — events exist on-chain and in the indexer; a
@@ -62,5 +63,9 @@ Each of these needs the one above it. None is started, and none is claimed.
 
 - No language model generates any financial statement. §31 allows one for explanation; the
   evidence engine is built so a model can only reword its output, never source it.
+- No separate policy engine (§15). Plan drafts are already validated against hard rules by
+  `validateMandateDraft` in `packages/ai`, and every adjustment is simulated against the live
+  contract before it can be signed. A third copy of the same rules would be a place for them to
+  disagree.
 - No package was created for its own sake (§53). `health.ts` and `answers.ts` live in the domain
   package because that is the product language.

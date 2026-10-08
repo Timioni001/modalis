@@ -14,7 +14,7 @@
  * Pure functions over bigint, with no chain and no clock of their own. That makes every answer
  * reproducible: the same inputs give the same sentence, today and in a test.
  */
-import { moneyFromE18, type Money } from "./models.ts";
+import { moneyFromE18, moneyInSentence, type Money } from "./models.ts";
 
 const E18 = 10n ** 18n;
 
@@ -140,7 +140,11 @@ export type ScenarioKind =
   | "finish_earlier"
   | "raise_target"
   | "lower_target"
-  | "pause_contributions";
+  | "pause_contributions"
+  /** Put a one-off amount in today. */
+  | "add_lump_sum"
+  /** Take an amount out today. Shows what it costs the goal before anyone signs anything. */
+  | "withdraw";
 
 export type Scenario = {
   kind: ScenarioKind;
@@ -184,7 +188,19 @@ export function defaultScenarios(inputs: ProjectionInputs): Scenario[] {
       amount: Math.round((target * 1.25) / 100) * 100,
     },
     { kind: "pause_contributions", question: "What if I have to stop adding for 6 months?", months: 6 },
+    { kind: "add_lump_sum", question: `What if I put in $${(step * 10).toLocaleString("en-US")} today?`, amount: step * 10 },
+    ...withdrawal(inputs),
   ];
+}
+
+/** Only offered when there is something to withdraw, and never more than is there. */
+function withdrawal(inputs: ProjectionInputs): Scenario[] {
+  const saved = Number(moneyFromE18(inputs.savedE18, 0).amount);
+  if (saved < 100) return [];
+  const amount = Math.min(500, Math.floor(saved / 2 / 50) * 50);
+  return amount > 0
+    ? [{ kind: "withdraw", question: `What if I take out $${amount.toLocaleString("en-US")}?`, amount }]
+    : [];
 }
 
 function usd(dollars: number): bigint {
@@ -215,6 +231,13 @@ export function applyScenario(inputs: ProjectionInputs, scenario: Scenario): Pro
     case "pause_contributions":
       // A pause does not shorten the goal; it removes the months of contributions it covers.
       return { ...inputs, monthsRemaining: Math.max(0, inputs.monthsRemaining - months) };
+    case "add_lump_sum":
+      return { ...inputs, savedE18: inputs.savedE18 + usd(scenario.amount ?? 0) };
+    case "withdraw": {
+      // Never below zero: you cannot take out more than is there.
+      const out = usd(scenario.amount ?? 0);
+      return { ...inputs, savedE18: inputs.savedE18 > out ? inputs.savedE18 - out : 0n };
+    }
   }
 }
 
@@ -227,13 +250,11 @@ export function runScenario(inputs: ProjectionInputs, scenario: Scenario): Scena
     if (before !== after) differences.push({ label, before, after });
   };
 
-  add("Where you'd land", `$${now.projected.amount}`, `$${changed.projected.amount}`);
-  add("Short by", `$${now.shortfall.amount}`, `$${changed.shortfall.amount}`);
-  add(
-    "Needed each month",
-    `$${now.requiredMonthly.amount}`,
-    `$${changed.requiredMonthly.amount}`,
-  );
+  const $ = moneyInSentence;
+  add("Where you'd land", $(now.projected), $(changed.projected));
+  add("Short by", $(now.shortfall), $(changed.shortfall));
+  add("Needed each month", $(now.requiredMonthly), $(changed.requiredMonthly));
+  add("Time to get there", reachLabel(now.monthsToReach), reachLabel(changed.monthsToReach));
   add("How it's going", healthLabel(now.health), healthLabel(changed.health));
 
   return {
@@ -244,6 +265,20 @@ export function runScenario(inputs: ProjectionInputs, scenario: Scenario): Scena
     differences,
     fixesTheGoal: now.shortfallE18 > 0n && changed.shortfallE18 === 0n,
   };
+}
+
+function reachLabel(months: number | null): string {
+  if (months === null) return "Not at this pace";
+  if (months === 0) return "Already there";
+  if (months < 24) return `${months} month${months === 1 ? "" : "s"}`;
+  return `${Math.round(months / 12)} years`;
+}
+
+/** "about 3 weeks" / "about 5 months": the delay a change costs, in the unit people use. */
+function delayLabel(months: number): string {
+  if (months < 1) return `about ${Math.max(1, Math.round(months * 4.35))} week${Math.round(months * 4.35) === 1 ? "" : "s"}`;
+  const m = Math.round(months);
+  return `about ${m} month${m === 1 ? "" : "s"}`;
 }
 
 export function healthLabel(health: GoalHealth): string {
@@ -267,6 +302,19 @@ export function healthLabel(health: GoalHealth): string {
  * calculation someone still has to interpret.
  */
 function answerFor(scenario: Scenario, now: Projection, changed: Projection): string {
+  if (scenario.kind === "withdraw" || scenario.kind === "add_lump_sum") {
+    const verb = scenario.kind === "withdraw" ? "Taking that out" : "Putting that in";
+    const a = now.monthsToReach;
+    const b = changed.monthsToReach;
+    if (a !== null && b !== null && a !== b) {
+      const later = b > a;
+      return `${verb} moves your goal ${delayLabel(Math.abs(b - a))} ${later ? "further away" : "closer"}.`;
+    }
+    if (scenario.kind === "withdraw" && changed.shortfallE18 > now.shortfallE18) {
+      return `Taking that out would leave you about ${moneyInSentence(changed.shortfall)} short.`;
+    }
+  }
+
   const arrivesNow = now.shortfallE18 === 0n;
   const arrivesAfter = changed.shortfallE18 === 0n;
 
@@ -274,19 +322,19 @@ function answerFor(scenario: Scenario, now: Projection, changed: Projection): st
     return "That gets you there. On this change you'd reach your goal on time.";
   }
   if (arrivesNow && !arrivesAfter) {
-    return `That would leave you about $${changed.shortfall.amount} short of your goal.`;
+    return `That would leave you about ${moneyInSentence(changed.shortfall)} short of your goal.`;
   }
   if (!arrivesNow && !arrivesAfter) {
     const before = now.shortfallE18;
     const after = changed.shortfallE18;
     if (after < before) {
-      const closed = moneyFromE18(before - after, 0).amount;
-      return `Closer — it closes about $${closed} of the gap, but you'd still be $${changed.shortfall.amount} short.`;
+      const closed = moneyInSentence(moneyFromE18(before - after, 0));
+      return `Closer — it closes about ${closed} of the gap, but you'd still be ${moneyInSentence(changed.shortfall)} short.`;
     }
     if (after > before) {
-      return `That sets you back. You'd be about $${changed.shortfall.amount} short instead of $${now.shortfall.amount}.`;
+      return `That sets you back. You'd be about ${moneyInSentence(changed.shortfall)} short instead of ${moneyInSentence(now.shortfall)}.`;
     }
-    return `That doesn't change the gap. You'd still be about $${changed.shortfall.amount} short.`;
+    return `That doesn't change the gap. You'd still be about ${moneyInSentence(changed.shortfall)} short.`;
   }
 
   // Already arriving in both cases: the interesting difference is the margin.
@@ -295,7 +343,7 @@ function answerFor(scenario: Scenario, now: Projection, changed: Projection): st
     return "You'd still get there, even with less time.";
   }
   if (spare > 0n) {
-    return `You'd still reach your goal, with about $${moneyFromE18(spare, 0).amount} to spare.`;
+    return `You'd still reach your goal, with about ${moneyInSentence(moneyFromE18(spare, 0))} to spare.`;
   }
   return "You'd still reach your goal, with very little to spare.";
 }

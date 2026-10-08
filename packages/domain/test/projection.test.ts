@@ -200,14 +200,33 @@ test("a scenario never changes more than one thing", () => {
   }
 });
 
-test("money a person adds is never touched by a scenario", () => {
+test("money already saved only moves when the question is about moving it, and by exactly that much", () => {
   for (const scenario of defaultScenarios(onTrack)) {
-    assert.equal(
-      applyScenario(onTrack, scenario).savedE18,
-      onTrack.savedE18,
-      `${scenario.kind} must not invent or remove money already saved`,
-    );
+    const after = applyScenario(onTrack, scenario).savedE18;
+    if (scenario.kind === "add_lump_sum") {
+      assert.equal(after, onTrack.savedE18 + usd(scenario.amount!), "a lump sum adds exactly what was named");
+    } else if (scenario.kind === "withdraw") {
+      assert.equal(after, onTrack.savedE18 - usd(scenario.amount!), "a withdrawal removes exactly what was named");
+    } else {
+      assert.equal(after, onTrack.savedE18, `${scenario.kind} must not invent or remove money already saved`);
+    }
   }
+});
+
+test("you cannot withdraw more than is there", () => {
+  const out = applyScenario(onTrack, { kind: "withdraw", question: "", amount: 10_000_000 });
+  assert.equal(out.savedE18, 0n);
+});
+
+test("a withdrawal says how much later the goal arrives, in weeks or months", () => {
+  const steady: ProjectionInputs = { ...onTrack, monthlyE18: usd(400) };
+  const r = runScenario(steady, { kind: "withdraw", question: "", amount: 500 });
+  assert.match(r.answer, /moves your goal about \d+ (week|month)s? further away/);
+  assert.ok(r.differences.every((d) => !/\$\d{4,}/.test(d.before + d.after)), "amounts are grouped");
+});
+
+test("a withdrawal is only offered when there is money to take out", () => {
+  assert.ok(!defaultScenarios({ ...onTrack, savedE18: 0n }).some((s) => s.kind === "withdraw"));
 });
 
 test("no answer anywhere implies a return", () => {
