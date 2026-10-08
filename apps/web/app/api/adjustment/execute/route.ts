@@ -19,7 +19,7 @@
  * the manager key's gas twice, and a rate limit, because this is the one route a signed-in person
  * can use to make the server pay for something.
  */
-import { executeAdjustment, getPlan } from "@modalis/domain";
+import { automationFor, checkMilestones, emitFor, executeAdjustment, getPlan, mayExecuteOnRequest } from "@modalis/domain";
 import {
   domainContext,
   idempotent,
@@ -30,6 +30,7 @@ import {
   route,
 } from "@/lib/api";
 import { getManagerWallet } from "@/lib/server";
+import { count } from "@/lib/observe";
 import { getServerContext } from "@/lib/server";
 import { errorResponse } from "@/lib/serialize";
 
@@ -55,6 +56,13 @@ export async function POST(request: Request): Promise<Response> {
       if (plan.status === "paused") {
         return errorResponse("Your plan is paused, so Modalis won't make any changes.", 409);
       }
+      // Guided means suggestions only. The person chose that; a tap does not override it.
+      if (!mayExecuteOnRequest(await automationFor(ctx, owner), new Date())) {
+        return errorResponse(
+          "You've chosen suggestions only, so Modalis won't carry out changes. You can change that in your settings.",
+          409,
+        );
+      }
 
       const { rpc } = await getServerContext();
       const wallet = getManagerWallet(rpc);
@@ -65,7 +73,26 @@ export async function POST(request: Request): Promise<Response> {
         );
       }
 
-      return jsonResponse({ adjustment: await executeAdjustment(ctx, owner, wallet) });
+      const adjustment = await executeAdjustment(ctx, owner, wallet);
+
+      // Record what happened. A refusal by the person's own rules is an event too — it is the
+      // moment the limits did their job, and it leaves no trace on-chain because it reverted.
+      if (adjustment.status === "done") {
+        await emitFor(ctx, owner, {
+          type: "adjustment_executed",
+          txHash: adjustment.receipt?.reference,
+          payload: { explanation: adjustment.explanation },
+        });
+        await checkMilestones(ctx, owner).catch(() => undefined);
+      } else if (!adjustment.allowedByYourRules) {
+        count("policy.refused");
+        await emitFor(ctx, owner, {
+          type: "adjustment_blocked",
+          payload: { explanation: adjustment.blockedBecause ? `Refused: ${adjustment.blockedBecause}.` : adjustment.explanation },
+        });
+      }
+
+      return jsonResponse({ adjustment });
     });
   });
 }

@@ -13,6 +13,8 @@
   "dependencies": {
     "@modalis/ai": "workspace:*",
     "@modalis/chain": "workspace:*",
+    "@modalis/db": "workspace:*",
+    "@modalis/domain": "workspace:*",
     "@modalis/execution": "workspace:*",
     "@modalis/portfolio": "workspace:*",
     "viem": "^2.57.2"

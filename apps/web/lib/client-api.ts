@@ -66,6 +66,16 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   );
 }
 
+export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
+  return parse<T>(
+    await fetch(path, {
+      method: "PATCH",
+      headers: await authHeaders(),
+      body: JSON.stringify(body ?? {}),
+    }),
+  );
+}
+
 /**
  * A one-time key for a request that moves money.
  *

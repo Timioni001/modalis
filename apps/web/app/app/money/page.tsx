@@ -12,6 +12,7 @@ import { Button, Card, Loading, PageHeader, SectionTitle } from "@/components/ui
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { AllocationTable } from "@/components/allocation-table";
+import { ExposureCard } from "@/components/exposure-card";
 import { moneyLabel, percent, whenLabel } from "@/lib/format";
 
 export default function MoneyPage() {
@@ -88,6 +89,8 @@ function Money() {
         <AllocationTable />
       </Card>
 
+      <ExposureCard />
+
       <Card>
         <SectionTitle>Taking money out</SectionTitle>
         <p className="text-[15px] leading-relaxed text-ink-soft">
@@ -95,9 +98,14 @@ function Money() {
           anyone. It works even if your plan is paused, because a pause must never trap your money.
         </p>
         <div className="mt-5">
-          <Button href="/app/settings" variant="secondary">
-            Go to withdrawal
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button href="/app/withdraw" variant="secondary">
+              Take some out
+            </Button>
+            <Button href="/app/settings" variant="quiet">
+              Take everything out
+            </Button>
+          </div>
         </div>
       </Card>
     </motion.div>

@@ -12,10 +12,11 @@
  */
 import { readPortfolio } from "@modalis/chain";
 import { getAddress, type Address } from "viem";
-import { activeMandate, findUserByWallet, latestGoal } from "@modalis/db";
+import { activeMandate, findUserByWallet, latestGoal, listGoals, type GoalRow } from "@modalis/db";
 import { DomainError, type DomainContext } from "../context.ts";
 import { monthsUntil, toGoal } from "../translate.ts";
 import { moneyFromE18, moneyInSentence, type Goal, type Money } from "../models.ts";
+import { allocateAcrossGoals, type GoalSpec } from "../goals.ts";
 import {
   defaultScenarios,
   healthLabel,
@@ -49,6 +50,22 @@ export type GoalView = {
 /** A stored cadence, narrowed. An unrecognised value reads as monthly rather than throwing. */
 function cadenceOf(value: string | null | undefined): "weekly" | "monthly" | "quarterly" {
   return value === "weekly" || value === "quarterly" ? value : "monthly";
+}
+
+/** A stored goal row, as the goal engine's input. */
+export function specFromRow(row: GoalRow): GoalSpec {
+  const cadence = row.contribution_cadence === "weekly" || row.contribution_cadence === "quarterly" ? row.contribution_cadence : "monthly";
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.type,
+    priority: row.priority ?? 1,
+    targetE18: usdToE18(Number(row.target_value)),
+    targetDate: row.target_date,
+    monthlyE18: usdToE18(monthlyFrom(Number(row.contribution_amount), cadence)),
+    liquidityNeed: row.liquidity_need ?? "some",
+    createdAt: row.created_at,
+  };
 }
 
 /** Monthly equivalent of a contribution at whatever cadence it was given. */
@@ -103,9 +120,25 @@ async function inputsFor(
   });
 
   // Give the goal its name back when we have one. The chain cannot hold "A home in Lisbon".
+  // With several goals, the one shown is the one the PLAN was built for — not simply the newest,
+  // which would silently switch the overview to whatever goal was added last.
+  let savedE18 = state.totalValueE18;
   if (ctx.db) {
     const user = await findUserByWallet(ctx.db, who);
-    const stored = user ? await latestGoal(ctx.db, user.id) : null;
+    const [rows, mandate] = user
+      ? await Promise.all([listGoals(ctx.db, user.id), activeMandate(ctx.db, user.id)])
+      : [[] as GoalRow[], null];
+    const stored = rows.find((r) => r.id === mandate?.goal_id) ?? (user ? await latestGoal(ctx.db, user.id) : null);
+
+    if (stored && rows.length > 1) {
+      // Several goals share the portfolio: this goal owns its waterfall share, not all of it.
+      const specs: GoalSpec[] = rows.map((r) =>
+        r.id === stored.id ? { ...specFromRow(r), targetE18: state.mandate.targetValue } : specFromRow(r),
+      );
+      const share = allocateAcrossGoals(state.totalValueE18, specs, now).shares.find((x) => x.goal.id === stored.id);
+      if (share) savedE18 = share.earmarkedE18;
+    }
+
     if (stored) {
       goal = {
         ...goal,
@@ -123,7 +156,7 @@ async function inputsFor(
 
   return {
     inputs: {
-      savedE18: state.totalValueE18,
+      savedE18,
       targetE18: state.mandate.targetValue,
       monthlyE18,
       monthsRemaining: monthsUntil(state.mandate.targetDate, now),

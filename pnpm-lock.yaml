@@ -296,6 +296,12 @@ importers:
       '@modalis/chain':
         specifier: workspace:*
         version: link:../../packages/chain
+      '@modalis/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@modalis/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@modalis/execution':
         specifier: workspace:*
         version: link:../../packages/execution

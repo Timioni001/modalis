@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { setMandateActive } from "@modalis/chain";
 import type { Address } from "viem";
 import { Button } from "./ui";
+import { apiPostOnce } from "@/lib/client-api";
 import { usePortfolio } from "./portfolio-provider";
 import { useWallet, useWalletConfig } from "./wallet-context";
 
@@ -36,11 +37,13 @@ export function PauseControl({ variant }: { variant?: "danger" | "secondary" }) 
       if (!contracts.portfolioVault) {
         throw new Error("Modalis isn't set up on this network yet.");
       }
-      await setMandateActive(
+      const hash = await setMandateActive(
         wallet,
         { chainId, contracts, tokens: (status?.technical?.tokens ?? {}) as Record<string, Address> },
         paused,
       );
+      // Recorded after the fact, and verified on-chain by the server before it is believed.
+      await apiPostOnce("/api/money/confirm", { receipt: hash, kind: paused ? "resume" : "pause" }).catch(() => undefined);
       await refresh();
       toast.success(
         paused

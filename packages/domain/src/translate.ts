@@ -8,6 +8,7 @@
  * Keeping that boundary in one file is the point: if a UI ever has to know what a mandate is, the
  * leak started here.
  */
+import { ASSETS } from "./assets.ts";
 import type { OnchainMandate, PortfolioState, OnchainPosition } from "@modalis/chain";
 import type { RiskAssessment, Violation } from "@modalis/portfolio";
 import type { MandateDraft, RiskProfile } from "@modalis/ai";
@@ -31,19 +32,10 @@ import {
 } from "./models.ts";
 
 /**
- * Display names for the demo investments.
- *
- * A person should read "Cash" and "Bitcoin", not "mUSD" and "mBTC". Unknown codes fall back to
- * the code itself rather than inventing a name for something we do not recognise.
+ * A person reads "Cash" and "Bitcoin", not "mUSD" and "mBTC". Names come from the asset registry;
+ * an unknown code falls back to the code itself rather than an invented name.
  */
-const DISPLAY_NAMES: Record<string, string> = {
-  mUSD: "Cash",
-  mBTC: "Bitcoin",
-  mETH: "Ethereum",
-  mBOND: "Bonds",
-};
-
-export const displayName = (code: string): string => DISPLAY_NAMES[code] ?? code;
+export const displayName = (code: string): string => ASSETS[code]?.name ?? code;
 
 // ------------------------------------------------------------------ risk level
 

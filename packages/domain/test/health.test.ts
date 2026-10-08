@@ -172,3 +172,16 @@ test("an unknown balance is never reported as an empty one", () => {
   const n = answerIntent("needs_attention", { ...facts, money: null });
   assert.doesNotMatch(JSON.stringify(n), /\$0/);
 });
+
+test("the calendar moving a plan into a steadier stage is flagged, with both numbers", () => {
+  const h = assessHealth({ ...base, goal: { ...base.goal!, monthsRemaining: 10 } });
+  const r = h.reasons.find((x) => x.code === "glide_step_due")!;
+  assert.ok(r, "a 10-month goal keeping 10% available is behind the 30% stage");
+  assert.deepEqual(r.evidence.map((e) => e.value), ["10%", "30%"]);
+  assert.equal(r.severity, "watch");
+});
+
+test("a plan already as steady as its stage is not flagged", () => {
+  const h = assessHealth({ ...base, rules: { ...RULES, moneyKeptAvailablePercent: 30 }, goal: { ...base.goal!, monthsRemaining: 10 } });
+  assert.ok(!h.reasons.some((x) => x.code === "glide_step_due"));
+});

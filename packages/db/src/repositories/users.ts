@@ -7,7 +7,7 @@
  */
 import type { ModalisClient } from "../client.ts";
 import { tolerate } from "../errors.ts";
-import type { GoalRow, GoalType, InterviewSessionRow, Json, UserRow } from "../types.generated.ts";
+import type { GoalInsert, GoalRow, GoalType, InterviewSessionRow, Json, LiquidityNeed, UserRow } from "../types.generated.ts";
 
 export const normaliseWallet = (address: string): string => address.toLowerCase();
 
@@ -59,9 +59,14 @@ export type GoalInput = {
   initialAmount: number;
   contributionAmount: number;
   contributionCadence: "weekly" | "monthly" | "quarterly";
+  /** 1 is funded first. Omitted: after every existing goal. */
+  priority?: number;
+  liquidityNeed?: LiquidityNeed;
 };
 
 export async function createGoal(db: ModalisClient, input: GoalInput): Promise<GoalRow | null> {
+  // A new goal goes to the back of the queue unless a priority was given.
+  const priority = input.priority ?? (await nextPriority(db, input.userId));
   return tolerate("createGoal", async () => {
     const { data, error } = await db
       .from("goals")
@@ -76,6 +81,8 @@ export async function createGoal(db: ModalisClient, input: GoalInput): Promise<G
         initial_amount: String(input.initialAmount),
         contribution_amount: String(input.contributionAmount),
         contribution_cadence: input.contributionCadence,
+        priority,
+        liquidity_need: input.liquidityNeed ?? "some",
       })
       .select()
       .single();
@@ -152,4 +159,97 @@ export async function latestInterview(
     if (error) throw error;
     return data;
   });
+}
+
+// ------------------------------------------------------------------ several goals (0002)
+//
+// Every query below filters on user_id explicitly. The server talks to the database with the
+// service role, which bypasses RLS — so the filter here IS the ownership check, not a
+// redundancy. A goal id alone never selects a row.
+
+async function nextPriority(db: ModalisClient, userId: string): Promise<number> {
+  const { data } = await db
+    .from("goals")
+    .select("priority")
+    .eq("user_id", userId)
+    .order("priority", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data?.priority ?? 0) + 1;
+}
+
+/** The person's live goals, in the order they are funded. */
+export async function listGoals(db: ModalisClient, userId: string): Promise<GoalRow[]> {
+  const rows = await tolerate("listGoals", async () => {
+    const { data, error } = await db
+      .from("goals")
+      .select()
+      .eq("user_id", userId)
+      .in("status", ["draft", "active"])
+      .order("priority", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  });
+  return rows ?? [];
+}
+
+export type GoalPatch = Partial<{
+  name: string;
+  targetValue: number;
+  targetDate: string;
+  contributionAmount: number;
+  contributionCadence: "weekly" | "monthly" | "quarterly";
+  liquidityNeed: LiquidityNeed;
+  status: "active" | "achieved" | "archived";
+}>;
+
+export async function updateGoal(
+  db: ModalisClient,
+  userId: string,
+  goalId: string,
+  patch: GoalPatch,
+): Promise<GoalRow | null> {
+  return tolerate("updateGoal", async () => {
+    const row: Partial<GoalInsert> = {};
+    if (patch.name !== undefined) row.name = patch.name;
+    if (patch.targetValue !== undefined) row.target_value = String(patch.targetValue);
+    if (patch.targetDate !== undefined) row.target_date = patch.targetDate;
+    if (patch.contributionAmount !== undefined) row.contribution_amount = String(patch.contributionAmount);
+    if (patch.contributionCadence !== undefined) row.contribution_cadence = patch.contributionCadence;
+    if (patch.liquidityNeed !== undefined) row.liquidity_need = patch.liquidityNeed;
+    if (patch.status !== undefined) row.status = patch.status;
+    const { data, error } = await db
+      .from("goals")
+      .update(row)
+      .eq("id", goalId)
+      .eq("user_id", userId)
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  });
+}
+
+/**
+ * Sets priorities from an ordered list of goal ids: the first is funded first. Ids that do not
+ * belong to this person are ignored rather than trusted.
+ */
+export async function reprioritiseGoals(
+  db: ModalisClient,
+  userId: string,
+  orderedIds: string[],
+): Promise<boolean> {
+  const done = await tolerate("reprioritiseGoals", async () => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await db
+        .from("goals")
+        .update({ priority: i + 1 })
+        .eq("id", orderedIds[i])
+        .eq("user_id", userId);
+      if (error) throw error;
+    }
+    return true;
+  });
+  return done ?? false;
 }

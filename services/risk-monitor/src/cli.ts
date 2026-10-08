@@ -10,7 +10,10 @@
  * one that actually submits proposals, because CRE deliberately only writes a signal.
  */
 import { createManagerWalletClient, createMonadPublicClient, isFullyDeployed } from "@modalis/chain";
+import { automationWallets, serverClient } from "@modalis/db";
+import { getAddress, type Address } from "viem";
 import { loadConfig } from "./config.ts";
+import { consentFor, recordFinding } from "./consent.ts";
 import { describeOutcome, evaluate, execute } from "./monitor.ts";
 
 async function runOnce(): Promise<number> {
@@ -23,8 +26,17 @@ async function runOnce(): Promise<number> {
     );
     return 1;
   }
-  if (cfg.owners.length === 0) {
-    console.error("No portfolios to watch. Set MODALIS_WATCH_OWNERS to a comma-separated list of addresses.");
+  // With saved data, everyone who chose automatic changes is watched as well as any explicit list.
+  const db = serverClient();
+  const owners: Address[] = [...cfg.owners];
+  if (db) {
+    for (const w of await automationWallets(db)) {
+      const a = getAddress(w.wallet);
+      if (!owners.includes(a)) owners.push(a);
+    }
+  }
+  if (owners.length === 0) {
+    console.error("No portfolios to watch. Set MODALIS_WATCH_OWNERS, or let people choose automatic changes.");
     return 1;
   }
 
@@ -39,7 +51,7 @@ async function runOnce(): Promise<number> {
   }
 
   let exitCode = 0;
-  for (const owner of cfg.owners) {
+  for (const owner of owners) {
     try {
       const outcome = await evaluate({ client, deployment: cfg.deployment, ai: cfg.ai }, owner);
       console.log(describeOutcome(outcome));
@@ -54,17 +66,25 @@ async function runOnce(): Promise<number> {
         // Not an error: this is the mandate refusing an action, which is the system working.
         console.log(`  contract refused the proposal: ${action.simulation.errorName}`);
         console.log(`  ${action.simulation.explanation}`);
+        await recordFinding(db, owner, "adjustment_blocked", action.simulation.explanation);
         continue;
       }
 
-      if (!cfg.autoExecute || !wallet) {
-        console.log("  not submitting (RISK_MONITOR_AUTO_EXECUTE is off)");
+      // The person's own choice decides, not just the operator switch.
+      const decision = await consentFor(db, owner, {
+        operatorEnabled: cfg.autoExecute && Boolean(wallet),
+        simulationOk: true,
+      });
+      if (!decision.run || !wallet) {
+        console.log(`  not submitting: ${decision.run ? "no manager key" : decision.why}`);
+        await recordFinding(db, owner, "adjustment_proposed", action.explanation);
         continue;
       }
 
       const result = await execute(wallet, client, cfg.deployment, action);
       if (result.submitted && result.hash && !result.rejectedWith) {
         console.log(`  settled in block ${result.blockNumber}: ${result.hash}`);
+        await recordFinding(db, owner, "adjustment_executed", action.explanation, result.hash);
       } else {
         console.log(`  not settled: ${result.skipped ?? result.rejectedWith}`);
         exitCode = 1;

@@ -13,3 +13,5 @@ export * from "./allocation.ts";
 export * from "./mandate.ts";
 export * from "./explain.ts";
 export * from "./llm.ts";
+export * from "./glide.ts";
+export * from "./strategies.ts";

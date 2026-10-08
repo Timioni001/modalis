@@ -28,6 +28,7 @@ import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
 import { PauseControl } from "@/components/pause-control";
+import { PlanHistory } from "@/components/plan-history";
 import { monthYear, percent, usdFromDecimal } from "@/lib/format";
 
 export default function PlanPage() {
@@ -251,6 +252,8 @@ function PlanView() {
           ))}
         </Rows>
       </Card>
+
+      <PlanHistory />
 
       {/* --------------------------------------------------------- changing it */}
       <Card>

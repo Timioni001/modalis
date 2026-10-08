@@ -28,10 +28,11 @@
     "envio:codegen": "pnpm --filter @modalis/envio codegen",
     "envio:dev": "pnpm --filter @modalis/envio dev",
     "cre:simulate": "pnpm --filter @modalis/cre-risk-monitor simulate",
-    "db:migrate": "psql \"$SUPABASE_DB_URL\" -f supabase/migrations/0001_init.sql",
+    "db:migrate": "for f in supabase/migrations/*.sql; do psql \"$SUPABASE_DB_URL\" -v ON_ERROR_STOP=1 -f \"$f\" || exit 1; done",
     "db:local": "bash supabase/scripts/db-local.sh up",
     "db:check": "bash supabase/scripts/db-local.sh check",
     "db:down": "bash supabase/scripts/db-local.sh down",
+    "db:integration": "bash scripts/db-integration.sh",
     "db:types": "pnpm --filter @modalis/db gen-types"
   }
 }

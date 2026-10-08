@@ -14,6 +14,8 @@
  *   5. the liquid sleeve's target sum is >= the mandate's minLiquidityBps
  */
 import type { AllocationPlan, AssetClass, PlannedAllocation, RiskProfile, UniverseAsset } from "./types.ts";
+import { growthCeilingFor } from "./glide.ts";
+import { strategyFor } from "./strategies.ts";
 
 const BPS = 10_000;
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
@@ -23,25 +25,18 @@ const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n
  * risk adjustment. This is what makes the product goal-native rather than risk-questionnaire-native.
  */
 export function growthCeilingBps(horizonMonths: number): number {
-  if (horizonMonths >= 60) return 7000;
-  if (horizonMonths >= 36) return 6000;
-  if (horizonMonths >= 24) return 4500;
-  if (horizonMonths >= 12) return 3000;
-  return 1500;
+  return growthCeilingFor(horizonMonths);
 }
 
 /** Concentration ceiling for any single non-liquid asset. Tighter for lower risk scores. */
 export function maxSingleAssetBpsFor(riskScore: number): number {
-  if (riskScore < 20) return 1500;
-  if (riskScore < 35) return 2000;
-  if (riskScore < 65) return 3000;
-  return 4000;
+  return strategyFor(riskScore).maxSingleAssetBps;
 }
 
 /** Rebalance threshold: how far an asset may drift from target before action is proposed. */
 export function rebalanceThresholdBpsFor(riskScore: number): number {
-  // A more volatile portfolio needs a wider band, or it would churn.
-  return riskScore >= 65 ? 500 : riskScore >= 35 ? 400 : 300;
+  // A more volatile portfolio needs a wider band, or it would churn. Read from the registry.
+  return strategyFor(riskScore).rebalanceThresholdBps;
 }
 
 type Slice = { asset: UniverseAsset; weight: number; capBps: number };

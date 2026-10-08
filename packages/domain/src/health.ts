@@ -13,6 +13,7 @@
  */
 import { moneyInSentence, type Money, type PlanRules } from "./models.ts";
 import type { GoalHealth } from "./projection.ts";
+import { glideStage } from "@modalis/ai";
 
 export type HealthState = "healthy" | "watch" | "action_required" | "restricted";
 
@@ -26,7 +27,8 @@ export type HealthReasonCode =
   | "drift_building"
   | "goal_off_track"
   | "goal_behind"
-  | "target_date_close";
+  | "target_date_close"
+  | "glide_step_due";
 
 /** A fact a reason rests on, in words and figures. */
 export type Evidence = { label: string; value: string };
@@ -177,6 +179,22 @@ export function assessHealth(input: HealthInput): Health {
         severity: "watch",
         message: `You're slightly behind. About ${moneyInSentence(g.requiredMonthly)} a month keeps your goal on time.`,
         evidence: [{ label: "Needed each month", value: moneyInSentence(g.requiredMonthly) }],
+      });
+    }
+
+    // The calendar has moved the plan into a steadier stage than the one it was built for. Told,
+    // never applied: only the person can change their limits.
+    const stage = glideStage(g.monthsRemaining);
+    if (stage && rules.moneyKeptAvailablePercent * 100 < stage.minAvailableBps) {
+      const need = stage.minAvailableBps / 100;
+      reasons.push({
+        code: "glide_step_due",
+        severity: "watch",
+        message: `Your goal is ${g.monthsRemaining} month${g.monthsRemaining === 1 ? "" : "s"} away. Plans this close keep at least ${pct(need)} easy to withdraw; yours keeps ${pct(rules.moneyKeptAvailablePercent)}. Updating your plan would protect what you've built.`,
+        evidence: [
+          { label: "Kept available now", value: pct(rules.moneyKeptAvailablePercent) },
+          { label: `${stage.name} stage needs`, value: pct(need) },
+        ],
       });
     }
 

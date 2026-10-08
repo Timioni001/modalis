@@ -23,6 +23,8 @@ export type MandateAllocationInput = {
 
 export type MandateInput = {
   userId: string;
+  /** Why this version exists, in the person's terms ("You raised your target"). §14. */
+  reason?: string;
   goalId?: string;
   contractAddress: string;
   vaultAddress?: string;
@@ -74,6 +76,7 @@ export async function recordMandate(
           manager_address: lower(input.managerAddress) ?? null,
           active: true,
           set_tx_hash: input.setTxHash ?? null,
+          change_reason: input.reason ? input.reason.slice(0, 500) : null,
         },
         { onConflict: "user_id,contract_address,version" },
       )

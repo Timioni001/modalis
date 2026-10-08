@@ -65,6 +65,8 @@ export type GoalKind =
   | "long_term_wealth"
   | "emergency_reserve"
   | "retirement"
+  | "major_purchase"
+  | "travel"
   | "custom";
 
 /** What the person is saving for. The starting point of everything. */

@@ -5,7 +5,8 @@
  * succeeded and have been sent by the person signing this request. A caller cannot invent a
  * deposit by posting a hash.
  */
-import { getMoney } from "@modalis/domain";
+import { checkMilestones, emit, getMoney } from "@modalis/domain";
+import { count } from "@/lib/observe";
 import { recordTransaction, serverClient, upsertUser, activeMandate } from "@modalis/db";
 import { getAddress, type Hex } from "viem";
 import {
@@ -28,7 +29,7 @@ export async function POST(request: Request): Promise<Response> {
     const owner = await requireOwner(request);
     const body = await readBody(request);
     const hash = body.receipt === undefined ? undefined : receiptReference(body.receipt);
-    const kind = body.kind === undefined ? undefined : oneOf(body.kind, "step", ["allow", "add"] as const);
+    const kind = body.kind === undefined ? undefined : oneOf(body.kind, "step", ["allow", "add", "withdraw", "pause", "resume"] as const);
 
     // The receipt itself is the natural one-time key: confirming the same transaction twice
     // should record it once and replay the same answer.
@@ -40,6 +41,7 @@ export async function POST(request: Request): Promise<Response> {
       const receipt = await ctx.client.getTransactionReceipt({ hash: hash as Hex }).catch(() => null);
       if (!receipt) return errorResponse("We couldn't find that transaction yet. Try again shortly.", 404);
       if (receipt.status !== "success") {
+        count("tx.failed", 1, kind);
         return jsonResponse({
           recorded: false,
           reason: "That transaction didn't go through, so nothing was added.",
@@ -60,11 +62,18 @@ export async function POST(request: Request): Promise<Response> {
             userId: user.id,
             mandateId: plan?.id,
             txHash: hash,
-            type: kind === "allow" ? "approve" : "deposit",
+            type: kind === "allow" ? "approve" : kind === "withdraw" ? "withdraw" : kind === "add" ? "deposit" : "other",
             status: "confirmed",
             chainId: ctx.deployment.chainId,
             blockNumber: String(receipt.blockNumber),
           });
+          // Permission grants are plumbing; only money actually moving is an event worth keeping.
+          if (kind && kind !== "allow") {
+            const type =
+              kind === "withdraw" ? "money_withdrawn" : kind === "pause" ? "plan_paused" : kind === "resume" ? "plan_resumed" : "money_added";
+            await emit(db, { userId: user.id, type, txHash: hash, payload: {} });
+            if (kind === "add" || kind === "withdraw") await checkMilestones(ctx, owner).catch(() => undefined);
+          }
         }
       }
     }

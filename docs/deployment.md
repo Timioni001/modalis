@@ -112,6 +112,7 @@ and `/api/status` reports it as unconfigured rather than failing at the point of
 | `AI_API_KEY` | Free-text goals fall back to the form; the deterministic pipeline is unaffected |
 | `ENVIO_GRAPHQL_URL` | Activity is read from chain logs instead of the indexer |
 | `MODALIS_RPC_URL` | Server-side RPC override, for pointing a deployment at a local node |
+| `OPS_METRICS_TOKEN` | `/api/ops/metrics` returns 404. Set it (24+ characters) to read counters with `Authorization: Bearer …` |
 
 ### Never set in production
 
@@ -121,6 +122,16 @@ and `/api/status` reports it as unconfigured rather than failing at the point of
 | `DEMO_MODE` | Exposes the scenario and security-test endpoints. Both refuse to run on mainnet regardless |
 | `ORACLE_UPDATER_PRIVATE_KEY` | Only used by the demo oracle, which never runs on mainnet |
 | `DEPLOYER_PRIVATE_KEY` | Deployment only. It should never reach a web host |
+
+## Database migrations
+
+Apply every file in `supabase/migrations/` in order with `pnpm db:migrate` (`SUPABASE_DB_URL` set).
+`0002` adds goal priority, plan-change reasons, events, notifications and automation settings. The
+three new tables are read-only to signed-in users; only the server writes them.
+
+The risk monitor now runs an adjustment on its own only for people who chose "Do it for me" in
+Settings, and only once that choice has passed its 24-hour wait. Its operator switch alone is no
+longer enough.
 
 ## Before pointing this at real money
 

@@ -82,7 +82,10 @@ apply_schema() {
   # are noise. A real problem still raises a warning or an error, which ON_ERROR_STOP catches.
   local quiet='SET client_min_messages = warning;'
   psql "$URL" -v ON_ERROR_STOP=1 -q -c "$quiet" -f supabase/local/00_supabase_shim.sql
-  psql "$URL" -v ON_ERROR_STOP=1 -q -c "$quiet" -f supabase/migrations/0001_init.sql
+  # Every migration, in order. Naming one file here let a later migration go unapplied silently.
+  for migration in supabase/migrations/*.sql; do
+    psql "$URL" -v ON_ERROR_STOP=1 -q -c "$quiet" -f "$migration" || return 1
+  done
 }
 
 case "${1:-up}" in

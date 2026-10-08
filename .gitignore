@@ -28,3 +28,4 @@ apps/web/next-env.d.ts
 
 # Screenshots taken during verification. Not part of the build.
 apps/web/.screenshots/
+.cache/

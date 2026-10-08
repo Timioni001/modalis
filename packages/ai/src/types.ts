@@ -19,6 +19,8 @@ export type GoalType =
   | "long_term_wealth"
   | "emergency_reserve"
   | "retirement"
+  | "major_purchase"
+  | "travel"
   | "custom";
 
 export type ContributionCadence = "weekly" | "monthly" | "quarterly";

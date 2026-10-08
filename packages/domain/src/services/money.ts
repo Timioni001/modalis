@@ -36,7 +36,7 @@ export async function getMoney(ctx: DomainContext, owner: Address): Promise<Mone
 }
 
 /** USD (1e18) -> a decimal string, for building amounts without a float. */
-function usdStringToE18(amount: string): bigint {
+export function usdStringToE18(amount: string): bigint {
   const trimmed = amount.trim();
   if (!/^\d+(\.\d+)?$/.test(trimmed)) {
     throw new DomainError("bad_amount", "Enter an amount like 500 or 500.00.");

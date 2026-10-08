@@ -130,3 +130,23 @@ export function idempotencyKey(value: unknown): string {
 }
 
 const capitalise = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** A calendar date as YYYY-MM-DD, and a real one — "2030-02-31" is refused, not rolled over. */
+export function isoDate(value: unknown, field: string): string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new InvalidRequest(`We need ${field} as a date like 2030-06-01.`);
+  }
+  const d = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) {
+    throw new InvalidRequest(`${capitalise(field)} isn't a real date.`);
+  }
+  return value;
+}
+
+/** A row id as the database issues them. Anything else cannot name a row, so it is refused early. */
+export function uuid(value: unknown, field = "that item"): string {
+  if (typeof value !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    throw new InvalidRequest(`We couldn't identify ${field}.`);
+  }
+  return value.toLowerCase();
+}

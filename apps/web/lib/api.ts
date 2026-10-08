@@ -20,6 +20,7 @@ import { getServerContext } from "./server";
 import { errorResponse, jsonResponse } from "./serialize";
 import { TooManyRequests, callerHint, limit, once } from "./guard";
 import { idempotencyKey, readBody } from "./validate";
+import { count, log, timing } from "./observe";
 
 export { jsonResponse, readBody };
 
@@ -116,20 +117,29 @@ export function handleError(err: unknown): Response {
   if (err instanceof AuthError || err instanceof DomainError) {
     const headers: Record<string, string> =
       err instanceof TooManyRequests ? { "retry-after": String(err.retryAfterSeconds) } : {};
+    if (err.status === 401) count("security.unauthenticated");
+    else if (err.status === 403) count("security.forbidden");
+    else if (err.status === 429) count("security.rate_limited");
+    else if (/stale/i.test(err.code ?? "")) count("oracle.stale");
+    count("api.errors.client", 1, err.code);
     return Response.json({ error: err.message, code: err.code }, { status: err.status, headers });
   }
-  const message = err instanceof Error ? err.message : String(err);
-  // Never leak a stack or an internal identifier to a consumer surface. The server log keeps the
-  // detail; the person gets a sentence and the assurance that nothing changed.
-  console.error("[modalis/api]", message);
+  // Never leak a stack or an internal identifier to a consumer surface. The log keeps the detail
+  // — scrubbed, because upstream errors carry RPC URLs and those URLs carry API keys.
+  count("api.errors.server");
+  log("error", "api.unhandled", { error: err });
   return errorResponse("Something went wrong on our side. Nothing was changed.", 500);
 }
 
-/** Wraps a route so every failure path is consistent. */
+/** Wraps a route so every failure path is consistent, counted and timed. */
 export async function route(handler: () => Promise<Response>): Promise<Response> {
+  const started = performance.now();
+  count("api.requests");
   try {
     return await handler();
   } catch (err) {
     return handleError(err);
+  } finally {
+    timing(Math.round(performance.now() - started));
   }
 }

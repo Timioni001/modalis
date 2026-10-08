@@ -9,6 +9,7 @@
  * The score we use is the LOWER of the two. That is the conservative choice and it is the one a
  * human adviser would defend.
  */
+import { glideFloorBps } from "./glide.ts";
 import type { InterviewAnswers, RiskProfile } from "./types.ts";
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
@@ -80,9 +81,10 @@ export function profileRisk(a: InterviewAnswers): RiskProfile {
   // ---------------------------------------------------------------- liquidity
   let liquidityRequirementBps = LIQUIDITY_NEED_BPS[a.liquidityNeed];
   if (a.goalType === "emergency_reserve") liquidityRequirementBps = Math.max(liquidityRequirementBps, 5000);
-  // Inside two years the money starts needing to be reachable.
-  if (a.horizonMonths <= 24) liquidityRequirementBps = Math.max(liquidityRequirementBps, 1500);
-  if (a.horizonMonths <= 12) liquidityRequirementBps = Math.max(liquidityRequirementBps, 3000);
+  // Inside two years the money starts needing to be reachable. The thresholds are the glide
+  // path's, shared with the health engine so a plan is never judged by a different rule than
+  // the one it was built with.
+  liquidityRequirementBps = Math.max(liquidityRequirementBps, glideFloorBps(a.horizonMonths));
   liquidityRequirementBps = clamp(liquidityRequirementBps, 500, 9000);
   rationale.push(`Liquidity reserve ${(liquidityRequirementBps / 100).toFixed(0)}% stays in cash-like assets.`);
 

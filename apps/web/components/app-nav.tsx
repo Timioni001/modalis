@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import { ModalisLogo } from "./brand";
 import { WalletButton } from "./wallet-button";
+import { NotificationBell } from "./notification-bell";
 
 type Tab = { href: string; label: string; icon: (p: IconProps) => React.ReactElement };
 
@@ -29,6 +30,7 @@ const TABS: Tab[] = [
 ];
 
 const MORE: Tab[] = [
+  { href: "/app/goals", label: "Goals", icon: GoalsIcon },
   { href: "/app/scenarios", label: "What if", icon: WhatIfIcon },
   { href: "/app/ask", label: "Ask Modalis", icon: AskIcon },
 ];
@@ -42,9 +44,12 @@ export function AppNav() {
     <>
       {/* ---------------------------------------------------------- desktop sidebar */}
       <aside className="fixed bottom-4 left-4 top-4 z-40 hidden w-[240px] flex-col rounded-[28px] bg-surface p-4 shadow-[var(--shadow-card)] lg:flex">
-        <Link href="/app" className="flex min-h-[44px] items-center px-2 text-ink" aria-label="Modalis">
-          <ModalisLogo size={24} />
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/app" className="flex min-h-[44px] items-center px-2 text-ink" aria-label="Modalis">
+            <ModalisLogo size={24} />
+          </Link>
+          <NotificationBell align="left" />
+        </div>
 
         <Link
           href="/app/add-money"
@@ -85,6 +90,14 @@ export function AppNav() {
             <ModalisLogo size={24} />
           </Link>
           <div className="ml-auto flex items-center gap-1">
+            <NotificationBell />
+            <Link
+              href="/app/goals"
+              aria-label="Goals"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft hover:bg-sunken"
+            >
+              <GoalsIcon />
+            </Link>
             <Link
               href="/app/scenarios"
               aria-label="What if"
@@ -221,6 +234,16 @@ function ActivityIcon({ active }: IconProps) {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
       <path d="M3 10h3l2.2-5 3.4 10L14 10h3" {...stroke(active)} />
+    </svg>
+  );
+}
+
+function GoalsIcon({ active }: IconProps) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <circle cx="10" cy="10" r="7" {...stroke(active)} />
+      <circle cx="10" cy="10" r="3.6" {...stroke(active)} />
+      <circle cx="10" cy="10" r="0.6" {...stroke(active)} />
     </svg>
   );
 }

@@ -52,6 +52,8 @@ const GOAL_NAMES: Record<Goal["kind"], string> = {
   long_term_wealth: "Long-term wealth",
   emergency_reserve: "An emergency reserve",
   retirement: "Retirement",
+  major_purchase: "A major purchase",
+  travel: "Travel",
   custom: "Your goal",
 };
 

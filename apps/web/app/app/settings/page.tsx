@@ -12,6 +12,7 @@ import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain"
 import type { Address, Hex } from "viem";
 import { Badge, Button, Card, KeyValue, Notice, PageHeader, SectionTitle } from "@/components/ui";
 import { ReceiptLink } from "@/components/receipt-link";
+import { AutomationControl } from "@/components/automation-control";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
 import { moneyLabel, percent, shortAddress, usdFromDecimal } from "@/lib/format";
@@ -143,6 +144,8 @@ function Settings() {
           paused, by design &mdash; a pause must never trap your money.
         </p>
       </Card>
+
+      <AutomationControl />
 
       {/* ---------------------------------------------------------- your plan */}
       {plan ? (

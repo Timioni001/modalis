@@ -10,8 +10,22 @@ export type Json = string | number | boolean | null | Json[] | { [key: string]: 
 export type GoalStatus = "draft" | "active" | "achieved" | "archived";
 export const GOAL_STATUS_VALUES = ["draft", "active", "achieved", "archived"] as const;
 
-export type GoalType = "house" | "education" | "long_term_wealth" | "emergency_reserve" | "retirement" | "custom";
-export const GOAL_TYPE_VALUES = ["house", "education", "long_term_wealth", "emergency_reserve", "retirement", "custom"] as const;
+export type GoalType = "house" | "education" | "long_term_wealth" | "emergency_reserve" | "retirement" | "major_purchase" | "travel" | "custom";
+export const GOAL_TYPE_VALUES = ["house", "education", "long_term_wealth", "emergency_reserve", "retirement", "major_purchase", "travel", "custom"] as const;
+
+export type LiquidityNeed = "none" | "some" | "significant";
+export type AutomationLevel = "guided" | "assisted" | "automated";
+export type NotificationKind = "info" | "attention" | "done" | "safety";
+
+export const DOMAIN_EVENT_TYPES = [
+  "goal_created", "goal_updated", "goal_reprioritised",
+  "plan_approved", "plan_paused", "plan_resumed",
+  "money_added", "money_withdrawn",
+  "adjustment_proposed", "adjustment_executed", "adjustment_blocked",
+  "glide_step_due", "goal_milestone",
+  "automation_requested", "automation_effective", "safety_restriction",
+] as const;
+export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];
 
 export type ProposalStatus = "proposed" | "validated" | "submitted" | "executed" | "rejected" | "expired" | "failed";
 export const PROPOSAL_STATUS_VALUES = ["proposed", "validated", "submitted", "executed", "rejected", "expired", "failed"] as const;
@@ -61,6 +75,8 @@ export type GoalRow = {
   initial_amount: string;
   contribution_amount: string;
   contribution_cadence: string;
+  priority: number;
+  liquidity_need: LiquidityNeed;
   created_at: string;
   updated_at: string;
 };
@@ -76,7 +92,67 @@ export type GoalInsert = {
   initial_amount?: string;
   contribution_amount?: string;
   contribution_cadence?: string;
+  priority?: number;
+  liquidity_need?: LiquidityNeed;
   created_at?: string;
+  updated_at?: string;
+};
+
+/** public.domain_events — append-only record of what happened (0002). */
+export type DomainEventRow = {
+  id: string;
+  user_id: string;
+  goal_id: string | null;
+  type: DomainEventType;
+  payload: Json;
+  tx_hash: string | null;
+  occurred_at: string;
+};
+export type DomainEventInsert = {
+  id?: string;
+  user_id: string;
+  goal_id?: string | null;
+  type: DomainEventType;
+  payload?: Json;
+  tx_hash?: string | null;
+  occurred_at?: string;
+};
+
+/** public.notifications (0002). */
+export type NotificationRow = {
+  id: string;
+  user_id: string;
+  event_id: string | null;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+};
+export type NotificationInsert = {
+  id?: string;
+  user_id: string;
+  event_id?: string | null;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  read_at?: string | null;
+  created_at?: string;
+};
+
+/** public.automation_settings — how much Modalis may do alone (0002). */
+export type AutomationSettingsRow = {
+  user_id: string;
+  level: AutomationLevel;
+  requested_level: AutomationLevel | null;
+  effective_at: string | null;
+  updated_at: string;
+};
+export type AutomationSettingsInsert = {
+  user_id: string;
+  level?: AutomationLevel;
+  requested_level?: AutomationLevel | null;
+  effective_at?: string | null;
   updated_at?: string;
 };
 
@@ -165,6 +241,7 @@ export type MandateRow = {
   manager_address: string | null;
   active: boolean;
   set_tx_hash: string | null;
+  change_reason: string | null;
   created_at: string;
 };
 
@@ -185,6 +262,7 @@ export type MandateInsert = {
   manager_address?: string | null;
   active?: boolean;
   set_tx_hash?: string | null;
+  change_reason?: string | null;
   created_at?: string;
 };
 
@@ -386,7 +464,10 @@ export type Database = {
   public: {
     Tables: {
       explanations: { Row: ExplanationRow; Insert: ExplanationInsert; Update: Partial<ExplanationInsert>; Relationships: [] };
+      automation_settings: { Row: AutomationSettingsRow; Insert: AutomationSettingsInsert; Update: Partial<AutomationSettingsInsert>; Relationships: [] };
+      domain_events: { Row: DomainEventRow; Insert: DomainEventInsert; Update: Partial<DomainEventInsert>; Relationships: [] };
       goals: { Row: GoalRow; Insert: GoalInsert; Update: Partial<GoalInsert>; Relationships: [] };
+      notifications: { Row: NotificationRow; Insert: NotificationInsert; Update: Partial<NotificationInsert>; Relationships: [] };
       interview_sessions: { Row: InterviewSessionRow; Insert: InterviewSessionInsert; Update: Partial<InterviewSessionInsert>; Relationships: [] };
       mandate_allocations: { Row: MandateAllocationRow; Insert: MandateAllocationInsert; Update: Partial<MandateAllocationInsert>; Relationships: [] };
       mandate_changes: { Row: MandateChangeRow; Insert: MandateChangeInsert; Update: Partial<MandateChangeInsert>; Relationships: [] };

@@ -40,6 +40,18 @@ insert into public.mandates (
 select id, '0x00000000000000000000000000000000000000c2', 1, 500000, now() + interval '25 years',
        2000, 500, 4000, 500
 from public.users where wallet_address = :'BOB';
+
+-- 0002: events, notifications and automation, one each per user.
+insert into public.domain_events (user_id, type, payload)
+select id, 'plan_approved', '{"who":"alice"}' from public.users where wallet_address = :'ALICE';
+insert into public.domain_events (user_id, type, payload)
+select id, 'plan_approved', '{"who":"bob"}' from public.users where wallet_address = :'BOB';
+insert into public.notifications (user_id, kind, title, body)
+select id, 'info', 'alice note', 'x' from public.users where wallet_address = :'ALICE';
+insert into public.notifications (user_id, kind, title, body)
+select id, 'info', 'bob note', 'x' from public.users where wallet_address = :'BOB';
+insert into public.automation_settings (user_id, level)
+select id, 'assisted' from public.users where wallet_address in (:'ALICE', :'BOB');
 commit;
 
 -- ------------------------------------------------ act as Alice (authenticated + RLS)
@@ -150,6 +162,59 @@ begin
   end;
 end $$;
 
+-- 9. 0002 tables: Alice reads only her own events, notifications and automation setting.
+do $$
+declare n int;
+begin
+  select count(*) into n from public.domain_events;
+  if n <> 1 then raise exception 'RLS FAIL: Alice can see % events, expected 1', n; end if;
+  select count(*) into n from public.domain_events where payload->>'who' = 'bob';
+  if n <> 0 then raise exception 'RLS FAIL: Alice can read Bob''s events'; end if;
+  select count(*) into n from public.notifications;
+  if n <> 1 then raise exception 'RLS FAIL: Alice can see % notifications, expected 1', n; end if;
+  select count(*) into n from public.automation_settings;
+  if n <> 1 then raise exception 'RLS FAIL: Alice can see % automation rows, expected 1', n; end if;
+end $$;
+
+-- 10. Alice CANNOT record an event, forge a notification, or grant Modalis more authority.
+do $$
+declare uid uuid; n int;
+begin
+  uid := public.current_user_id();
+  begin
+    insert into public.domain_events (user_id, type) values (uid, 'money_added');
+    raise exception 'RLS FAIL: Alice recorded an event directly';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.notifications (user_id, kind, title, body) values (uid, 'done', 'forged', 'x');
+    raise exception 'RLS FAIL: Alice forged a notification';
+  exception when insufficient_privilege then null;
+  end;
+  -- The dangerous one: turning on automated execution without the server and its timelock.
+  update public.automation_settings set level = 'automated' where user_id = uid;
+  get diagnostics n = row_count;
+  if n > 0 then raise exception 'RLS FAIL: Alice switched on automation directly, skipping the timelock'; end if;
+  begin
+    insert into public.automation_settings (user_id, level) values (uid, 'automated');
+    raise exception 'RLS FAIL: Alice inserted an automation grant';
+  exception when insufficient_privilege then null;
+           when unique_violation then null;  -- her row exists; either way nothing was granted
+  end;
+end $$;
+
+-- 11. Alice CAN set her own goals' priority (goals stay user-authored).
+do $$
+declare n int;
+begin
+  update public.goals set priority = 2 where name = 'house';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'RLS FAIL: Alice cannot reprioritise her own goal'; end if;
+  update public.goals set priority = 9 where name = 'retirement';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'RLS FAIL: Alice reprioritised Bob''s goal'; end if;
+end $$;
+
 rollback;  -- leave the database as we found it
 
 -- ------------------------------------------------ act as an anonymous visitor
@@ -169,6 +234,12 @@ begin
   if n <> 0 then raise exception 'RLS FAIL: anonymous visitor can see % goals', n; end if;
   select count(*) into n from public.mandates;
   if n <> 0 then raise exception 'RLS FAIL: anonymous visitor can see % mandates', n; end if;
+  select count(*) into n from public.domain_events;
+  if n <> 0 then raise exception 'RLS FAIL: anonymous visitor can see % events', n; end if;
+  select count(*) into n from public.notifications;
+  if n <> 0 then raise exception 'RLS FAIL: anonymous visitor can see % notifications', n; end if;
+  select count(*) into n from public.automation_settings;
+  if n <> 0 then raise exception 'RLS FAIL: anonymous visitor can see % automation rows', n; end if;
 end $$;
 rollback;
 

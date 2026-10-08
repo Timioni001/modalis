@@ -3,22 +3,13 @@
  *
  * Asset CLASS (growth / defensive / liquid) is the one piece of metadata the registry does not
  * store, because it is an allocation-planning concept rather than a protocol rule. It is derived
- * from the registry's own `isLiquid` flag plus a small, explicit mapping, and any unknown asset
+ * from the on-chain registry's `isLiquid` flag plus the domain asset registry, and any unknown asset
  * defaults to `defensive` — the conservative choice.
  */
 import { AssetRegistryAbi, requireContract, type Deployment } from "@modalis/chain";
-import type { AssetClass, UniverseAsset } from "@modalis/ai";
+import type { UniverseAsset } from "@modalis/ai";
+import { ASSETS } from "@modalis/domain";
 import type { Address, PublicClient } from "viem";
-
-const CLASS_BY_SYMBOL: Record<string, AssetClass> = {
-  mBTC: "growth",
-  mETH: "growth",
-  mBOND: "defensive",
-  mUSD: "liquid",
-};
-
-/** Relative weight inside a class. Higher gets more of the sleeve. */
-const WEIGHT_BY_SYMBOL: Record<string, number> = { mBTC: 6, mETH: 4 };
 
 export async function readUniverse(
   client: PublicClient,
@@ -58,9 +49,10 @@ export async function readUniverse(
       token: a.token,
       symbol: a.symbol,
       decimals: Number(a.decimals),
-      assetClass: CLASS_BY_SYMBOL[a.symbol] ?? (a.isLiquid ? "liquid" : "defensive"),
+      // From the asset registry; an unregistered asset falls back to the conservative choice.
+      assetClass: ASSETS[a.symbol]?.assetClass ?? (a.isLiquid ? "liquid" : "defensive"),
       isLiquid: a.isLiquid,
       assetMaxBps: Number(a.maxBps),
-      classWeight: WEIGHT_BY_SYMBOL[a.symbol],
+      classWeight: ASSETS[a.symbol]?.plannerWeight,
     }));
 }

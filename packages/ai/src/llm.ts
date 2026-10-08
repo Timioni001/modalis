@@ -31,6 +31,8 @@ const GOAL_TYPES = [
   "long_term_wealth",
   "emergency_reserve",
   "retirement",
+  "major_purchase",
+  "travel",
   "custom",
 ] as const;
 
