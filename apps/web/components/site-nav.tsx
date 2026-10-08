@@ -21,6 +21,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ModalisLogo } from "./brand";
 import { WalletButton } from "./wallet-button";
+import { ThemeToggle } from "./theme-toggle";
 
 type MenuItem = { href: string; label: string; blurb: string };
 
@@ -156,6 +157,7 @@ export function SiteNav() {
                 Contact
               </NavLink>
             </span>
+            <ThemeToggle />
             <div className="hidden sm:block">
               <WalletButton />
             </div>
@@ -198,8 +200,8 @@ export function SiteNav() {
                 <MenuColumn title="Trust" items={TRUST} />
               </div>
               <div className="mt-2 rounded-[20px] bg-sunken px-5 py-4 text-[13.5px] text-ink-soft">
-                A technical demonstration on Monad testnet. Not an investment adviser, broker or
-                fund.
+                A technical demonstration built on Monad. Modalis is not an investment adviser,
+                broker or fund.
               </div>
             </motion.div>
           ) : null}
@@ -216,7 +218,7 @@ export function SiteNav() {
               className="absolute left-0 right-0 top-[calc(100%+10px)] rounded-[28px] bg-surface p-3 shadow-[var(--shadow-float)] md:hidden"
             >
               <ul className="space-y-1">
-                {[...PRODUCT.slice(0, 1), ...TRUST].map((item) => (
+                {[{ href: "/app", label: "Open my plan", blurb: "" }, ...PRODUCT.slice(0, 1), ...TRUST].map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}

@@ -98,9 +98,12 @@ cat <<'MSG'
 
 Also set, in the same place:
 
-  MONAD_RPC_URL                       a testnet RPC endpoint (yours, not a shared public one)
+  MONAD_TESTNET_RPC_URL               a testnet RPC endpoint (yours, not a shared public one)
   NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID  so people can sign in
-  SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY   so goals and history are kept
+  NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+                                      so goals and history are kept
+
+Or skip all of this: scripts/go-live.sh sets every variable and deploys for you.
 
 Leave MODALIS_DEV_AUTH unset. It is a local-only escape hatch and /api/status reports it loudly
 wherever it is on.

@@ -19,6 +19,7 @@ import { motion } from "motion/react";
 import { ModalisLogo } from "./brand";
 import { WalletButton } from "./wallet-button";
 import { NotificationBell } from "./notification-bell";
+import { ThemeToggle } from "./theme-toggle";
 
 type Tab = { href: string; label: string; icon: (p: IconProps) => React.ReactElement };
 
@@ -48,7 +49,10 @@ export function AppNav() {
           <Link href="/app" className="flex min-h-[44px] items-center px-2 text-ink" aria-label="Modalis">
             <ModalisLogo size={24} />
           </Link>
-          <NotificationBell align="left" />
+          <div className="flex items-center">
+            <ThemeToggle />
+            <NotificationBell align="left" />
+          </div>
         </div>
 
         <Link

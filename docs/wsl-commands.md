@@ -1,5 +1,7 @@
 # Running Modalis from Ubuntu/WSL
 
+> **Taking it live?** Follow [go-live.md](go-live.md): one script migrates the database, deploys the contracts and configures Vercel.
+
 Every command here is run from inside WSL, from the repository root, unless it says otherwise.
 
 ```bash
@@ -207,8 +209,8 @@ Then paste the environment variables `deploy-testnet.sh` printed into
 | Variable | What it turns on |
 |---|---|
 | `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` | Sign-in |
-| `MONAD_RPC_URL` | Server-side RPC — use your own endpoint, not a shared public one |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Goals and history are kept |
+| `MONAD_TESTNET_RPC_URL` | Server-side RPC — use your own endpoint, not a shared public one |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Goals and history are kept |
 
 Leave `MODALIS_DEV_AUTH` unset. Redeploy, then read `/api/status` — it reports what is actually
 wired up, and anything missing says so rather than appearing to work.

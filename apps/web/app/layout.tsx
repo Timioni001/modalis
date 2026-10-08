@@ -6,6 +6,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { publicConfig } from "@/lib/public-config";
 import { SiteChrome } from "@/components/site-chrome";
+import { THEME_SCRIPT } from "@/components/theme-toggle";
 
 /**
  * Three faces, each with one job.
@@ -39,7 +40,7 @@ const serif = Instrument_Serif({
 });
 
 const SITE_NAME = "Modalis";
-const TAGLINE = "Turn your goal into a plan that manages itself.";
+const TAGLINE = "A clear plan for every goal.";
 const DESCRIPTION =
   "Tell Modalis what you're saving for. It builds a plan around your goal, keeps your money " +
   "inside the limits you set, and tells you plainly whether you're on track.";
@@ -86,7 +87,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const cfg = publicConfig();
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${display.variable} ${serif.variable}`}>
+    <html
+      lang="en"
+      // The theme script sets data-theme before React loads; the server cannot know it.
+      suppressHydrationWarning
+      className={`${GeistSans.variable} ${GeistMono.variable} ${display.variable} ${serif.variable}`}
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="min-h-screen bg-canvas text-ink antialiased">
         {/* The first stop for a keyboard or screen-reader user on every page. */}
         <a

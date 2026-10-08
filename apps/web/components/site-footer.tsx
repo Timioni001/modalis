@@ -63,6 +63,31 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   },
 ];
 
+/**
+ * The technology Modalis actually uses, each linked to its own site. These are tools we built
+ * on, not endorsements or partnerships; whether each one is live on this deployment is shown on
+ * the status panel, not assumed here.
+ */
+const BUILT_WITH = [
+  { name: "Dynamic", role: "Wallet sign-in", href: "https://www.dynamic.xyz" },
+  { name: "Kuru", role: "Trading on Monad", href: "https://www.kuru.io" },
+  { name: "Chainlink", role: "Risk signals (CRE)", href: "https://chain.link" },
+  { name: "Envio", role: "Activity indexing", href: "https://envio.dev" },
+];
+
+/** The Monad mark, drawn as a simple vector so no image file is needed. */
+function MonadMark() {
+  return (
+    <svg aria-hidden width="40" height="40" viewBox="0 0 40 40">
+      <path
+        fill="#836EF9"
+        fillRule="evenodd"
+        d="M20 2c-5.2 0-18 12.8-18 18s12.8 18 18 18 18-12.8 18-18S25.2 2 20 2Zm-2.8 28.3c-2.2-.6-8.1-6.5-8.7-8.7-.6-2.2 1.6-10.3 3.2-11.9 1.6-1.6 9.7-3.8 11.9-3.2 2.2.6 8.1 6.5 8.7 8.7.6 2.2-1.6 10.3-3.2 11.9-1.6 1.6-9.7 3.8-11.9 3.2Z"
+      />
+    </svg>
+  );
+}
+
 export function SiteFooter() {
   return (
     <footer className="overflow-hidden">
@@ -128,6 +153,44 @@ export function SiteFooter() {
             </div>
           ))}
         </nav>
+
+        {/* ------------------------------------------------- what it is built on */}
+        <div className="mt-10 grid gap-6 rounded-[24px] bg-surface p-6 sm:grid-cols-[auto_1fr] sm:items-center sm:gap-10 sm:p-8">
+          <a
+            href="https://www.monad.xyz"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-3 text-ink"
+          >
+            <MonadMark />
+            <span>
+              <span className="block text-[12px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
+                Powered by
+              </span>
+              <span className="block text-[20px] font-semibold tracking-[-0.02em]">Monad</span>
+            </span>
+          </a>
+          <div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
+              Built with
+            </div>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {BUILT_WITH.map((tool) => (
+                <li key={tool.name}>
+                  <a
+                    href={tool.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex min-h-[38px] items-center gap-2 rounded-full bg-canvas px-4 text-[13.5px] text-ink-soft transition-colors hover:text-ink"
+                  >
+                    <span className="font-semibold text-ink">{tool.name}</span>
+                    <span className="hidden sm:inline">{tool.role}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
 
         {/* ---------------------------------------------------------- the disclosure */}
         <div className="mt-10 space-y-4 border-t border-line-strong/60 pt-8 text-xs leading-relaxed text-ink-muted">

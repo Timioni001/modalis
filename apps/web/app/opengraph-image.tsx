@@ -11,7 +11,7 @@ import { ImageResponse } from "next/og";
  * System fonts only: an edge-rendered image that fetches a typeface is an image that fails when
  * the font host does.
  */
-export const alt = "Modalis — turn your goal into a plan that manages itself";
+export const alt = "Modalis — a clear plan for every goal";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -64,8 +64,8 @@ export default function OpengraphImage() {
             maxWidth: 980,
           }}
         >
-          <span>Turn your goal into a plan</span>
-          <span style={{ color: "#9aa1ad" }}>that manages itself.</span>
+          <span>A clear plan</span>
+          <span style={{ color: "#9aa1ad" }}>for every goal.</span>
         </div>
 
         <div

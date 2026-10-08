@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 /*
  * MODALIS design tokens.
@@ -100,6 +100,36 @@
     --shadow-float: 0 8px 40px -8px rgb(0 0 0 / 0.6);
   }
 }
+
+/* The same palette when the person picks dark with the switch, whatever their system says. */
+:root[data-theme="dark"] {
+  --color-ink: #f7f7f8;
+  --color-ink-soft: #a9a9b2;
+  --color-ink-muted: #7b7b84;
+  --color-canvas: #0b0b0d;
+  --color-surface: #141416;
+  --color-sunken: #1a1a1d;
+  --color-line: #232327;
+  --color-line-strong: #32323a;
+  --color-panel: #f7f7f8;
+  --color-panel-ink: #0e0e10;
+  --color-panel-soft: #6b6b74;
+  --color-panel-line: #dededf;
+  --color-accent: #c8f250;
+  --color-accent-ink: #121214;
+  --color-accent-soft: #1d2410;
+  --color-accent-line: #39441c;
+  --color-ok: #4ade80;
+  --color-ok-soft: #10231a;
+  --color-warn: #fbbf24;
+  --color-warn-soft: #251d0a;
+  --color-breach: #f87171;
+  --color-breach-soft: #2a1313;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px -4px rgb(0 0 0 / 0.4);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px -8px rgb(0 0 0 / 0.5);
+  --shadow-float: 0 8px 40px -8px rgb(0 0 0 / 0.6);
+}
+
 
 html {
   -webkit-text-size-adjust: 100%;

@@ -88,21 +88,17 @@ export function Hero() {
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="mx-auto max-w-3xl text-center"
         >
-          <span className="inline-flex items-center gap-2 rounded-full bg-ok-soft px-3 py-1 text-[12.5px] font-medium text-ok">
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ok" />
-            Live on Monad testnet
-          </span>
-          <h1 className="display mt-6 text-[2.6rem] font-semibold text-ink sm:text-[4.2rem] lg:text-[4.75rem]">
-            Turn your goal into a plan that runs{" "}
-            <span className="accent-serif">itself.</span>
+          <h1 className="display text-[2.6rem] font-semibold text-ink sm:text-[4.2rem] lg:text-[4.75rem]">
+            A clear plan for <span className="accent-serif">every goal.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-md text-[16.5px] leading-relaxed text-ink-soft sm:text-lg">
-            You set the limits. Modalis builds the plan, keeps your money inside them, and asks
-            before it changes anything.
+            Tell us what you&rsquo;re saving for and how much risk you&rsquo;re comfortable with.
+            Modalis builds the plan, keeps your money within your limits, and checks with you
+            before making any change.
           </p>
           <div className="mt-8 flex justify-center">
             <RainbowButton asChild size="lg" className="rounded-full">
-              <Link href={`/onboarding?${handoff}`}>Build my plan</Link>
+              <Link href={`/onboarding?${handoff}`}>Create my plan</Link>
             </RainbowButton>
           </div>
         </motion.div>

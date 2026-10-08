@@ -11,6 +11,7 @@ import { useCallback, useState } from "react";
 import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain";
 import type { Address, Hex } from "viem";
 import { Badge, Button, Card, KeyValue, Notice, PageHeader, SectionTitle } from "@/components/ui";
+import { ThemeChooser } from "@/components/theme-toggle";
 import { ReceiptLink } from "@/components/receipt-link";
 import { AutomationControl } from "@/components/automation-control";
 import { usePortfolio } from "@/components/portfolio-provider";
@@ -87,6 +88,11 @@ function Settings() {
           Your account is yours. Modalis never holds the keys to it, and only this account is
           recognised as the owner of your money.
         </p>
+      </Card>
+
+      <Card>
+        <SectionTitle hint="Saved on this device only.">Appearance</SectionTitle>
+        <ThemeChooser />
       </Card>
 
       {/* -------------------------------------------------------- permissions */}
