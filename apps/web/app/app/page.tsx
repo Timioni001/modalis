@@ -25,6 +25,7 @@ import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { PendingAction } from "@/components/pending-action";
 import { DemoControls } from "@/components/demo-controls";
+import { HealthCard } from "@/components/health-card";
 import { moneyLabel, monthYear, percent } from "@/lib/format";
 import type { Tone } from "@/components/ui";
 
@@ -58,13 +59,18 @@ function Overview() {
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className="space-y-4"
     >
+      {goal ? (
+        <h1 className="display px-1 text-[30px] font-semibold text-ink sm:text-[38px]">
+          Saving for{" "}
+          <span className="accent-serif text-[1.08em]">{goal.goal.name.toLowerCase()}</span>
+        </h1>
+      ) : null}
+
       {/* ============================================== am I going to get there */}
       <section className="overflow-hidden rounded-[28px] bg-panel text-panel-ink shadow-[var(--shadow-lift)]">
         <div className="p-6 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-panel-soft">
-              Your money
-            </h1>
+            <div className="eyebrow text-panel-soft">Your money</div>
             {goal ? (
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
@@ -136,10 +142,10 @@ function Overview() {
           </div>
         </div>
 
-        {/* The three figures that follow from the headline, on a shelf under it. */}
+        {/* The three figures that follow from the headline, as tiles inside the panel. */}
         {goal && !empty ? (
-          <dl className="grid grid-cols-3 gap-px bg-panel-line">
-            <Shelf
+          <dl className="grid grid-cols-3 gap-2.5 px-4 pb-4 sm:gap-3 sm:px-6 sm:pb-6">
+            <Tile
               label="Time left"
               value={
                 goal.goal.monthsRemaining >= 24
@@ -147,17 +153,14 @@ function Overview() {
                   : `${goal.goal.monthsRemaining} mo`
               }
             />
-            <Shelf label="Still to find" value={moneyLabel(goal.projection.shortfall, 0)} />
-            <Shelf
-              label="Per month"
-              value={moneyLabel(goal.projection.requiredMonthly, 0)}
-              hint="no growth assumed"
-            />
+            <Tile label="Still to find" value={moneyLabel(goal.projection.shortfall, 0)} />
+            <Tile label="Per month" value={moneyLabel(goal.projection.requiredMonthly, 0)} />
           </dl>
         ) : null}
       </section>
 
       {/* ============================================= is there anything to do */}
+      <HealthCard />
       <PendingAction />
 
       {empty ? (
@@ -298,14 +301,13 @@ function Overview() {
   );
 }
 
-function Shelf({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-panel px-4 py-5 sm:px-6">
-      <dt className="text-[12.5px] text-panel-soft">{label}</dt>
-      <dd className="numeric mt-1.5 text-[19px] font-semibold text-panel-ink sm:text-[22px]">
+    <div className="rounded-[20px] bg-panel-line/70 px-3 py-4 sm:px-5">
+      <dd className="numeric text-[20px] font-semibold leading-none text-panel-ink sm:text-[26px]">
         {value}
       </dd>
-      {hint ? <dd className="mt-0.5 text-[11.5px] text-panel-soft">{hint}</dd> : null}
+      <dt className="mt-2 text-[12px] text-panel-soft">{label}</dt>
     </div>
   );
 }

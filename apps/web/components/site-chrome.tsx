@@ -46,7 +46,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <AppFootnote />
         </div>
       ) : inApp ? (
-        <div className="flex min-h-screen flex-col bg-canvas">
+        <div className="flex min-h-screen flex-col bg-canvas lg:pl-[256px]">
           <AppNav />
           <main id="main" className="flex-1">
             {children}
@@ -54,7 +54,8 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <AppFootnote />
         </div>
       ) : (
-        <div className="flex min-h-screen flex-col bg-canvas">
+        // The public site is white with grey cards; the app is grey with white cards.
+        <div className="flex min-h-screen flex-col bg-surface">
           <SiteNav />
           <main id="main" className="flex-1">
             {children}

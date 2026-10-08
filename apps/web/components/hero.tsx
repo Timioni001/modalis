@@ -17,6 +17,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { moneyInSentence, project } from "@modalis/domain";
+import { DotShader } from "@/components/shadcn/dot-shader";
+import { RainbowButton } from "@/components/shadcn/rainbow-button";
 import { moneyCompact } from "@/lib/format";
 
 const E18 = 10n ** 18n;
@@ -77,180 +79,136 @@ export function Hero() {
   }).toString();
 
   return (
-    <section className="relative overflow-hidden">
-      {/* A single soft wash behind the headline. Nothing else decorative on this screen. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[520px]"
-        style={{
-          background:
-            "radial-gradient(70% 100% at 50% 0%, var(--color-accent-soft) 0%, transparent 70%)",
-        }}
-      />
-
-      <div className="relative mx-auto max-w-6xl px-5 pb-16 pt-14 sm:pt-20">
+    <section className="relative">
+      <div className="mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-5 sm:pt-20">
+        {/* ------------------------------------------------------------ the claim */}
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="max-w-4xl"
+          className="mx-auto max-w-3xl text-center"
         >
-          <span className="inline-flex items-center gap-2 rounded-full bg-surface px-3.5 py-1.5 text-[12.5px] font-semibold text-ink-soft shadow-[var(--shadow-card)]">
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent" />
-            Running on Monad testnet
+          <span className="inline-flex items-center gap-2 rounded-full bg-ok-soft px-3 py-1 text-[12.5px] font-medium text-ok">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ok" />
+            Live on Monad testnet
           </span>
-
-          <h1 className="display mt-6 text-[2.9rem] font-semibold text-ink sm:text-[4.5rem] lg:text-[5.25rem]">
-            Turn your goal into a{" "}
-            <span className="text-ink-muted">plan that runs itself.</span>
+          <h1 className="display mt-6 text-[2.6rem] font-semibold text-ink sm:text-[4.2rem] lg:text-[4.75rem]">
+            Turn your goal into a plan that runs{" "}
+            <span className="accent-serif">itself.</span>
           </h1>
-          <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-ink-soft sm:text-lg">
+          <p className="mx-auto mt-6 max-w-md text-[16.5px] leading-relaxed text-ink-soft sm:text-lg">
             You set the limits. Modalis builds the plan, keeps your money inside them, and asks
             before it changes anything.
           </p>
+          <div className="mt-8 flex justify-center">
+            <RainbowButton asChild size="lg" className="rounded-full">
+              <Link href={`/onboarding?${handoff}`}>Build my plan</Link>
+            </RainbowButton>
+          </div>
         </motion.div>
 
-        {/* ------------------------------------------------- try it, right here */}
+        {/* ------------------------------------------- the product, in a black card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-          className="mt-12 grid gap-4 lg:grid-cols-[1fr_380px] lg:gap-5"
+          transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-14"
         >
-          {/* the inputs */}
-          <div className="rounded-[28px] bg-surface p-5 shadow-[var(--shadow-card)] sm:p-7">
-            <div className="flex flex-wrap gap-2" role="group" aria-label="What you're saving for">
-              {GOALS.map((option) => {
-                const on = option.id === goal.id;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => choose(option)}
-                    aria-pressed={on}
-                    className={`inline-flex min-h-[40px] items-center rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
-                      on
-                        ? "bg-panel text-panel-ink"
-                        : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
-                    }`}
+          <DotShader
+            className="overflow-hidden rounded-[32px] bg-panel shadow-[var(--shadow-float)]"
+            dotColor="rgba(255,255,255,0.10)"
+            accentColor="#c8f250"
+            spacing={24}
+            overlay={false}
+          >
+            <div className="relative grid w-full gap-3 p-3 sm:p-5 lg:grid-cols-[1fr_380px] lg:gap-4">
+              {/* the inputs */}
+              <div className="rounded-[26px] bg-surface p-5 sm:p-7">
+                <div className="flex flex-wrap gap-2" role="group" aria-label="What you're saving for">
+                  {GOALS.map((option) => {
+                    const on = option.id === goal.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => choose(option)}
+                        aria-pressed={on}
+                        className={`inline-flex min-h-[40px] items-center rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
+                          on ? "bg-panel text-panel-ink" : "bg-canvas text-ink-soft hover:bg-line hover:text-ink"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-7 space-y-7">
+                  <Dial id="hero-amount" label="I want" value={amount} display={`$${amount.toLocaleString("en-US")}`} min={1_000} max={250_000} step={1_000} onChange={setAmount} lo="$1k" hi="$250k" />
+                  <Dial id="hero-years" label="in" value={years} display={`${years} year${years === 1 ? "" : "s"}`} min={1} max={30} step={1} onChange={setYears} lo="1 yr" hi="30 yrs" />
+                  <Dial id="hero-monthly" label="putting in" value={monthly} display={`$${monthly.toLocaleString("en-US")} a month`} min={0} max={5_000} step={50} onChange={setMonthly} lo="$0" hi="$5k" />
+                </div>
+              </div>
+
+              {/* the answer */}
+              <div className="flex flex-col gap-4 rounded-[26px] bg-white/[0.06] p-6 text-panel-ink ring-1 ring-white/10 backdrop-blur-sm sm:p-7">
+                <div>
+                  <div className="eyebrow text-panel-soft">What you&rsquo;d have put in</div>
+                  <motion.div
+                    key={projection.projectedE18.toString()}
+                    initial={{ opacity: 0.4 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.25 }}
+                    className="numeric mt-3 text-[46px] font-semibold leading-none sm:text-[54px]"
                   >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
+                    {money(projection.projectedE18)}
+                  </motion.div>
+                  <p className="mt-3 text-sm leading-relaxed text-panel-soft">
+                    Your own money over {years === 1 ? "a year" : `${years} years`}. Growth is
+                    counted as zero, so this is the floor, not a forecast.
+                  </p>
+                </div>
 
-            <div className="mt-7 space-y-7">
-              <Dial
-                id="hero-amount"
-                label="I want"
-                value={amount}
-                display={`$${amount.toLocaleString("en-US")}`}
-                min={1_000}
-                max={250_000}
-                step={1_000}
-                onChange={setAmount}
-                lo="$1k"
-                hi="$250k"
-              />
-              <Dial
-                id="hero-years"
-                label="in"
-                value={years}
-                display={`${years} year${years === 1 ? "" : "s"}`}
-                min={1}
-                max={30}
-                step={1}
-                onChange={setYears}
-                lo="1 yr"
-                hi="30 yrs"
-              />
-              <Dial
-                id="hero-monthly"
-                label="putting in"
-                value={monthly}
-                display={`$${monthly.toLocaleString("en-US")} a month`}
-                min={0}
-                max={5_000}
-                step={50}
-                onChange={setMonthly}
-                lo="$0"
-                hi="$5k"
-              />
-            </div>
-          </div>
+                <div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                    <motion.div
+                      className="h-full rounded-full bg-accent"
+                      animate={{ width: `${covered}%` }}
+                      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </div>
+                  <div className="mt-2.5 flex items-baseline justify-between text-[13px]">
+                    <span className="numeric font-semibold">{Math.round(covered)}% of your goal</span>
+                    <span className="numeric text-panel-soft">of ${amount.toLocaleString("en-US")}</span>
+                  </div>
+                </div>
 
-          {/* the answer */}
-          <div className="flex flex-col gap-4 rounded-[28px] bg-panel p-6 text-panel-ink shadow-[var(--shadow-lift)] sm:p-7">
-            <div>
-              <div className="text-[13px] font-medium text-panel-soft">
-                What you&rsquo;d have put in
-              </div>
-              <motion.div
-                key={projection.projectedE18.toString()}
-                initial={{ opacity: 0.4 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.25 }}
-                className="numeric mt-2 text-[44px] font-semibold leading-none sm:text-[52px]"
-              >
-                {money(projection.projectedE18)}
-              </motion.div>
-              <p className="mt-3 text-sm leading-relaxed text-panel-soft">
-                Your own money over {years === 1 ? "a year" : `${years} years`}. Growth is counted
-                as zero, so this is the floor, not a forecast.
-              </p>
-            </div>
+                <div className="rounded-2xl bg-white/[0.06] p-4 text-[14px] leading-relaxed">
+                  {short ? (
+                    <>
+                      <span className="text-panel-soft">To get there on your own, add </span>
+                      <span className="numeric font-semibold">{round(projection.requiredMonthlyE18)}</span>
+                      <span className="text-panel-soft"> a month — </span>
+                      <span className="numeric font-semibold">{round(projection.extraMonthlyE18)}</span>
+                      <span className="text-panel-soft"> more than now.</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-accent">You get there.</span>
+                      <span className="text-panel-soft"> On contributions alone, before anything your plan earns.</span>
+                    </>
+                  )}
+                </div>
 
-            <div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-panel-line">
-                <motion.div
-                  className="h-full rounded-full bg-accent"
-                  animate={{ width: `${covered}%` }}
-                  transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                />
-              </div>
-              <div className="mt-2.5 flex items-baseline justify-between text-[13px]">
-                <span className="numeric font-semibold">{Math.round(covered)}% of your goal</span>
-                <span className="numeric text-panel-soft">
-                  of ${amount.toLocaleString("en-US")}
-                </span>
+                <Link
+                  href={`/onboarding?${handoff}`}
+                  className="mt-auto inline-flex min-h-[52px] items-center justify-center rounded-full bg-accent px-7 text-[15px] font-semibold text-accent-ink transition-[filter] hover:brightness-[1.04] active:scale-[0.985]"
+                >
+                  Build this plan
+                </Link>
               </div>
             </div>
-
-            <div className="rounded-2xl bg-panel-line/60 p-4 text-[14px] leading-relaxed">
-              {short ? (
-                <>
-                  <span className="text-panel-soft">To get there on your own, add </span>
-                  <span className="numeric font-semibold">
-                    {round(projection.requiredMonthlyE18)}
-                  </span>
-                  <span className="text-panel-soft"> a month — </span>
-                  <span className="numeric font-semibold">
-                    {round(projection.extraMonthlyE18)}
-                  </span>
-                  <span className="text-panel-soft"> more than now.</span>
-                </>
-              ) : (
-                <>
-                  <span className="font-semibold text-accent">You get there.</span>
-                  <span className="text-panel-soft">
-                    {" "}
-                    On contributions alone, before anything your plan earns.
-                  </span>
-                </>
-              )}
-            </div>
-
-            <Link
-              href={`/onboarding?${handoff}`}
-              className="mt-auto inline-flex min-h-[54px] items-center justify-center rounded-full bg-accent px-7 text-[15.5px] font-semibold text-accent-ink transition-[filter] hover:brightness-[1.04] active:scale-[0.985]"
-            >
-              Build this plan
-            </Link>
-            <p className="text-center text-xs text-panel-soft">
-              Two minutes. Nothing moves until you approve it.
-            </p>
-          </div>
+          </DotShader>
         </motion.div>
       </div>
     </section>

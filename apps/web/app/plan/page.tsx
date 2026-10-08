@@ -16,6 +16,7 @@ import { setManager as setManagerOnChain, setMandate, type MandateParams } from 
 import type { Plan } from "@modalis/domain";
 import type { Address, Hex } from "viem";
 import { motion } from "motion/react";
+import { Meteors } from "@/components/shadcn/meteors";
 import {
   Badge,
   Button,
@@ -303,8 +304,10 @@ export default function PlanPage() {
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.45, ease: [0.34, 1.4, 0.64, 1] }}
-            className="rounded-[28px] bg-panel p-7 text-panel-ink shadow-[var(--shadow-float)]"
+            className="relative overflow-hidden rounded-[28px] bg-panel p-7 text-panel-ink shadow-[var(--shadow-float)]"
           >
+            {/* The one place in the product that celebrates: a plan going live. */}
+            <Meteors number={14} color="#c8f250" trailColor="rgba(200,242,80,0.5)" className="pointer-events-none absolute inset-0" />
             <motion.span
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}

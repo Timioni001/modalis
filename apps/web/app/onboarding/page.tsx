@@ -111,24 +111,34 @@ function Onboarding() {
   }
 
   return (
-    <div className="mx-auto max-w-xl px-5 py-10 sm:py-14">
-      {/* ------------------------------------------------------------ progress */}
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-[13px] font-semibold text-ink">
-          Step {step + 1}
-          <span className="text-ink-muted"> of {STEPS.length}</span>
-        </span>
-        <span className="text-[13px] text-ink-muted">Nothing is committed yet</span>
-      </div>
-      <div className="mt-3 flex gap-1.5" role="presentation">
-        {STEPS.map((s, i) => (
-          <span
-            key={s.id}
-            className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-              i <= step ? "bg-accent" : "bg-line"
-            }`}
-          />
-        ))}
+    <div className="mx-auto max-w-xl overflow-x-clip px-4 py-8 sm:py-14">
+      {/* A second card tilted behind the first: the stack reads as "more questions to come". */}
+      <div className="relative">
+        <div
+          aria-hidden
+          className="absolute inset-0 translate-x-2 translate-y-3 rotate-[3deg] rounded-[32px] bg-surface/70 shadow-[var(--shadow-card)]"
+        />
+        <div className="relative rounded-[32px] bg-surface p-6 shadow-[var(--shadow-lift)] sm:p-9">
+      <div className="flex items-center gap-4">
+        <div className="flex flex-1 gap-1.5" role="presentation">
+          {STEPS.map((s, i) => (
+            <span
+              key={s.id}
+              className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                i < step ? "bg-ink" : i === step ? "bg-ink/70" : "bg-line"
+              }`}
+            />
+          ))}
+        </div>
+        <a
+          href="/"
+          aria-label="Leave — nothing is saved"
+          className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-ink-muted/80 text-surface transition-colors hover:bg-ink"
+        >
+          <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </a>
       </div>
 
       {/* --------------------------------------------------------- the question */}
@@ -141,7 +151,10 @@ function Onboarding() {
           exit={{ opacity: 0, x: direction * -16 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         >
-          <h1 className="display mt-9 text-[30px] font-semibold text-ink sm:text-[34px]">
+          <div className="eyebrow mt-9 text-ink-soft">
+            Question {String(step + 1).padStart(2, "0")}
+          </div>
+          <h1 className="display mt-3 text-[30px] font-semibold text-ink sm:text-[36px]">
             {STEPS[step].title}
           </h1>
 
@@ -322,21 +335,28 @@ function Onboarding() {
       ) : null}
 
       {/* ------------------------------------------------------------- actions */}
-      <div className="mt-10 flex items-center gap-3">
+      <div className="mt-10 flex items-center justify-end gap-3">
         {step > 0 ? (
-          <Button variant="quiet" onClick={() => go(step - 1)}>
+          <button
+            type="button"
+            onClick={() => go(step - 1)}
+            className="min-h-[52px] rounded-2xl px-6 text-[16px] font-semibold text-ink hover:bg-sunken"
+          >
             Back
-          </Button>
+          </button>
         ) : null}
-        <Button
-          className="ml-auto"
-          size="lg"
+        <button
+          type="button"
           onClick={next}
           disabled={problems.length > 0}
+          className="min-h-[56px] min-w-[150px] rounded-2xl bg-accent px-8 text-[16px] font-semibold text-accent-ink shadow-[0_0_0_1.5px_var(--color-accent-line)] transition-[filter,transform] hover:brightness-[1.04] active:scale-[0.985] disabled:opacity-50"
         >
-          {last ? "See my plan" : "Continue"}
-        </Button>
+          {last ? "See my plan" : "Next"}
+        </button>
       </div>
+        </div>
+      </div>
+      <p className="mt-6 text-center text-[13px] text-ink-muted">Nothing is saved until you approve your plan.</p>
     </div>
   );
 }

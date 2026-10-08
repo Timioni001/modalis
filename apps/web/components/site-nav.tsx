@@ -97,25 +97,18 @@ export function SiteNav() {
   return (
     <header className="sticky top-0 z-40 px-4 pt-4 sm:px-5 sm:pt-5">
       <div ref={shell} className="relative mx-auto max-w-6xl">
+        {/* Links left, mark centred, actions right — the mark is the anchor, not a corner. */}
         <nav
           aria-label="Main"
-          className="flex items-center gap-2 rounded-full bg-surface/90 px-3 py-2.5 shadow-[var(--shadow-card)] backdrop-blur-xl sm:px-4"
+          className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-full bg-surface/90 px-3 py-2 backdrop-blur-xl sm:px-4"
         >
-          <Link
-            href="/"
-            className="flex min-h-[44px] items-center rounded-full pl-1 pr-2 text-ink"
-            aria-label="Modalis home"
-          >
-            <ModalisLogo />
-          </Link>
-
-          <div className="ml-1 hidden items-center gap-1 md:flex">
+          <div className="flex items-center gap-0.5">
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-haspopup="true"
-              className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-full px-4 text-[14px] font-semibold transition-colors ${
+              className={`hidden min-h-[40px] items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-medium transition-colors md:inline-flex ${
                 open ? "bg-sunken text-ink" : "text-ink-soft hover:bg-sunken hover:text-ink"
               }`}
             >
@@ -126,55 +119,64 @@ export function SiteNav() {
                 className={`h-3 w-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
                 fill="none"
               >
-                <path
-                  d="M3 4.5 6 7.5 9 4.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <path d="M3 4.5 6 7.5 9 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
-            <NavLink href="/security" active={pathname === "/security"}>
-              Security
-            </NavLink>
-            <NavLink href="/contact" active={pathname === "/contact"}>
-              Contact
-            </NavLink>
+            <span className="hidden md:inline-flex">
+              <NavLink href="/security" active={pathname === "/security"}>
+                Security
+              </NavLink>
+            </span>
+            <span className="hidden md:inline-flex">
+              <NavLink href="/how-it-works" active={pathname === "/how-it-works"}>
+                How it works
+              </NavLink>
+            </span>
+            <Link
+              href="/"
+              className="flex min-h-[44px] items-center text-ink md:hidden"
+              aria-label="Modalis home"
+            >
+              <ModalisLogo />
+            </Link>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/"
+            className="hidden min-h-[44px] items-center text-ink md:flex"
+            aria-label="Modalis home"
+          >
+            <ModalisLogo />
+          </Link>
+          <span className="md:hidden" />
+
+          <div className="flex items-center justify-end gap-1.5">
+            <span className="hidden md:inline-flex">
+              <NavLink href="/contact" active={pathname === "/contact"}>
+                Contact
+              </NavLink>
+            </span>
             <div className="hidden sm:block">
               <WalletButton />
             </div>
             <Link
               href="/onboarding"
-              className="inline-flex min-h-[42px] items-center rounded-full bg-accent px-5 text-[14px] font-semibold text-accent-ink transition-[filter] hover:brightness-[1.04]"
+              className="inline-flex min-h-[40px] items-center rounded-full bg-panel px-5 text-[13.5px] font-semibold text-panel-ink transition-opacity hover:opacity-90"
             >
-              Build my plan
+              Start
             </Link>
             <button
               type="button"
               onClick={() => setMobile((v) => !v)}
               aria-expanded={mobile}
               aria-label={mobile ? "Close menu" : "Open menu"}
-              className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-full text-ink hover:bg-sunken md:hidden"
+              className="inline-flex h-[40px] w-[40px] items-center justify-center rounded-full text-ink hover:bg-sunken md:hidden"
             >
               <svg aria-hidden viewBox="0 0 20 20" className="h-5 w-5" fill="none">
                 {mobile ? (
-                  <path
-                    d="M5 5l10 10M15 5L5 15"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
+                  <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 ) : (
-                  <path
-                    d="M3.5 6.5h13M3.5 13.5h13"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                  />
+                  <path d="M3.5 6.5h13M3.5 13.5h13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 )}
               </svg>
             </button>

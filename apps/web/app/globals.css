@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
 
 /*
  * MODALIS design tokens.
@@ -52,6 +56,7 @@
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-display: var(--font-display-face), var(--font-geist-sans), ui-sans-serif, system-ui,
     sans-serif;
+  --font-serif: var(--font-serif-face), "Times New Roman", serif;
 
   /* Soft, close shadows. A card should look like paper on a desk, not like it is levitating. */
   --shadow-card: 0 1px 2px rgb(16 16 20 / 0.04), 0 4px 16px -4px rgb(16 16 20 / 0.06);
@@ -121,8 +126,24 @@ body {
 
 .display {
   font-family: var(--font-display);
-  letter-spacing: -0.03em;
-  line-height: 1.04;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+/* One word in a headline, set in the serif. Never a sentence. */
+.accent-serif {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Small uppercase labels: "QUESTION 01", "SELECT ONLY ONE". */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .display .numeric,
@@ -278,5 +299,70 @@ select.field {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * shadcn compatibility.
+ *
+ * Components installed through the shadcn CLI speak shadcn's vocabulary — bg-background,
+ * text-muted-foreground, border-input. Rather than adopt shadcn's generic grey palette, every one
+ * of those names is pointed at a Modalis token, so an installed component lands already on-brand.
+ *
+ * Two names are deliberately NOT mapped: `accent` and `font-sans`. Modalis already owns both
+ * (the lime signal, and the type stack), and shadcn's `init` redefines them in a way that silently
+ * turned every primary button near-white and made the font variable reference itself.
+ */
+:root {
+  --background: var(--color-canvas);
+  --foreground: var(--color-ink);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-panel);
+  --primary-foreground: var(--color-panel-ink);
+  --secondary: var(--color-sunken);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-sunken);
+  --muted-foreground: var(--color-ink-muted);
+  --destructive: var(--color-breach);
+  --border: var(--color-line);
+  --input: var(--color-line-strong);
+  --ring: var(--color-ink);
+  --radius: 1rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  /* Names used by the easyui registry components, pointed at Modalis text tokens. */
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: var(--color-ink-soft);
+  --color-text-muted: var(--color-ink-muted);
+}
+
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
   }
 }

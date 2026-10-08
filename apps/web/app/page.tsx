@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Hero } from "@/components/hero";
 import { SystemStatus } from "@/components/system-status";
+import { DotShader } from "@/components/shadcn/dot-shader";
+import { RainbowButton } from "@/components/shadcn/rainbow-button";
 
 export const metadata: Metadata = {
   description:
@@ -52,7 +54,7 @@ export default function LandingPage() {
           {STEPS.map((step) => (
             <li
               key={step.n}
-              className="rounded-[24px] bg-surface p-6 shadow-[var(--shadow-card)]"
+              className="rounded-[24px] bg-canvas p-6"
             >
               <div className="numeric text-[13px] font-semibold text-ink-muted">{step.n}</div>
               <h3 className="mt-6 text-[19px] font-semibold tracking-[-0.015em] text-ink">
@@ -69,14 +71,14 @@ export default function LandingPage() {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_1fr] lg:items-center">
           <div>
             <h2 className="display text-[2rem] font-semibold text-ink sm:text-5xl">
-              You set four limits.
+              You set four <span className="accent-serif">limits.</span>
             </h2>
             <p className="mt-5 max-w-sm text-[17px] leading-relaxed text-ink-soft">
               Modalis works inside them. It can&rsquo;t step outside.
             </p>
             <Link
               href="/how-it-works"
-              className="mt-7 inline-flex min-h-[46px] items-center rounded-full bg-surface px-5 text-[14.5px] font-semibold text-ink shadow-[var(--shadow-card)] transition-colors hover:bg-sunken"
+              className="mt-7 inline-flex min-h-[46px] items-center rounded-full bg-panel px-5 text-[14.5px] font-semibold text-panel-ink transition-opacity hover:opacity-90"
             >
               See a real plan
             </Link>
@@ -86,7 +88,7 @@ export default function LandingPage() {
             {LIMITS.map((limit) => (
               <div
                 key={limit.label}
-                className="rounded-[24px] bg-surface p-6 shadow-[var(--shadow-card)]"
+                className="rounded-[24px] bg-canvas p-6"
               >
                 <div className="numeric text-[34px] font-semibold leading-none text-ink">
                   {limit.value}
@@ -101,8 +103,13 @@ export default function LandingPage() {
 
       {/* ------------------------------------------------------------- the claim */}
       <section className="mx-auto max-w-6xl px-5 pb-16 sm:pb-24">
-        <div className="overflow-hidden rounded-[32px] bg-panel px-6 py-14 text-panel-ink shadow-[var(--shadow-lift)] sm:px-12 sm:py-20">
-          <div className="grid gap-10 lg:grid-cols-[1fr_minmax(0,380px)] lg:gap-16">
+        <DotShader
+          className="rounded-[32px] bg-panel text-panel-ink shadow-[var(--shadow-lift)]"
+          dotColor="rgba(255,255,255,0.09)"
+          accentColor="#c8f250"
+          overlay={false}
+        >
+          <div className="grid w-full gap-10 px-6 py-14 sm:px-12 sm:py-20 lg:grid-cols-[1fr_minmax(0,380px)] lg:gap-16">
             <div>
               <h2 className="display text-[2.25rem] font-semibold sm:text-6xl">
                 Modalis recommends.
@@ -151,7 +158,7 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
-        </div>
+        </DotShader>
       </section>
 
       {/* ------------------------------------------------------------ live status */}
@@ -167,17 +174,16 @@ export default function LandingPage() {
 
       {/* ------------------------------------------------------------- last word */}
       <section className="mx-auto max-w-6xl px-5 pb-20 sm:pb-28">
-        <div className="rounded-[32px] bg-surface px-6 py-16 text-center shadow-[var(--shadow-card)] sm:px-14">
+        <div className="rounded-[32px] bg-canvas px-6 py-16 text-center sm:px-14">
           <h2 className="display mx-auto max-w-lg text-[2rem] font-semibold text-ink sm:text-[2.75rem]">
-            Start with the goal.
+            Start with the <span className="accent-serif">goal.</span>
           </h2>
           <p className="mt-4 text-ink-soft">Two minutes. Nothing committed until you approve.</p>
-          <Link
-            href="/onboarding"
-            className="mt-8 inline-flex min-h-[54px] items-center rounded-full bg-accent px-8 text-[15.5px] font-semibold text-accent-ink transition-[filter] hover:brightness-[1.04]"
-          >
-            Build my plan
-          </Link>
+          <div className="mt-8 flex justify-center">
+            <RainbowButton asChild size="lg" className="rounded-full">
+              <Link href="/onboarding">Build my plan</Link>
+            </RainbowButton>
+          </div>
         </div>
       </section>
     </>

@@ -1,31 +1,40 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Monda } from "next/font/google";
+import { Inter_Tight, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { publicConfig } from "@/lib/public-config";
 import { SiteChrome } from "@/components/site-chrome";
 
 /**
- * Two faces, each doing a job the other can't.
+ * Three faces, each with one job.
  *
- * MONDA sets the display type and the wordmark. It is wider and more geometric than a default
- * grotesque, which is what gives the brand its character at 5rem — and it is SIL OFL licensed, so
- * it can actually ship. (Most of the "nextgen" display faces floating around are personal-use
- * only; those are not shippable in a product regardless of how they look.)
+ * INTER TIGHT sets headlines. The faces in the reference sheet (Banter Grotesk, Goga) are
+ * commercial foundry fonts with no web licence here, so this is the closest open-licence grotesk:
+ * the same tight, neutral, confident headline the reference fintech sites use.
  *
- * GEIST sets everything else, and every number without exception. Money has to sit in columns
- * that line up and not twitch as a live figure changes, which needs tabular figures — so amounts
- * stay on the face that has them, even inside a Monda headline.
+ * INSTRUMENT SERIF stands in for the high-contrast serifs on that sheet (Emilio, Azurio). It is
+ * used for one word at a time, never a paragraph — an accent, not a voice.
  *
- * Both are self-hosted at build time rather than linked from a font CDN, so nothing about a
- * visitor is sent to a third party when the page loads.
+ * GEIST sets everything else, and every number without exception, because money needs tabular
+ * figures that line up in a column and do not twitch as a live value changes.
+ *
+ * To use the licensed faces later, swap the two loaders below; nothing else references a family.
+ * All three are self-hosted at build time, so no visitor data goes to a font CDN.
  */
-const display = Monda({
+const display = Inter_Tight({
   subsets: ["latin"],
-  weight: ["400", "700"],
+  weight: ["500", "600", "700"],
   variable: "--font-display-face",
+  display: "swap",
+});
+
+const serif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-serif-face",
   display: "swap",
 });
 
@@ -77,7 +86,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const cfg = publicConfig();
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${display.variable}`}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} ${display.variable} ${serif.variable}`}>
       <body className="min-h-screen bg-canvas text-ink antialiased">
         {/* The first stop for a keyboard or screen-reader user on every page. */}
         <a

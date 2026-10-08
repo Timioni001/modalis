@@ -22,3 +22,5 @@ export * from "./services/money.ts";
 export * from "./services/progress.ts";
 export * from "./services/adjustments.ts";
 export * from "./services/activity.ts";
+export * from "./health.ts";
+export * from "./answers.ts";

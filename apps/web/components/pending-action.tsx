@@ -30,19 +30,8 @@ export function PendingAction() {
 
   if (!adjustment) return null;
 
-  // Nothing to do is worth saying plainly — silence reads as "it isn't working".
-  if (adjustment.status === "none_needed") {
-    return (
-      <Card className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Badge tone="ok" dot>
-          Nothing to do
-        </Badge>
-        <p className="text-[14.5px] text-ink-soft">
-          {planStatus?.summary ?? adjustment.explanation}
-        </p>
-      </Card>
-    );
-  }
+  // The health card owns the all-clear; this card only appears when there is a change to show.
+  if (adjustment.status === "none_needed") return null;
 
   const shown = result ?? adjustment;
 

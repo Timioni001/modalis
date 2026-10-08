@@ -69,7 +69,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl px-5 pb-6">
         {/* ------------------------------------------- the argument, in two cards */}
         <section className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-[28px] bg-surface p-6 shadow-[var(--shadow-card)] sm:p-8">
+          <div className="rounded-[28px] bg-canvas p-6 sm:p-8">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
               Modalis can
             </h2>
@@ -83,7 +83,7 @@ export function SiteFooter() {
             </ul>
           </div>
 
-          <div className="rounded-[28px] bg-surface p-6 shadow-[var(--shadow-card)] sm:p-8">
+          <div className="rounded-[28px] bg-canvas p-6 sm:p-8">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
               Modalis can&rsquo;t
             </h2>
@@ -106,7 +106,8 @@ export function SiteFooter() {
         </section>
 
         {/* ------------------------------------------------------------------ links */}
-        <nav className="grid gap-8 py-12 sm:grid-cols-3" aria-label="Footer">
+        <div className="mt-4 rounded-[28px] bg-canvas px-6 pb-8 pt-10 sm:px-10">
+        <nav className="grid gap-8 sm:grid-cols-3" aria-label="Footer">
           {COLUMNS.map((column) => (
             <div key={column.title}>
               <div className="text-[13px] font-semibold uppercase tracking-[0.09em] text-ink-muted">
@@ -129,7 +130,7 @@ export function SiteFooter() {
         </nav>
 
         {/* ---------------------------------------------------------- the disclosure */}
-        <div className="space-y-4 border-t border-line pt-10 text-xs leading-relaxed text-ink-muted">
+        <div className="mt-10 space-y-4 border-t border-line-strong/60 pt-8 text-xs leading-relaxed text-ink-muted">
           <p className="max-w-2xl">
             <strong className="font-semibold text-ink-soft">A technical demonstration.</strong>{" "}
             Modalis is not an investment adviser, broker, bank or fund, and holds no licence
@@ -148,6 +149,7 @@ export function SiteFooter() {
             <NetworkLine />
             <p>&copy; {new Date().getFullYear()} Modalis</p>
           </div>
+        </div>
         </div>
       </div>
 
