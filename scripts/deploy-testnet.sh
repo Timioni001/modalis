@@ -53,6 +53,9 @@ if [ "$BALANCE" = "0" ]; then
   exit 1
 fi
 
+# git-ignored, so a fresh clone doesn't have it, and forge cannot create it.
+mkdir -p contracts/deployments
+
 printf '\n==> Deploying to Monad testnet (%s)\n\n' "$RPC"
 (
   cd contracts

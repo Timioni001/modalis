@@ -39,6 +39,7 @@ for _ in $(seq 1 20); do
 done
 
 printf '\n==> Deploying Modalis\n'
+mkdir -p contracts/deployments
 (cd contracts && DEPLOYER_PRIVATE_KEY="$DEPLOYER" \
   forge script script/Deploy.s.sol:Deploy --rpc-url "$RPC" --broadcast \
   | grep -E 'AssetRegistry|PortfolioMandate|PortfolioVault|RebalanceExecutor|wrote deployments')
