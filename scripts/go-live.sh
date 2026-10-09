@@ -74,7 +74,12 @@ fi
 step "2/7  Install and test"
 pnpm install --frozen-lockfile >/tmp/modalis-install.log 2>&1 || { tail -20 /tmp/modalis-install.log; die "pnpm install failed (log above)."; }
 ok "dependencies installed"
-(cd contracts && forge build >/tmp/modalis-forge.log 2>&1) || { tail -20 /tmp/modalis-forge.log; die "Contracts did not compile." "cd contracts && forge install"; }
+# The Solidity libraries are not stored in git; fetch the pinned versions once.
+[ -d contracts/lib/forge-std ] || git clone --quiet --depth 1 --branch v1.11.0 \
+  https://github.com/foundry-rs/forge-std.git contracts/lib/forge-std
+[ -d contracts/lib/openzeppelin-contracts ] || git clone --quiet --depth 1 --branch v5.4.0 \
+  https://github.com/OpenZeppelin/openzeppelin-contracts.git contracts/lib/openzeppelin-contracts
+(cd contracts && forge build >/tmp/modalis-forge.log 2>&1) || { tail -20 /tmp/modalis-forge.log; die "Contracts did not compile (log above)." "rm -rf contracts/lib && bash scripts/go-live.sh   # refetch the libraries"; }
 ok "contracts compile"
 if [ "${SKIP_TESTS:-0}" != "1" ]; then
   pnpm -r test >/tmp/modalis-test.log 2>&1 || { grep -E 'not ok|fail [1-9]' /tmp/modalis-test.log | head -20; die "Tests failed. Full log: /tmp/modalis-test.log"; }
