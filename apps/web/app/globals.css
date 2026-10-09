@@ -396,3 +396,25 @@ select.field {
     outline-offset: 2px;
   }
 }
+
+/*
+ * Dark mode only: a faint grid of white dots behind the landing page, fading out toward the
+ * bottom so it frames the hero without competing with the footer. Light mode stays plain.
+ */
+.landing-dots {
+  position: relative;
+  isolation: isolate;
+}
+/* The dots live on their own layer so the fade never touches the page content above them. */
+[data-theme="dark"] .landing-dots::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgb(255 255 255 / 0.13) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  background-position: center top;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, rgb(0 0 0 / 0.3) 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, rgb(0 0 0 / 0.3) 100%);
+}

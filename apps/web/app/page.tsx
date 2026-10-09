@@ -62,7 +62,7 @@ const FEATURES = [
 
 export default function LandingPage() {
   return (
-    <>
+    <div className="landing-dots">
       <Hero />
 
       {/* ------------------------------------------------------- live visuals */}
@@ -224,6 +224,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

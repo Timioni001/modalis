@@ -214,6 +214,12 @@ if [ -z "${SITE_URL:-}" ]; then
 else
   status="$(curl -fsS -m 30 "$SITE_URL/api/status" || true)"
   [ -n "$status" ] || die "$SITE_URL/api/status did not answer." "Open it in a browser; check the Vercel build log."
+  # Per-deployment URLs sit behind Vercel's login; only the public domain answers with JSON.
+  case "$status" in
+    \{*) ;;
+    *) note "$SITE_URL is behind Vercel's login. Put your public domain in SITE_URL (e.g. https://modalis-six.vercel.app) to check it."
+       printf '\n\033[1;32mDeployed.\033[0m\n'; exit 0 ;;
+  esac
   printf '%s' "$status" | node -e '
     let s = ""; process.stdin.on("data", (c) => (s += c)).on("end", () => {
       const j = JSON.parse(s);
