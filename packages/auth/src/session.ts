@@ -52,7 +52,7 @@ export type AuthConfig = {
 };
 
 export function authConfigFromEnv(env: Record<string, string | undefined> = process.env): AuthConfig {
-  const chainId = Number(env.NEXT_PUBLIC_MONAD_CHAIN_ID ?? 10143);
+  const chainId = Number(env.NEXT_PUBLIC_MONAD_CHAIN_ID?.trim() || 10143);
   const devRequested = (env.MODALIS_DEV_AUTH ?? "false").toLowerCase() === "true";
   return {
     jwksUrl: env.DYNAMIC_JWKS_URL?.trim() || deriveJwksUrl(env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID),

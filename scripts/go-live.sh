@@ -89,6 +89,11 @@ step "3/7  Database migrations"
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
   note "SUPABASE_DB_URL is empty — skipping. The app runs, but goals and history won't be saved."
 else
+  case "$SUPABASE_DB_URL" in
+    *@db.*.supabase.co*) die "SUPABASE_DB_URL is the 'Direct connection' string, which is IPv6-only and unreachable from WSL." \
+      "Supabase -> Connect -> Connection String -> Method: 'Session pooler'. Copy that one instead." \
+      "It looks like: postgresql://postgres.PROJECTREF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres" ;;
+  esac
   psql "$SUPABASE_DB_URL" -tAc 'select 1' >/dev/null 2>/tmp/modalis-psql.log || {
     sed 's/postgres[^ ]*@/postgres:***@/' /tmp/modalis-psql.log | head -5
     die "Can't connect to Supabase." \
@@ -148,6 +153,7 @@ fi
 
 # ------------------------------------------------------------------------------ 6. vercel
 step "6/7  Vercel environment and deploy"
+[ -n "${NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID:-}" ] || note "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID is empty: the site will work, but nobody can sign in until it is set."
 ENVFILE="$(mktemp)"
 trap 'rm -f "$ENVFILE"' EXIT
 node -e '

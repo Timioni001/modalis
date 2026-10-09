@@ -114,9 +114,10 @@ export function createManagerWalletClient(cfg: RpcConfig, privateKey: string): W
 
 /** Reads RPC settings from the environment, with the documented variable names. */
 export function rpcConfigFromEnv(env: Record<string, string | undefined> = process.env): RpcConfig {
-  const network = (env.MODALIS_NETWORK ?? "testnet") as NetworkName;
+  const network = (env.MODALIS_NETWORK?.trim() || "testnet") as NetworkName;
   const chainId = Number(
-    env.NEXT_PUBLIC_MONAD_CHAIN_ID ?? (network === "mainnet" ? 143 : 10143),
+    // `||`, not `??`: an empty variable in a hosting dashboard must fall back, not become chain 0.
+    env.NEXT_PUBLIC_MONAD_CHAIN_ID?.trim() || (network === "mainnet" ? 143 : 10143),
   );
   return {
     chainId,
