@@ -4,6 +4,7 @@ name: CI
 
 on:
   push:
+    branches: [claude/awesome-gates-h1pxk0]
   pull_request:
 
 concurrency:

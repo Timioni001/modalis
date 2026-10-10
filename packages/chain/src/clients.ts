@@ -8,6 +8,7 @@
  * The manager key cannot withdraw or change a mandate; that is enforced on-chain, not here.
  */
 import {
+  nonceManager,
   createPublicClient,
   createWalletClient,
   fallback,
@@ -103,8 +104,12 @@ export function createManagerWalletClient(cfg: RpcConfig, privateKey: string): W
   const chain = chainById(cfg.chainId);
   const network = networkForChainId(cfg.chainId);
   const urls = httpUrlsFor(cfg, network, chain);
+  const hex = (privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`) as `0x${string}`;
+  accountFromPrivateKey(hex); // validates the format with a readable error
   return createWalletClient({
-    account: accountFromPrivateKey(privateKey),
+    // The nonce manager hands out nonces locally, so several transactions sent at once from this
+    // key (the monitor's batch of adjustments) each get their own instead of racing for one.
+    account: privateKeyToAccount(hex, { nonceManager }),
     chain,
     // A write client signs and broadcasts, so it talks to ONE node. Picking between nodes
     // mid-transaction is how a nonce or a gas estimate ends up belonging to the wrong chain.

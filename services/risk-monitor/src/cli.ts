@@ -14,7 +14,7 @@ import { automationWallets, serverClient } from "@modalis/db";
 import { getAddress, type Address } from "viem";
 import { loadConfig } from "./config.ts";
 import { consentFor, recordFinding } from "./consent.ts";
-import { describeOutcome, evaluate, execute } from "./monitor.ts";
+import { describeOutcome, evaluate, execute, type BuiltAction } from "./monitor.ts";
 
 async function runOnce(): Promise<number> {
   const cfg = loadConfig();
@@ -51,6 +51,7 @@ async function runOnce(): Promise<number> {
   }
 
   let exitCode = 0;
+  const ready: { owner: Address; action: BuiltAction }[] = [];
   for (const owner of owners) {
     try {
       const outcome = await evaluate({ client, deployment: cfg.deployment, ai: cfg.ai }, owner);
@@ -81,18 +82,36 @@ async function runOnce(): Promise<number> {
         continue;
       }
 
-      const result = await execute(wallet, client, cfg.deployment, action);
-      if (result.submitted && result.hash && !result.rejectedWith) {
-        console.log(`  settled in block ${result.blockNumber}: ${result.hash}`);
-        await recordFinding(db, owner, "adjustment_executed", action.explanation, result.hash);
-      } else {
-        console.log(`  not settled: ${result.skipped ?? result.rejectedWith}`);
-        exitCode = 1;
-      }
+      // Queued, not sent yet: every approved adjustment goes out together below.
+      ready.push({ owner, action });
     } catch (err) {
       console.error(`${owner}: ${err instanceof Error ? err.message : String(err)}`);
       exitCode = 1;
     }
+  }
+
+  // Send every adjustment at once. Each one touches only its owner's plan, balances and nonce, so
+  // Monad can run them side by side, and they typically land in the same block or the next one.
+  // The manager wallet's nonce manager hands each one its own nonce, so they don't collide.
+  if (ready.length > 0 && wallet) {
+    const started = Date.now();
+    const results = await Promise.all(
+      ready.map(async ({ owner, action }) => ({ owner, action, result: await execute(wallet, client, cfg.deployment, action) })),
+    );
+    const blocks = new Set<string>();
+    for (const { owner, action, result } of results) {
+      if (result.submitted && result.hash && !result.rejectedWith) {
+        blocks.add(String(result.blockNumber));
+        console.log(`${owner}: settled in block ${result.blockNumber}: ${result.hash}`);
+        await recordFinding(db, owner, "adjustment_executed", action.explanation, result.hash);
+      } else {
+        console.log(`${owner}: not settled: ${result.skipped ?? result.rejectedWith}`);
+        exitCode = 1;
+      }
+    }
+    console.log(
+      `${results.length} adjustment(s) sent together, settled across ${blocks.size} block(s) in ${((Date.now() - started) / 1000).toFixed(1)}s.`,
+    );
   }
   return exitCode;
 }
