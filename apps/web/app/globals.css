@@ -407,9 +407,9 @@ select.field {
   height: min(100svh, 980px);
   z-index: -1;
   pointer-events: none;
-  /* A cone of light from the top centre, gone at the sides and by the time the product card starts. */
-  -webkit-mask-image: radial-gradient(70% 95% at 50% 0%, #000 25%, transparent 85%);
-  mask-image: radial-gradient(70% 95% at 50% 0%, #000 25%, transparent 85%);
+  /* Full strength behind the headline, gone by the time the product card starts. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 50%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 50%, transparent 100%);
 }
 
 /* Inside the app: pinned to the top of the screen and shorter, so it never sits under the numbers. */
