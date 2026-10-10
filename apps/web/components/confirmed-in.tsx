@@ -7,6 +7,7 @@
  * saying so plainly is more convincing than a spinner that happens to be short.
  */
 import { secondsLabel } from "@/lib/chain-client";
+import { Explain } from "./explain";
 
 export function ConfirmedIn({ ms }: { ms?: number | null }) {
   if (ms == null) return null;
@@ -16,6 +17,7 @@ export function ConfirmedIn({ ms }: { ms?: number | null }) {
         <path d="M2.5 6.2l2.3 2.3 4.7-4.9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       Confirmed in {secondsLabel(ms)}
+      <Explain term="confirmed" />
     </span>
   );
 }

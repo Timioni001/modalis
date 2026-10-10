@@ -11,6 +11,7 @@
  * control to stop it. Someone who wants to know "what is this thing allowed to do to my money"
  * should never have to go looking.
  */
+import { Explain } from "@/components/explain";
 import { motion } from "motion/react";
 import {
   Badge,
@@ -239,7 +240,10 @@ function PlanView() {
               <div>
                 <span className="font-medium text-ink">{h.name}</span>
                 {h.isAvailableCash ? (
-                  <span className="ml-2 text-xs text-ink-muted">kept available</span>
+                  <span className="ml-2 text-xs text-ink-muted">
+                    kept available
+                    <Explain term="available" />
+                  </span>
                 ) : null}
               </div>
               <div className="text-right">

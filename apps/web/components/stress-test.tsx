@@ -12,6 +12,7 @@ import { usePortfolio } from "./portfolio-provider";
 import { useWalletConfig } from "./wallet-context";
 import { browserClient } from "@/lib/chain-client";
 import { stressTest } from "@/lib/stress";
+import { Explain } from "./explain";
 
 const DROPS = [1_000, 2_000, 3_000, 5_000];
 const usd = (e18: bigint) =>
@@ -73,6 +74,7 @@ export function StressTest() {
         {result.pastDrawdownLimit
           ? `That's more than the ${pct(state.mandate.maxDrawdownBps)} you said you could live with.`
           : `That's within the ${pct(state.mandate.maxDrawdownBps)} you said you could live with.`}
+        <Explain term="biggestFall" />
       </p>
 
       <div className="mt-4">
@@ -86,7 +88,10 @@ export function StressTest() {
             {result.belowLiquidityFloor ? (
               <p>Money kept available would drop below your {pct(state.mandate.minLiquidityBps)} floor.</p>
             ) : null}
-            <p className="mt-1">Any adjustment still has to pass your plan&rsquo;s limits in the contract.</p>
+            <p className="mt-1">
+              Any adjustment still has to pass your plan&rsquo;s limits in the contract.
+              <Explain term="adjustment" />
+            </p>
           </Notice>
         ) : (
           <Notice tone="ok" title="Everything stays inside its range">

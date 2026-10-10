@@ -15,6 +15,7 @@ import { Badge, Card, SectionTitle } from "./ui";
 import { usePortfolio } from "./portfolio-provider";
 import { useWalletConfig } from "./wallet-context";
 import { browserClient } from "@/lib/chain-client";
+import { Explain } from "./explain";
 
 const POLL_MS = 600;
 
@@ -75,7 +76,10 @@ export function DriftMeter() {
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionTitle hint="Re-read from Monad on every new block, about every half second.">
-          Live drift
+          <>
+            Live drift
+            <Explain term="drift" />
+          </>
         </SectionTitle>
         <div className="flex items-center gap-2">
           <Badge tone={outside.length ? "warn" : "ok"} dot>
@@ -126,6 +130,7 @@ export function DriftMeter() {
       </ul>
       <p className="mt-4 text-xs text-ink-muted">
         Green is the range your plan allows; the line is the target; the dot is where you are now.
+        <Explain term="target" />
       </p>
     </Card>
   );

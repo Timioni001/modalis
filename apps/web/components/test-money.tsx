@@ -21,6 +21,7 @@ import { useWallet } from "@/components/wallet-context";
 import { apiGet, apiPost } from "@/lib/client-api";
 import { confirmOnChain } from "@/lib/chain-client";
 import { ConfirmedIn } from "@/components/confirmed-in";
+import { Explain } from "@/components/explain";
 
 type FaucetState = {
   testnet: boolean;
@@ -136,6 +137,7 @@ export function TestMoney({ onFunded }: { onFunded?: () => void | Promise<void> 
         <div className="mt-4">
           <Notice tone="warn" title="You need a little MON for network fees">
             <p>
+              <Explain term="fee" />{" "}
               Every action on Monad costs a tiny fee in MON, and your wallet has almost none. Test
               MON is free: open the{" "}
               <a href={state.faucetUrl} target="_blank" rel="noreferrer">
