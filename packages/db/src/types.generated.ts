@@ -437,6 +437,22 @@ export type TransactionInsert = {
 };
 
 /** public.users */
+export type ContactMessageRow = {
+  id: string;
+  wallet_address: string;
+  email: string | null;
+  message: string;
+  created_at: string;
+};
+
+export type ContactMessageInsert = {
+  id?: string;
+  wallet_address: string;
+  email?: string | null;
+  message: string;
+  created_at?: string;
+};
+
 export type UserRow = {
   id: string;
   wallet_address: string;
@@ -467,6 +483,7 @@ export type Database = {
       automation_settings: { Row: AutomationSettingsRow; Insert: AutomationSettingsInsert; Update: Partial<AutomationSettingsInsert>; Relationships: [] };
       domain_events: { Row: DomainEventRow; Insert: DomainEventInsert; Update: Partial<DomainEventInsert>; Relationships: [] };
       goals: { Row: GoalRow; Insert: GoalInsert; Update: Partial<GoalInsert>; Relationships: [] };
+      contact_messages: { Row: ContactMessageRow; Insert: ContactMessageInsert; Update: Partial<ContactMessageInsert>; Relationships: [] };
       notifications: { Row: NotificationRow; Insert: NotificationInsert; Update: Partial<NotificationInsert>; Relationships: [] };
       interview_sessions: { Row: InterviewSessionRow; Insert: InterviewSessionInsert; Update: Partial<InterviewSessionInsert>; Relationships: [] };
       mandate_allocations: { Row: MandateAllocationRow; Insert: MandateAllocationInsert; Update: Partial<MandateAllocationInsert>; Relationships: [] };

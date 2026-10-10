@@ -13,6 +13,7 @@ import { AssetRegistryAbi, MockERC20Abi } from "@modalis/chain";
 import { serverClient } from "@modalis/db";
 import type { Address } from "viem";
 import { jsonResponse, route } from "@/lib/api";
+import { fetchEnvioStats } from "@/lib/envio-stats";
 import { getServerContext } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
@@ -59,9 +60,16 @@ export async function GET(): Promise<Response> {
       transactionsThisWeek: number | null;
       adjustmentsThisWeek: number | null;
       recent: { hash: string; type: string; at: string }[];
-    } = { plans: null, transactionsThisWeek: null, adjustmentsThisWeek: null, recent: [] };
-    const db = serverClient();
-    if (db) {
+      /** "envio" when the hosted indexer answered, "database" for the server's own record. */
+      source: "envio" | "database" | null;
+    } = { plans: null, transactionsThisWeek: null, adjustmentsThisWeek: null, recent: [], source: null };
+    // The Envio indexer first: it has every settled event, read from Monad independently.
+    const envioUrl = process.env.ENVIO_GRAPHQL_URL;
+    const indexed = envioUrl ? await fetchEnvioStats(envioUrl) : null;
+    const db = indexed ? null : serverClient();
+    if (indexed) {
+      activity = { ...indexed, source: "envio" };
+    } else if (db) {
       const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString();
       const [plans, week, adjustments, recent] = await Promise.all([
         db.from("mandates").select("id", { count: "exact", head: true }).eq("version", 1),
@@ -78,6 +86,7 @@ export async function GET(): Promise<Response> {
           type: r.type,
           at: r.created_at,
         })),
+        source: "database",
       };
     }
 

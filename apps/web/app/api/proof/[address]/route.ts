@@ -7,7 +7,7 @@
  * or email ever appears here.
  */
 import { getActivity } from "@modalis/domain";
-import { readPortfolio } from "@modalis/chain";
+import { agentIdentity, agentLabel, readManager, readPortfolio } from "@modalis/chain";
 import { getAddress, isAddress } from "viem";
 import { domainContext, jsonResponse, route } from "@/lib/api";
 import { errorResponse } from "@/lib/serialize";
@@ -21,10 +21,31 @@ export async function GET(_request: Request, { params }: { params: Promise<{ add
     const owner = getAddress(raw);
     const ctx = await domainContext();
     // No database half: only what the chain itself recorded.
-    const [state, activity] = await Promise.all([
+    const [state, activity, manager] = await Promise.all([
       readPortfolio(ctx.client, ctx.deployment, owner),
       getActivity({ ...ctx, db: null }, owner, { planId: null }),
+      readManager(ctx.client, ctx.deployment, owner).catch(() => null),
     ]);
+    // Who the owner allowed to make adjustments, read from the plan contract. When it is this
+    // deployment's agent, say how that agent is held (a Dynamic server wallet, or a plain key).
+    const agent = agentIdentity();
+    const allowed = manager && !/^0x0{40}$/i.test(manager) ? getAddress(manager) : null;
+    const allowedLabel = allowed && agent && allowed === agent.address ? agentLabel(agent.kind) : null;
+    // Label an adjustment with the agent only when the chain says the agent sent it; an older one
+    // may have come from a previous signer.
+    const signers = new Map<string, string>();
+    if (agent) {
+      await Promise.all(
+        activity.items
+          .filter((i) => i.kind === "adjustment_made" && i.receipt?.reference?.startsWith("0x"))
+          .slice(0, 25)
+          .map(async (i) => {
+            const hash = i.receipt!.reference as `0x${string}`;
+            const tx = await ctx.client.getTransaction({ hash }).catch(() => null);
+            if (tx && getAddress(tx.from) === agent.address) signers.set(hash, agentLabel(agent.kind));
+          }),
+      );
+    }
     return jsonResponse({
       owner,
       hasPlan: state.hasMandate,
@@ -39,7 +60,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ add
         minBps: p.minBps,
         maxBps: p.maxBps,
       })),
-      activity: activity.items.map((i) => ({ title: i.title, detail: i.detail, receipt: i.receipt?.reference ?? null })),
+      activity: activity.items.map((i) => ({
+        title: i.title,
+        detail: i.detail,
+        receipt: i.receipt?.reference ?? null,
+        signedBy: (i.receipt?.reference && signers.get(i.receipt.reference)) || null,
+      })),
+      manager: allowed ? { address: allowed, label: allowedLabel } : null,
       contracts: {
         portfolioMandate: ctx.deployment.contracts.portfolioMandate ?? null,
         portfolioVault: ctx.deployment.contracts.portfolioVault ?? null,

@@ -15,7 +15,8 @@ export type ContractKey =
   | "riskSignalReceiver"
   | "priceOracle"
   | "executionAdapter"
-  | "kuruAdapter";
+  | "kuruAdapter"
+  | "savingsCircle";
 
 export type TokenKey = "mUSD" | "mBTC" | "mETH" | "mBOND";
 
@@ -35,6 +36,7 @@ const ENV_KEYS: Record<ContractKey, string> = {
   priceOracle: "NEXT_PUBLIC_PRICE_ORACLE_ADDRESS",
   executionAdapter: "NEXT_PUBLIC_EXECUTION_ADAPTER_ADDRESS",
   kuruAdapter: "NEXT_PUBLIC_KURU_ADAPTER_ADDRESS",
+  savingsCircle: "NEXT_PUBLIC_SAVINGS_CIRCLE_ADDRESS",
 };
 
 const TOKEN_ENV_KEYS: Record<TokenKey, string> = {

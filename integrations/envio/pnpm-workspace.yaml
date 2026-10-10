@@ -1,0 +1,3 @@
+# Its own workspace root, so Envio Cloud (and anyone) installs this folder standalone.
+packages:
+  - "."

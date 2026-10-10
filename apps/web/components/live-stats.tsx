@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { formatEther } from "viem";
 import { ReceiptLink } from "./receipt-link";
+import { ENVIO_LIMIT } from "@/lib/envio-stats";
 
 type Stats = {
   chain: { blockNumber: string; blockTimeMs: number; gasPriceWei: string; typicalFeeWei: string };
@@ -17,6 +18,7 @@ type Stats = {
     transactionsThisWeek: number | null;
     adjustmentsThisWeek: number | null;
     recent: { hash: string; type: string; at: string }[];
+    source?: "envio" | "database" | null;
   };
 };
 
@@ -67,6 +69,10 @@ export function LiveStats() {
   }
 
   const fee = Number(formatEther(BigInt(stats.chain.typicalFeeWei)));
+  const envio = stats.activity.source === "envio";
+  // The indexer query is capped, so a count at the cap means "at least this many".
+  const count = (n: number) => (envio && n >= ENVIO_LIMIT ? `${ENVIO_LIMIT.toLocaleString("en-US")}+` : String(n));
+
   const tiles: { label: string; value: string; note: string }[] = [
     {
       label: "Block time",
@@ -88,13 +94,13 @@ export function LiveStats() {
         ]
       : []),
     ...(stats.activity.plans != null
-      ? [{ label: "Plans approved", value: String(stats.activity.plans), note: "Each one a contract call on Monad" }]
+      ? [{ label: "Plans approved", value: count(stats.activity.plans), note: "Each one a contract call on Monad" }]
       : []),
     ...(stats.activity.transactionsThisWeek != null
-      ? [{ label: "Transactions this week", value: String(stats.activity.transactionsThisWeek), note: "Checked on-chain before being counted" }]
+      ? [{ label: "Transactions this week", value: count(stats.activity.transactionsThisWeek), note: envio ? "Indexed by Envio from Monad" : "Checked on-chain before being counted" }]
       : []),
     ...(stats.activity.adjustmentsThisWeek != null
-      ? [{ label: "Adjustments this week", value: String(stats.activity.adjustmentsThisWeek), note: "Every one checked by the contract first" }]
+      ? [{ label: "Adjustments this week", value: count(stats.activity.adjustmentsThisWeek), note: "Every one checked by the contract first" }]
       : []),
   ];
 
@@ -118,9 +124,12 @@ export function LiveStats() {
       {stats.activity.recent.length ? (
         <div>
           <h2 className="text-lg font-semibold text-ink">Latest transactions</h2>
+          {stats.activity.source === "envio" ? (
+            <p className="mt-1 text-sm text-ink-muted">Indexed by Envio, straight from Monad.</p>
+          ) : null}
           <ul className="mt-3 divide-y divide-line overflow-hidden rounded-3xl bg-surface shadow-[var(--shadow-card)]">
-            {stats.activity.recent.map((r) => (
-              <li key={r.hash} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
+            {stats.activity.recent.map((r, i) => (
+              <li key={`${r.hash}-${i}`} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-sm">
                 <span className="text-ink">{TYPE_LABEL[r.type] ?? "Transaction"}</span>
                 <span className="flex items-center gap-3 text-ink-muted">
                   <span className="text-xs">{new Date(r.at).toLocaleString()}</span>

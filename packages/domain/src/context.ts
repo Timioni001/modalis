@@ -16,7 +16,7 @@ export type DomainContext = {
   db: ModalisClient | null;
   explorerUrl?: string;
   rpcUrl?: string;
-  ai?: { apiKey?: string; model?: string };
+  ai?: { apiKey?: string; model?: string; baseUrl?: string };
   /** The address allowed to propose adjustments, when one is configured. */
   managerAddress?: Address;
   /** The hosted Envio indexer's GraphQL endpoint. When set, history is read from it first. */

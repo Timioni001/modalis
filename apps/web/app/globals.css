@@ -418,3 +418,25 @@ select.field {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, rgb(0 0 0 / 0.3) 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 55%, rgb(0 0 0 / 0.3) 100%);
 }
+
+/* Statement printing (Activity → "Statement (PDF)"): just the page content, no navigation. */
+@media print {
+  aside,
+  nav,
+  header,
+  footer {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}
+
+/* Low-data mode (Settings): nothing moves, so nothing is spent on animating. */
+[data-lowdata="1"] *,
+[data-lowdata="1"] *::before,
+[data-lowdata="1"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

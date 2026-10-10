@@ -31,7 +31,12 @@ const EVENT_TITLES: Record<string, { kind: ActivityKind; title: string }> = {
 export type ActivityFeed = {
   items: ActivityItem[];
   /** Where this came from, so the UI never implies history it does not have. */
-  sources: { chain: boolean; recommendations: boolean };
+  sources: {
+    chain: boolean;
+    recommendations: boolean;
+    /** Which reader supplied the chain half: the Envio indexer, or direct RPC log queries. */
+    indexer?: "envio" | "rpc";
+  };
 };
 
 export async function getActivity(
@@ -45,13 +50,16 @@ export async function getActivity(
   // --- What actually happened, from the chain: the Envio indexer when there is one (instant, with
   //     real timestamps), RPC log queries otherwise or if the indexer doesn't answer.
   let chainOk = false;
+  let indexer: "envio" | "rpc" | undefined;
   const indexed = ctx.envioUrl ? await fromEnvio(ctx.envioUrl, who, ctx.explorerUrl).catch(() => null) : null;
   if (indexed) {
     items.push(...indexed);
     chainOk = true;
+    indexer = "envio";
   } else try {
     const events = await fetchActivity(ctx.client, ctx.deployment, who);
     chainOk = true;
+    indexer = "rpc";
     for (const event of events) {
       const mapped = EVENT_TITLES[event.kind];
       if (!mapped) continue;
@@ -91,7 +99,7 @@ export async function getActivity(
   }
 
   items.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
-  return { items, sources: { chain: chainOk, recommendations: recommendationsOk } };
+  return { items, sources: { chain: chainOk, recommendations: recommendationsOk, indexer } };
 }
 
 /** Envio's GraphQL types for the two entities the feed needs. */

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { StressTest } from "@/components/stress-test";
+import { AffordCheck } from "@/components/afford-check";
 import { apiPost, ApiError } from "@/lib/client-api";
 
 type ScenarioSet = {
@@ -124,6 +125,7 @@ function Scenarios() {
       ) : null}
 
       <StressTest />
+      <AffordCheck />
 
       {busy && !result ? <Loading label="Working it out" /> : null}
 

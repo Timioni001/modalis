@@ -16,8 +16,11 @@ import { usePortfolio } from "./portfolio-provider";
 import { useWalletConfig } from "./wallet-context";
 import { browserClient } from "@/lib/chain-client";
 import { Explain } from "./explain";
+import { isLowData } from "./device-prefs";
 
 const POLL_MS = 600;
+/** Low-data mode: a read every few seconds instead of every block. */
+const LOW_DATA_POLL_MS = 5000;
 
 export function DriftMeter() {
   const { address, status, needsPlan } = usePortfolio();
@@ -61,7 +64,7 @@ export function DriftMeter() {
     };
 
     void tick();
-    const id = setInterval(tick, POLL_MS);
+    const id = setInterval(tick, isLowData() ? LOW_DATA_POLL_MS : POLL_MS);
     return () => {
       stopped = true;
       clearInterval(id);

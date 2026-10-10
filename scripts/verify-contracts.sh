@@ -30,6 +30,7 @@ riskSignalReceiver|src/RiskSignalReceiver.sol:RiskSignalReceiver|Receives Chainl
 priceOracle|src/mocks/MockPriceOracle.sol:MockPriceOracle|Demo prices (test network only)
 executionAdapter|src/mocks/MockExecutionAdapter.sol:MockExecutionAdapter|Demo trading venue (test network only)
 kuruAdapter|src/adapters/KuruAdapter.sol:KuruAdapter|Trades through Kuru's order book
+savingsCircle|src/SavingsCircle.sol:SavingsCircle|Runs rotating savings circles (ajo / esusu)
 mUSD|src/mocks/MockERC20.sol:MockERC20|Demo dollar token (test network only)
 mBTC|src/mocks/MockERC20.sol:MockERC20|Demo bitcoin token (test network only)
 mETH|src/mocks/MockERC20.sol:MockERC20|Demo ether token (test network only)
