@@ -19,6 +19,8 @@ import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
 import { useWallet } from "@/components/wallet-context";
 import { apiGet, apiPost } from "@/lib/client-api";
+import { confirmOnChain } from "@/lib/chain-client";
+import { ConfirmedIn } from "@/components/confirmed-in";
 
 type FaucetState = {
   testnet: boolean;
@@ -29,7 +31,7 @@ type FaucetState = {
 };
 
 export function TestMoney({ onFunded }: { onFunded?: () => void | Promise<void> }) {
-  const { loggedIn, address, chainId, getWalletClient } = useWallet();
+  const { loggedIn, address, chainId, rpcUrl, getWalletClient } = useWallet();
   const { status } = usePortfolio();
   const [state, setState] = useState<FaucetState | null>(null);
   const [working, setWorking] = useState(false);
@@ -37,6 +39,7 @@ export function TestMoney({ onFunded }: { onFunded?: () => void | Promise<void> 
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [ms, setMs] = useState<number | null>(null);
 
   const check = useCallback(async () => {
     if (!loggedIn) return;
@@ -71,7 +74,9 @@ export function TestMoney({ onFunded }: { onFunded?: () => void | Promise<void> 
           contracts: (status?.technical?.contracts ?? {}) as Record<string, Address>,
           tokens: (status?.technical?.tokens ?? {}) as Record<string, Address>,
         };
-        setReceipt(await mintTestMoney(wallet, deployment));
+        const hash = await mintTestMoney(wallet, deployment);
+        setMs((await confirmOnChain(hash, { chainId, rpcUrl })).ms);
+        setReceipt(hash);
       }
       await check();
       await onFunded?.();
@@ -85,7 +90,7 @@ export function TestMoney({ onFunded }: { onFunded?: () => void | Promise<void> 
     } finally {
       setWorking(false);
     }
-  }, [state, getWalletClient, chainId, status, check, onFunded]);
+  }, [state, getWalletClient, chainId, rpcUrl, status, check, onFunded]);
 
   if (!loggedIn || !state || !state.testnet) return null;
   if (state.hasTestMoney && !state.lowGas && !receipt) return null;
@@ -101,7 +106,8 @@ export function TestMoney({ onFunded }: { onFunded?: () => void | Promise<void> 
 
       {receipt && state.hasTestMoney ? (
         <Notice tone="ok" title="Done">
-          Your wallet has test money and MON for fees. <ReceiptLink reference={receipt} />
+          Your wallet has test money and MON for fees. <ReceiptLink reference={receipt} />{" "}
+          <ConfirmedIn ms={ms} />
         </Notice>
       ) : null}
 

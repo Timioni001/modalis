@@ -25,6 +25,7 @@ import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { PendingAction } from "@/components/pending-action";
 import { DemoControls } from "@/components/demo-controls";
+import { DriftMeter } from "@/components/drift-meter";
 import { HealthCard } from "@/components/health-card";
 import { moneyLabel, monthYear, percent } from "@/lib/format";
 import type { Tone } from "@/components/ui";
@@ -289,6 +290,8 @@ function Overview() {
           </svg>
         </Link>
       ) : null}
+
+      <DriftMeter />
 
       <DemoControls />
 

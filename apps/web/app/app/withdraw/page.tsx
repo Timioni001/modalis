@@ -17,6 +17,8 @@ import { Badge, Button, Card, MoneyField, Notice, PageHeader, SectionTitle } fro
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
+import { ConfirmedIn } from "@/components/confirmed-in";
+import { confirmOnChain } from "@/lib/chain-client";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
 import { ApiError, apiPostOnce } from "@/lib/client-api";
 import { moneyLabel } from "@/lib/format";
@@ -30,7 +32,7 @@ export default function WithdrawPage() {
 }
 
 function Withdraw() {
-  const { chainId } = useWalletConfig();
+  const { chainId, rpcUrl } = useWalletConfig();
   const { loggedIn, getWalletClient } = useWallet();
   const { money, status, refresh } = usePortfolio();
 
@@ -40,6 +42,7 @@ function Withdraw() {
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<Hex[]>([]);
+  const [times, setTimes] = useState<Record<string, number>>({});
 
   const done = steps.length > 0 && steps.every((s) => s.status === "done");
 
@@ -78,6 +81,8 @@ function Withdraw() {
         mark(step.id, { status: "in_progress" });
         try {
           const hash: Hex = await withdraw(wallet, deployment, step.holdingId as Address, BigInt(step.rawUnits));
+          const confirmed = await confirmOnChain(hash, { chainId, rpcUrl });
+          setTimes((t) => ({ ...t, [hash]: confirmed.ms }));
           mark(step.id, { status: "done" });
           setReceipts((r) => [...r, hash]);
           await apiPostOnce("/api/money/confirm", { receipt: hash, kind: "withdraw" }).catch(() => undefined);
@@ -95,7 +100,7 @@ function Withdraw() {
     } finally {
       setWorking(false);
     }
-  }, [plan, steps, getWalletClient, chainId, status, refresh]);
+  }, [plan, steps, getWalletClient, chainId, rpcUrl, status, refresh]);
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
@@ -159,7 +164,12 @@ function Withdraw() {
 
           {receipts.length > 0 ? (
             <p className="mt-3 flex flex-wrap gap-2 text-ink-muted">
-              {receipts.map((r) => <ReceiptLink key={r} reference={r} />)}
+              {receipts.map((r) => (
+                <span key={r} className="mr-2 inline-flex items-center gap-1">
+                  <ReceiptLink reference={r} />
+                  <ConfirmedIn ms={times[r]} />
+                </span>
+              ))}
             </p>
           ) : null}
 
