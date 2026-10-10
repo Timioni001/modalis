@@ -2,6 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
   - "services/*"
-  - "integrations/chainlink-cre"
-# integrations/envio is deliberately NOT in the workspace: Envio Cloud builds it on its own, from
-# its own folder and its own lockfile, so it must install and run codegen standalone.
+  - "integrations/*"
+# integrations/envio also carries its own pnpm-workspace.yaml and lockfile, so Envio Cloud can
+# install and run codegen from that folder alone.
