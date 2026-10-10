@@ -44,7 +44,7 @@ const TONES: Record<ActivityItem["kind"], "ok" | "warn" | "breach" | "accent" | 
 };
 
 function Activity() {
-  const { signedIn } = usePortfolio();
+  const { signedIn, address } = usePortfolio();
   const [feed, setFeed] = useState<ActivityFeed | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +70,7 @@ function Activity() {
       <PageHeader
         title="Activity"
         lede="Everything that has happened to your money, with a receipt for each one."
+        action={address ? <ShareProof address={address} /> : null}
       />
 
       {!feed.sources.chain ? (
@@ -117,5 +118,23 @@ function Activity() {
         </Rows>
       )}
     </div>
+  );
+}
+
+/** Copies a link to the public proof page: limits and transactions, from the chain only. */
+function ShareProof({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className="min-h-[42px] rounded-full bg-sunken px-4 text-[14px] font-semibold text-ink-soft hover:bg-line hover:text-ink"
+      onClick={() => {
+        const url = `${window.location.origin}/proof/${address}`;
+        void navigator.clipboard?.writeText(url).then(() => setCopied(true));
+      }}
+      title="A page anyone can open to check your limits and transactions on Monad"
+    >
+      {copied ? "Link copied" : "Share proof page"}
+    </button>
   );
 }
