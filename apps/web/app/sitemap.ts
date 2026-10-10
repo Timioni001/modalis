@@ -9,6 +9,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/`, lastModified: updated, priority: 1 },
     { url: `${base}/how-it-works`, lastModified: updated, priority: 0.8 },
     { url: `${base}/security`, lastModified: updated, priority: 0.8 },
+    { url: `${base}/why-monad`, lastModified: updated, priority: 0.7 },
+    { url: `${base}/stats`, lastModified: updated, priority: 0.6 },
     { url: `${base}/contact`, lastModified: updated, priority: 0.4 },
     { url: `${base}/legal/risk`, lastModified: updated, priority: 0.5 },
     { url: `${base}/legal/terms`, lastModified: updated, priority: 0.3 },

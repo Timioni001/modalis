@@ -40,6 +40,8 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
       { href: "/how-it-works", label: "How it works" },
       { href: "/how-it-works#limits", label: "The limits" },
       { href: "/how-it-works#adjustments", label: "Adjustments" },
+      { href: "/why-monad", label: "Why Monad" },
+      { href: "/stats", label: "Live numbers" },
       { href: "/app", label: "Open Modalis" },
     ],
   },

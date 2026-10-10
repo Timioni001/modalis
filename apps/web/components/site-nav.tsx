@@ -133,6 +133,11 @@ export function SiteNav() {
                 How it works
               </NavLink>
             </span>
+            <span className="hidden lg:inline-flex">
+              <NavLink href="/why-monad" active={pathname === "/why-monad"}>
+                Why Monad
+              </NavLink>
+            </span>
             <Link
               href="/"
               className="flex min-h-[44px] items-center text-ink md:hidden"
