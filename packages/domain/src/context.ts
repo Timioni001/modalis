@@ -19,6 +19,8 @@ export type DomainContext = {
   ai?: { apiKey?: string; model?: string };
   /** The address allowed to propose adjustments, when one is configured. */
   managerAddress?: Address;
+  /** The hosted Envio indexer's GraphQL endpoint. When set, history is read from it first. */
+  envioUrl?: string;
 };
 
 /** A domain-level failure with a message a person can read. */

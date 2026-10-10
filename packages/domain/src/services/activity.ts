@@ -42,9 +42,14 @@ export async function getActivity(
   const who = getAddress(owner);
   const items: ActivityItem[] = [];
 
-  // --- What actually happened, from the chain.
+  // --- What actually happened, from the chain: the Envio indexer when there is one (instant, with
+  //     real timestamps), RPC log queries otherwise or if the indexer doesn't answer.
   let chainOk = false;
-  try {
+  const indexed = ctx.envioUrl ? await fromEnvio(ctx.envioUrl, who, ctx.explorerUrl).catch(() => null) : null;
+  if (indexed) {
+    items.push(...indexed);
+    chainOk = true;
+  } else try {
     const events = await fetchActivity(ctx.client, ctx.deployment, who);
     chainOk = true;
     for (const event of events) {
@@ -87,6 +92,50 @@ export async function getActivity(
 
   items.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   return { items, sources: { chain: chainOk, recommendations: recommendationsOk } };
+}
+
+/** Envio's GraphQL types for the two entities the feed needs. */
+type EnvioTx = { id: string; type: string; txHash: string; timestamp: string };
+type EnvioRebalance = { id: string; txHash: string; timestamp: string };
+
+const ENVIO_KIND: Record<string, string> = {
+  DEPOSIT: "Deposited",
+  WITHDRAW: "Withdrawn",
+  EMERGENCY_WITHDRAW: "Withdrawn",
+};
+
+/**
+ * Reads the owner's settled history from the hosted indexer (integrations/envio). Returns null on
+ * anything unexpected so the caller falls back to reading the chain directly.
+ */
+async function fromEnvio(url: string, owner: Address, explorerUrl?: string): Promise<ActivityItem[] | null> {
+  const query = `query ($owner: String!) {
+    Transaction(where: { owner_id: { _eq: $owner } }, order_by: { blockNumber: desc }, limit: 200) { id type txHash timestamp }
+    Rebalance(where: { owner_id: { _eq: $owner } }, order_by: { blockNumber: desc }, limit: 200) { id txHash timestamp }
+  }`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ query, variables: { owner: owner.toLowerCase() } }),
+    signal: AbortSignal.timeout(4_000),
+  });
+  if (!res.ok) return null;
+  const body = (await res.json()) as { data?: { Transaction?: EnvioTx[]; Rebalance?: EnvioRebalance[] }; errors?: unknown };
+  if (body.errors || !body.data?.Transaction || !body.data?.Rebalance) return null;
+
+  const at = (ts: string) => new Date(Number(ts) * 1000).toISOString();
+  const out: ActivityItem[] = [];
+  for (const t of body.data.Transaction) {
+    const kind = ENVIO_KIND[t.type];
+    if (!kind) continue;
+    const mapped = EVENT_TITLES[kind];
+    out.push({ id: t.id, kind: mapped.kind, title: mapped.title, detail: detailFor(kind, {}), at: at(t.timestamp), receipt: toReceipt(t.txHash, true, explorerUrl) });
+  }
+  for (const r of body.data.Rebalance) {
+    const mapped = EVENT_TITLES.Rebalanced;
+    out.push({ id: r.id, kind: mapped.kind, title: mapped.title, detail: detailFor("Rebalanced", {}), at: at(r.timestamp), receipt: toReceipt(r.txHash, true, explorerUrl) });
+  }
+  return out;
 }
 
 function detailFor(kind: string, args: Record<string, unknown>): string {

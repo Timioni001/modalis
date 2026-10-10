@@ -35,6 +35,7 @@ export async function domainContext(): Promise<DomainContext> {
     rpcUrl: rpc.httpUrl,
     ai: { apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL },
     managerAddress: managerAddress(),
+    envioUrl: process.env.ENVIO_GRAPHQL_URL || undefined,
   };
 }
 
