@@ -7,6 +7,7 @@
  * have allowed, take it back, pause the plan, or take all their money out. Every one of those is
  * owner-only where it counts, and the exit keeps working even when the plan is paused.
  */
+import { chooseCurrency, useLocalCurrency } from "@/components/local-amount";
 import { useCallback, useState } from "react";
 import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain";
 import type { Address, Hex } from "viem";
@@ -93,6 +94,13 @@ function Settings() {
       <Card>
         <SectionTitle hint="Saved on this device only.">Appearance</SectionTitle>
         <ThemeChooser />
+      </Card>
+
+      <Card>
+        <SectionTitle hint="Saved on this device only. Your plan is always held in US dollars.">
+          Show amounts in your currency
+        </SectionTitle>
+        <CurrencyChooser />
       </Card>
 
       {/* -------------------------------------------------------- permissions */}
@@ -230,4 +238,40 @@ function Settings() {
 
 function planStateLabel(state: "draft" | "active" | "paused"): string {
   return state === "active" ? "Running" : state === "paused" ? "Paused" : "Not approved yet";
+}
+
+const LOCAL_CURRENCIES: [string, string][] = [
+  ["", "Dollars only"],
+  ["NGN", "Naira (₦)"],
+  ["GHS", "Cedi (GH₵)"],
+  ["KES", "Shilling (KSh)"],
+  ["ZAR", "Rand (R)"],
+  ["INR", "Rupee (₹)"],
+  ["IDR", "Rupiah (Rp)"],
+  ["BRL", "Real (R$)"],
+  ["MXN", "Peso (MX$)"],
+  ["EUR", "Euro (€)"],
+  ["GBP", "Pound (£)"],
+];
+
+/** Shows a second, local-currency figure under dollar totals, at today's rate. */
+function CurrencyChooser() {
+  const code = useLocalCurrency() ?? "";
+  return (
+    <div className="flex flex-wrap gap-2">
+      {LOCAL_CURRENCIES.map(([value, label]) => (
+        <button
+          key={value || "usd"}
+          type="button"
+          aria-pressed={code === value}
+          onClick={() => chooseCurrency(value || null)}
+          className={`min-h-[40px] rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
+            code === value ? "bg-panel text-panel-ink" : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 }
