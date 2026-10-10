@@ -19,13 +19,16 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { approveToken, deposit } from "@modalis/chain";
+import { approveToken, canBatch, deposit, fundingCalls, sendBatch } from "@modalis/chain";
 import type { FundingPlan, FundingStep } from "@modalis/domain";
 import type { Address, Hex } from "viem";
 import { Badge, Button, Card, Notice, PageHeader, SectionTitle } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
+import { TestMoney, gasHelpMessage } from "@/components/test-money";
+import { ConfirmedIn } from "@/components/confirmed-in";
+import { confirmOnChain } from "@/lib/chain-client";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
 import { apiPostOnce } from "@/lib/client-api";
 import { moneyLabel } from "@/lib/format";
@@ -42,7 +45,7 @@ const QUICK_AMOUNTS = ["250", "500", "1000", "5000"];
 
 function AddMoney() {
   const router = useRouter();
-  const { chainId } = useWalletConfig();
+  const { chainId, rpcUrl } = useWalletConfig();
   const { loggedIn, getWalletClient } = useWallet();
   const { plan, money, status, refresh } = usePortfolio();
 
@@ -52,6 +55,7 @@ function AddMoney() {
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [times, setTimes] = useState<Record<string, number>>({});
 
   const valid = /^\d+(\.\d{1,2})?$/.test(amount.trim()) && Number(amount) > 0;
   const done = steps.length > 0 && steps.every((s) => s.status === "done");
@@ -97,6 +101,41 @@ function AddMoney() {
         tokens: (status?.technical?.tokens ?? {}) as Record<string, Address>,
       };
 
+      // One signature for every step, when the wallet can batch (EIP-5792). Same calls, same
+      // contract checks; just fewer prompts. Wallets that can't fall through to one step at a time.
+      const pending = funding.steps.filter((st) => steps.find((s) => s.id === st.id)?.status !== "done");
+      if (pending.length > 1 && (await canBatch(wallet, chainId))) {
+        for (const st of pending) mark(st.id, { status: "in_progress", error: undefined });
+        const started = performance.now();
+        try {
+          const hashes = await sendBatch(
+            wallet,
+            fundingCalls(
+              deployment,
+              pending.map((st) => ({ kind: st.kind, token: st.holdingId as Address, amount: BigInt(st.rawUnits) })),
+            ),
+          );
+          const ms = Math.round(performance.now() - started);
+          const last = hashes[hashes.length - 1];
+          for (const st of pending) {
+            mark(st.id, {
+              status: "done",
+              receipt: last ? { reference: last, confirmed: true, at: new Date().toISOString() } : undefined,
+            });
+          }
+          setTimes((t) => Object.fromEntries([...Object.entries(t), ...pending.map((st) => [st.id, ms])]));
+          for (const h of new Set(hashes)) {
+            await apiPostOnce("/api/money/confirm", { receipt: h, kind: "add" }).catch(() => undefined);
+          }
+          setFinished(true);
+          await refresh();
+          return;
+        } catch (err) {
+          for (const st of pending) mark(st.id, { status: "failed", error: gasHelpMessage(err) ?? undefined });
+          throw err;
+        }
+      }
+
       for (const step of funding.steps) {
         if (steps.find((s) => s.id === step.id)?.status === "done") continue;
         mark(step.id, { status: "in_progress", error: undefined });
@@ -106,6 +145,10 @@ function AddMoney() {
             step.kind === "allow"
               ? await approveToken(wallet, deployment, step.holdingId as Address, units)
               : await deposit(wallet, deployment, step.holdingId as Address, units);
+
+          // Done means in a block, not "the wallet returned a hash".
+          const confirmed = await confirmOnChain(hash, { chainId, rpcUrl });
+          setTimes((t) => ({ ...t, [step.id]: confirmed.ms }));
 
           mark(step.id, {
             status: "done",
@@ -120,7 +163,9 @@ function AddMoney() {
         } catch (err) {
           mark(step.id, {
             status: "failed",
-            error: err instanceof Error ? err.message : "That step didn't go through.",
+            error:
+              gasHelpMessage(err) ??
+              (err instanceof Error ? err.message : "That step didn't go through."),
           });
           throw err;
         }
@@ -130,9 +175,10 @@ function AddMoney() {
       await refresh();
     } catch (err) {
       setError(
-        err instanceof Error
+        gasHelpMessage(err) ??
+        (err instanceof Error
           ? `${err.message} Anything that already went through is safely in your plan.`
-          : "Something didn't go through.",
+          : "Something didn't go through."),
       );
     } finally {
       setWorking(false);
@@ -141,7 +187,7 @@ function AddMoney() {
     function mark(id: string, patch: Partial<FundingStep>) {
       setSteps((all) => all.map((s) => (s.id === id ? { ...s, ...patch } : s)));
     }
-  }, [funding, steps, getWalletClient, chainId, status, refresh]);
+  }, [funding, steps, getWalletClient, chainId, rpcUrl, status, refresh]);
 
   const where = useMemo(() => plan?.howMoneyIsSpread ?? [], [plan]);
 
@@ -157,6 +203,14 @@ function AddMoney() {
           You have {moneyLabel(money.total)} in your plan today.
         </p>
       ) : null}
+
+      <TestMoney
+        onFunded={async () => {
+          setFunding(null);
+          setSteps([]);
+          await refresh();
+        }}
+      />
 
       {/* ------------------------------------------------------- how much */}
       <Card>
@@ -243,7 +297,8 @@ function AddMoney() {
               </ul>
               <p className="mt-2">
                 You can still add the rest; the steps you can&apos;t cover will simply not go
-                through.
+                through. On the test network, &ldquo;Get test money&rdquo; above fills your
+                wallet in one tap.
               </p>
             </Notice>
           ) : null}
@@ -271,7 +326,8 @@ function AddMoney() {
                       {step.receipt ? (
                         <>
                           {" · "}
-                          <ReceiptLink reference={step.receipt.reference} />
+                          <ReceiptLink reference={step.receipt.reference} />{" "}
+                          <ConfirmedIn ms={times[step.id]} />
                         </>
                       ) : null}
                     </div>

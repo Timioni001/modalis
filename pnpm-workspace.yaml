@@ -3,3 +3,5 @@ packages:
   - "packages/*"
   - "services/*"
   - "integrations/*"
+# integrations/envio also carries its own pnpm-workspace.yaml and lockfile, so Envio Cloud can
+# install and run codegen from that folder alone.

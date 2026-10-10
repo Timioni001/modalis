@@ -22,6 +22,8 @@ export type WalletState = {
   chainId: number;
   networkName: string;
   explorerUrl?: string;
+  /** NEXT_PUBLIC_MONAD_RPC_URL when set; otherwise the chain's public endpoint is used. */
+  rpcUrl?: string;
   demoMode: boolean;
   loggedIn: boolean;
   address: Address | null;
@@ -50,8 +52,8 @@ export function useWallet(): WalletState {
 /** Just the deployment-level bits, for components that never sign. */
 export function useWalletConfig(): Pick<
   WalletState,
-  "configured" | "chainId" | "networkName" | "explorerUrl" | "demoMode"
+  "configured" | "chainId" | "networkName" | "explorerUrl" | "rpcUrl" | "demoMode"
 > {
-  const { configured, chainId, networkName, explorerUrl, demoMode } = useContext(WalletContext);
-  return { configured, chainId, networkName, explorerUrl, demoMode };
+  const { configured, chainId, networkName, explorerUrl, rpcUrl, demoMode } = useContext(WalletContext);
+  return { configured, chainId, networkName, explorerUrl, rpcUrl, demoMode };
 }

@@ -14,13 +14,14 @@ import "server-only";
 import { AuthError, assertOwns, readSession, requireSession, type Session } from "@modalis/auth";
 import { serverClient } from "@modalis/db";
 import { DomainError, type DomainContext } from "@modalis/domain";
-import { accountFromPrivateKey } from "@modalis/chain";
+import { agentIdentity } from "@modalis/chain";
 import type { Address } from "viem";
 import { getServerContext } from "./server";
 import { errorResponse, jsonResponse } from "./serialize";
 import { TooManyRequests, callerHint, limit, once } from "./guard";
 import { idempotencyKey, readBody } from "./validate";
 import { count, log, timing } from "./observe";
+import { reportError } from "./error-report";
 
 export { jsonResponse, readBody };
 
@@ -33,21 +34,16 @@ export async function domainContext(): Promise<DomainContext> {
     db: serverClient(),
     explorerUrl: process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL || undefined,
     rpcUrl: rpc.httpUrl,
-    ai: { apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL },
+    ai: { apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL, baseUrl: process.env.AI_BASE_URL || undefined },
     managerAddress: managerAddress(),
+    envioUrl: process.env.ENVIO_GRAPHQL_URL || undefined,
   };
 }
 
 export function managerAddress(): Address | undefined {
   const explicit = process.env.MANAGER_ADDRESS?.trim();
   if (explicit) return explicit as Address;
-  const key = process.env.MANAGER_PRIVATE_KEY;
-  if (!key) return undefined;
-  try {
-    return accountFromPrivateKey(key).address as Address;
-  } catch {
-    return undefined;
-  }
+  return agentIdentity()?.address;
 }
 
 /**
@@ -128,6 +124,7 @@ export function handleError(err: unknown): Response {
   // — scrubbed, because upstream errors carry RPC URLs and those URLs carry API keys.
   count("api.errors.server");
   log("error", "api.unhandled", { error: err });
+  reportError(err, { kind: "api.unhandled" });
   return errorResponse("Something went wrong on our side. Nothing was changed.", 500);
 }
 

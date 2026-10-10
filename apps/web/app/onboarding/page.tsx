@@ -26,6 +26,7 @@ import {
   TextField,
 } from "@/components/ui";
 import { DEFAULT_ANSWERS, saveAnswers } from "@/lib/goal-answers";
+import { GOAL_TEMPLATES } from "@/lib/goal-templates";
 import { monthsToHuman } from "@/lib/format";
 
 const STEPS = [
@@ -40,6 +41,7 @@ const GOALS: { value: GoalAnswers["goalKind"]; label: string; hint: string }[] =
   { value: "house", label: "A home", hint: "A deposit or a purchase" },
   { value: "emergency_reserve", label: "A safety net", hint: "Money that must stay reachable" },
   { value: "education", label: "Education", hint: "Tuition or study costs" },
+  { value: "major_purchase", label: "A big expense", hint: "A wedding, a move, a car" },
   { value: "long_term_wealth", label: "Long-term", hint: "No fixed purpose yet" },
   { value: "retirement", label: "Retirement", hint: "A long horizon" },
   { value: "custom", label: "Something else", hint: "Describe it yourself" },
@@ -161,6 +163,26 @@ function Onboarding() {
           <div className="mt-7 space-y-6">
             {STEPS[step].id === "goal" ? (
               <>
+                <div>
+                  <div className="text-sm font-medium text-ink-soft">Start from a common goal</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {GOAL_TEMPLATES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        title={t.hint}
+                        onClick={() => {
+                          setAnswers((a) => ({ ...a, ...t.answers }));
+                          setDescription(t.words);
+                        }}
+                        className="min-h-[40px] rounded-full bg-sunken px-4 text-[13.5px] font-semibold text-ink-soft transition-colors hover:bg-line hover:text-ink"
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-ink-muted">Fills in sensible answers; you can change every one.</p>
+                </div>
                 <Choices
                   name="goal"
                   value={answers.goalKind}

@@ -25,6 +25,9 @@ import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { PendingAction } from "@/components/pending-action";
 import { DemoControls } from "@/components/demo-controls";
+import { DriftMeter } from "@/components/drift-meter";
+import { LocalAmount } from "@/components/local-amount";
+import { GoalReached } from "@/components/goal-reached";
 import { HealthCard } from "@/components/health-card";
 import { moneyLabel, monthYear, percent } from "@/lib/format";
 import type { Tone } from "@/components/ui";
@@ -91,6 +94,7 @@ function Overview() {
           <div className="numeric mt-5 text-[48px] font-semibold leading-none tracking-[-0.03em] sm:text-[64px]">
             {moneyLabel(money.total)}
           </div>
+          <LocalAmount usd={money.total.amount} className="mt-2 block text-panel-soft" />
 
           {goal ? (
             <>
@@ -289,6 +293,10 @@ function Overview() {
           </svg>
         </Link>
       ) : null}
+
+      <GoalReached />
+
+      <DriftMeter />
 
       <DemoControls />
 

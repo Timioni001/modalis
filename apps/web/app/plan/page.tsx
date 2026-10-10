@@ -29,6 +29,8 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
+import { ConfirmedIn } from "@/components/confirmed-in";
+import { confirmOnChain } from "@/lib/chain-client";
 import { loadAnswers } from "@/lib/goal-answers";
 import { apiGet, apiPost } from "@/lib/client-api";
 import { monthsToHuman, percent, usdFromDecimal } from "@/lib/format";
@@ -67,13 +69,13 @@ function toMandateParams(params: Approval["params"]): MandateParams {
 
 export default function PlanPage() {
   const router = useRouter();
-  const { configured, chainId } = useWalletConfig();
+  const { configured, chainId, rpcUrl } = useWalletConfig();
   const { loggedIn, address, getWalletClient } = useWallet();
 
   const [data, setData] = useState<DraftResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "signing" | "done">("idle");
-  const [receipts, setReceipts] = useState<{ label: string; hash: Hex }[]>([]);
+  const [receipts, setReceipts] = useState<{ label: string; hash: Hex; ms?: number }[]>([]);
 
   // --- Build the plan from the answers the person gave.
   useEffect(() => {
@@ -122,14 +124,16 @@ export default function PlanPage() {
           maxBps: a.maxBps,
         })),
       );
-      setReceipts((r) => [...r, { label: "Plan approved", hash: planHash }]);
+      const planConfirmed = await confirmOnChain(planHash, { chainId, rpcUrl });
+      setReceipts((r) => [...r, { label: "Plan approved", hash: planHash, ms: planConfirmed.ms }]);
 
       // Let Modalis RECOMMEND adjustments. This grants no power to withdraw and no power to
       // change the rules; both are refused for anyone but the owner, by the rules themselves.
       const manager = status.technical?.managerAddress;
       if (manager) {
         const managerHash = await setManagerOnChain(wallet, deployment, manager as Address);
-        setReceipts((r) => [...r, { label: "Adjustments allowed", hash: managerHash }]);
+        const managerConfirmed = await confirmOnChain(managerHash, { chainId, rpcUrl });
+        setReceipts((r) => [...r, { label: "Adjustments allowed", hash: managerHash, ms: managerConfirmed.ms }]);
       }
 
       // Save the goal alongside the plan. Optional: skipping it loses the goal's name and
@@ -145,7 +149,7 @@ export default function PlanPage() {
       setState("idle");
       setError(err instanceof Error ? err.message : "We couldn't approve your plan.");
     }
-  }, [data, getWalletClient, chainId]);
+  }, [data, getWalletClient, chainId, rpcUrl]);
 
   if (error && !data) {
     return (
@@ -335,7 +339,7 @@ export default function PlanPage() {
             <ul className="mt-6 space-y-2 text-[13px] text-panel-soft">
               {receipts.map((r) => (
                 <li key={r.hash} className="flex flex-wrap items-center gap-2">
-                  {r.label}: <ReceiptLink reference={r.hash} />
+                  {r.label}: <ReceiptLink reference={r.hash} /> <ConfirmedIn ms={r.ms} />
                 </li>
               ))}
             </ul>

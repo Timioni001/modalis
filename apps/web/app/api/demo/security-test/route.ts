@@ -38,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
     if (ctx.deployment.chainId === 143) return errorResponse("Not available on the live network.", 403);
 
     const { rpc } = await getServerContext();
-    const wallet = getManagerWallet(rpc);
+    const wallet = await getManagerWallet(rpc);
     if (!wallet) return errorResponse("No signing key is configured on this deployment.", 503);
 
     const adapter = ctx.deployment.contracts.kuruAdapter ?? ctx.deployment.contracts.executionAdapter;

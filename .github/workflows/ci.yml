@@ -1,0 +1,46 @@
+# Runs on every push and pull request: TypeScript typecheck, tests and the production build, plus
+# the Solidity build and tests. Needs no secrets; nothing here touches a network or a key.
+name: CI
+
+on:
+  push:
+    branches: [claude/awesome-gates-h1pxk0]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Typecheck, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm test
+      - name: Service tests
+        run: pnpm --filter @modalis/risk-monitor test
+      - run: pnpm build
+
+  contracts:
+    name: Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      # The Solidity libraries are not stored in git; same pinned versions as scripts/setup.sh.
+      - name: Fetch Solidity libraries
+        run: |
+          git clone --quiet --depth 1 --branch v1.11.0 https://github.com/foundry-rs/forge-std.git contracts/lib/forge-std
+          git clone --quiet --depth 1 --branch v5.4.0 https://github.com/OpenZeppelin/openzeppelin-contracts.git contracts/lib/openzeppelin-contracts
+      - run: forge build
+        working-directory: contracts
+      - run: forge test
+        working-directory: contracts

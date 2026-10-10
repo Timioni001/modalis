@@ -74,7 +74,9 @@ export type Counter =
   | "security.rate_limited"
   | "policy.refused"
   | "tx.failed"
-  | "oracle.stale";
+  | "oracle.stale"
+  | "faucet.sent"
+  | "faucet.failed";
 
 const counters = new Map<string, number>();
 const latencies: number[] = [];

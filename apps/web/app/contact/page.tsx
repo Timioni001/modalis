@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader, Prose } from "@/components/prose";
+import { ContactForm } from "@/components/contact-form";
 
 export const metadata: Metadata = {
   title: "Contact",
@@ -15,6 +16,9 @@ export default function ContactPage() {
         lede="Modalis is a small project built for a hackathon. There is no support desk, and saying so is more useful than pretending otherwise."
       />
       <Prose>
+        <h2>Send us a message</h2>
+        <ContactForm />
+
         <h2>Something is broken</h2>
         <p>
           Open an issue on the repository. Include what you were doing, what you expected, and what
@@ -32,7 +36,7 @@ export default function ContactPage() {
 
         <h2>You want your data removed</h2>
         <p>
-          Anything Modalis stores about you can be deleted on request. What it cannot delete is the
+          Anything Modalis stores about you can be downloaded or deleted from Settings, under Your data. What it cannot delete is the
           public record of transactions you signed, which is not ours to remove.{" "}
           <a href="/legal/privacy">The privacy policy</a> sets out what is stored and what
           isn&rsquo;t.

@@ -6,7 +6,8 @@
   "main": "src/run-loop.ts",
   "scripts": {
     "loop": "node --experimental-strip-types src/run-loop.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prices": "node --experimental-strip-types src/move-prices.ts"
   },
   "dependencies": {
     "@modalis/ai": "workspace:*",

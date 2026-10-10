@@ -37,10 +37,14 @@ step "Reading .env.golive"
   "nano .env.golive        # fill it in, then run this again"
 # Windows editors save CRLF line endings, which would end up inside every value.
 sed -i 's/\r$//' .env.golive
+# Anything set on the command line (SITE_URL=... bash scripts/go-live.sh) wins over the file, even
+# when the file has the same name with an empty value.
+PRESET="$(export -p)"
 set -a
 # shellcheck disable=SC1091
 . ./.env.golive
 set +a
+eval "$PRESET"
 ok "loaded"
 
 CHAIN_ID=10143
@@ -156,6 +160,32 @@ else
   note "FUND_WALLET is empty — skipping"
 fi
 
+# Optional: live demo controls ("Simulate a market move", "Test my rules") on the testnet site.
+# The demo oracle is handed to its own key so the deployer key, which owns everything else, never
+# goes to Vercel. That key's only power is writing made-up prices to a demo oracle.
+DEMO_LIVE=0
+if [ -n "${ORACLE_UPDATER_PRIVATE_KEY:-}" ]; then
+  ORACLE="$(node -p "require('./$KEEP').contracts.priceOracle || ''")"
+  UPDATER="$(cast wallet address --private-key "$ORACLE_UPDATER_PRIVATE_KEY")"
+  OWNER="$(cast call "$ORACLE" 'owner()(address)' --rpc-url "$RPC" 2>/dev/null || true)"
+  if [ -z "$ORACLE" ]; then
+    note "no demo oracle in $KEEP; live demo controls stay off"
+  elif [ "${OWNER,,}" = "${UPDATER,,}" ]; then
+    DEMO_LIVE=1; ok "demo oracle already owned by the updater key"
+  elif [ -n "${DEPLOYER_PRIVATE_KEY:-}" ] && cast send "$ORACLE" 'transferOwnership(address)' "$UPDATER" \
+         --rpc-url "$RPC" --private-key "$DEPLOYER_PRIVATE_KEY" >/dev/null 2>&1; then
+    DEMO_LIVE=1; ok "demo oracle handed to the updater key $UPDATER"
+  else
+    note "couldn't hand the demo oracle to $UPDATER (owner is $OWNER); live demo controls stay off"
+  fi
+  # Each price write costs a little gas; top the updater up from the deployer when it runs low.
+  if [ "$DEMO_LIVE" = "1" ] && awk -v b="$(cast balance "$UPDATER" --ether --rpc-url "$RPC" 2>/dev/null || echo 0)" 'BEGIN{exit !(b < 0.05)}'; then
+    { [ -n "${DEPLOYER_PRIVATE_KEY:-}" ] && cast send "$UPDATER" --value 0.2ether \
+        --rpc-url "$RPC" --private-key "$DEPLOYER_PRIVATE_KEY" >/dev/null 2>&1 && ok "sent 0.2 MON to the updater key"; } \
+      || note "fund $UPDATER with a little MON at https://faucet.monad.xyz"
+  fi
+fi
+
 # ------------------------------------------------------------------------------ 6. vercel
 step "6/7  Vercel environment and deploy"
 [ -n "${NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID:-}" ] || note "NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID is empty: the site will work, but nobody can sign in until it is set."
@@ -169,6 +199,7 @@ const map = {
   portfolioVault: "NEXT_PUBLIC_PORTFOLIO_VAULT_ADDRESS", rebalanceExecutor: "NEXT_PUBLIC_REBALANCE_EXECUTOR_ADDRESS",
   riskSignalReceiver: "NEXT_PUBLIC_RISK_SIGNAL_RECEIVER_ADDRESS", priceOracle: "NEXT_PUBLIC_PRICE_ORACLE_ADDRESS",
   executionAdapter: "NEXT_PUBLIC_EXECUTION_ADAPTER_ADDRESS", kuruAdapter: "NEXT_PUBLIC_KURU_ADAPTER_ADDRESS",
+  savingsCircle: "NEXT_PUBLIC_SAVINGS_CIRCLE_ADDRESS",
   mUSD: "NEXT_PUBLIC_MUSD_ADDRESS", mBTC: "NEXT_PUBLIC_MBTC_ADDRESS", mETH: "NEXT_PUBLIC_METH_ADDRESS", mBOND: "NEXT_PUBLIC_MBOND_ADDRESS",
 };
 const all = { ...d.contracts, ...d.tokens };
@@ -179,9 +210,16 @@ for (const [k, e] of Object.entries(map)) if (all[k] && all[k].toLowerCase() !==
   echo "MODALIS_NETWORK=testnet"
   [ -n "${MONAD_TESTNET_RPC_URL:-}" ] && echo "MONAD_TESTNET_RPC_URL=$MONAD_TESTNET_RPC_URL"
   for k in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY \
-           NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID MANAGER_PRIVATE_KEY; do
+           NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID MANAGER_PRIVATE_KEY FAUCET_PRIVATE_KEY \
+           AI_API_KEY AI_MODEL AI_BASE_URL ENVIO_GRAPHQL_URL SENTRY_DSN \
+           DYNAMIC_API_TOKEN DYNAMIC_AGENT_WALLET DYNAMIC_AGENT_PASSWORD; do
     v="${!k:-}"; [ -n "$v" ] && echo "$k=$v"
   done
+  if [ "$DEMO_LIVE" = "1" ]; then
+    echo "ORACLE_UPDATER_PRIVATE_KEY=$ORACLE_UPDATER_PRIVATE_KEY"
+    echo "DEMO_MODE=true"
+    echo "NEXT_PUBLIC_DEMO_MODE=true"
+  fi
   # A fresh metrics token on the first run only; afterwards the one in Vercel is kept.
   echo "OPS_METRICS_TOKEN=${OPS_METRICS_TOKEN:-$(node -e 'console.log(require("crypto").randomBytes(24).toString("hex"))')}"
 } >>"$ENVFILE"
@@ -191,7 +229,9 @@ if [ "${SKIP_VERCEL:-0}" = "1" ]; then
   cut -d= -f1 "$ENVFILE" | sed 's/^/      /'
 else
   # Variables that must never reach production, in case an earlier experiment set them.
-  for k in MODALIS_DEV_AUTH DEMO_MODE NEXT_PUBLIC_DEV_WALLET MONAD_RPC_URL SUPABASE_URL; do
+  STRIP="MODALIS_DEV_AUTH NEXT_PUBLIC_DEV_WALLET MONAD_RPC_URL SUPABASE_URL"
+  [ "$DEMO_LIVE" = "1" ] || STRIP="$STRIP DEMO_MODE NEXT_PUBLIC_DEMO_MODE ORACLE_UPDATER_PRIVATE_KEY"
+  for k in $STRIP; do
     vercel env rm "$k" production -y >/dev/null 2>&1 || true
   done
   while IFS= read -r line; do

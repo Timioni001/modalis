@@ -19,6 +19,8 @@ export type SystemStatus = {
   poweredBy?: {
     settlement: boolean;
     signIn: boolean;
+    /** Adjustments are signed by a Dynamic server wallet. */
+    agentWallet?: boolean;
     trading: boolean;
     independentMonitoring: boolean;
     history: boolean;
@@ -33,6 +35,8 @@ export type SystemStatus = {
     contracts: Record<string, string>;
     tokens: Record<string, string>;
     managerAddress: string | null;
+    /** The wallet that signs adjustments, and how it is held. */
+    agent?: { address: string; kind: "dynamic" | "key"; label: string } | null;
   };
   error?: string;
 };

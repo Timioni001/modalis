@@ -10,7 +10,7 @@ import { ApiError, apiGet, apiPost } from "@/lib/client-api";
 const LEVELS: { value: AutomationLevel; title: string; body: string }[] = [
   { value: "guided", title: "Suggest only", body: "Modalis tells you what it would change. It carries out nothing." },
   { value: "assisted", title: "Ask me first", body: "Modalis prepares each change and explains it. It runs when you approve." },
-  { value: "automated", title: "Do it for me", body: "Modalis makes changes your plan allows without asking. Your limits still apply." },
+  { value: "automated", title: "Do it for me", body: "Modalis makes changes your plan allows without asking. It can't take money out, and you can revoke it in settings." },
 ];
 
 export function AutomationControl() {

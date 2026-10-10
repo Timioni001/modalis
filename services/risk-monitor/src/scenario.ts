@@ -203,3 +203,42 @@ export async function refreshPrices(
     steps,
   });
 }
+
+/**
+ * One tick of a gentle, bounded market: each price takes a small random step and is pulled back
+ * toward where it started, so over a recording the plan drifts off target naturally while no price
+ * ever wanders absurdly far. Writing the new price also keeps the oracle fresh.
+ *
+ * `random` is injectable so the walk is testable; each call must return a number in [0, 1).
+ */
+export function driftStep(
+  current: bigint,
+  start: bigint,
+  opts: { maxStepBps?: number; maxDeviationBps?: number; random?: () => number } = {},
+): bigint {
+  const maxStep = opts.maxStepBps ?? 150; // up to ±1.5% a tick
+  const maxDev = BigInt(opts.maxDeviationBps ?? 3_000); // never more than ±30% from start
+  const random = opts.random ?? Math.random;
+  const BPS = 10_000n;
+
+  // Pull toward the start in proportion to how far away we are (a quarter of the gap, in bps of
+  // the step budget), then add noise.
+  const gapBps = start > 0n ? Number(((start - current) * BPS) / start) : 0;
+  const pull = Math.max(-maxStep, Math.min(maxStep, gapBps / 4));
+  const noise = (random() * 2 - 1) * maxStep;
+  const stepBps = BigInt(Math.round(Math.max(-maxStep, Math.min(maxStep, pull + noise))));
+
+  let next = (current * (BPS + stepBps)) / BPS;
+  const lo = (start * (BPS - maxDev)) / BPS;
+  const hi = (start * (BPS + maxDev)) / BPS;
+  if (next < lo) next = lo;
+  if (next > hi) next = hi;
+  return next > 0n ? next : 1n;
+}
+
+/** Where each demo price starts, matching resetScenario. Cash (mUSD) never moves. */
+export const DEMO_START_PRICES_E18: Record<"mBTC" | "mETH" | "mBOND", bigint> = {
+  mBTC: 50_000n * 10n ** 18n,
+  mETH: 2_500n * 10n ** 18n,
+  mBOND: 100n * 10n ** 18n,
+};

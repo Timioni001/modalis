@@ -32,8 +32,10 @@ const TABS: Tab[] = [
 
 const MORE: Tab[] = [
   { href: "/app/goals", label: "Goals", icon: GoalsIcon },
+  { href: "/app/circles", label: "Savings circles", icon: CirclesIcon },
   { href: "/app/scenarios", label: "What if", icon: WhatIfIcon },
   { href: "/app/ask", label: "Ask Modalis", icon: AskIcon },
+  { href: "/app/tour", label: "2-minute tour", icon: TourIcon },
 ];
 
 export function AppNav() {
@@ -257,6 +259,28 @@ function WhatIfIcon({ active }: IconProps) {
     <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
       <path d="M3 15.5c2.5 0 3-4 5.5-4s3 2 5 2 2.5-5 3.5-7" {...stroke(active)} />
       <path d="M3 4.5v11h14" {...stroke(active)} />
+    </svg>
+  );
+}
+
+function CirclesIcon({ active }: IconProps) {
+  // Three members around a shared pot: a rotating savings circle.
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <circle cx="10" cy="10" r="2.5" {...stroke(active)} />
+      <circle cx="10" cy="3.5" r="1.6" {...stroke(active)} />
+      <circle cx="4.4" cy="13.3" r="1.6" {...stroke(active)} />
+      <circle cx="15.6" cy="13.3" r="1.6" {...stroke(active)} />
+    </svg>
+  );
+}
+
+function TourIcon({ active }: IconProps) {
+  // A play triangle in a circle: "show me".
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <circle cx="10" cy="10" r="7" {...stroke(active)} />
+      <path d="M8.5 7.2v5.6l4.3-2.8z" {...stroke(active)} />
     </svg>
   );
 }

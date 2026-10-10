@@ -7,6 +7,7 @@ import { Providers } from "./providers";
 import { publicConfig } from "@/lib/public-config";
 import { SiteChrome } from "@/components/site-chrome";
 import { THEME_SCRIPT } from "@/components/theme-toggle";
+import { LOW_DATA_SCRIPT, ServiceWorker } from "@/components/device-prefs";
 
 /**
  * Three faces, each with one job.
@@ -95,6 +96,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: LOW_DATA_SCRIPT }} />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen bg-canvas text-ink antialiased">
         {/* The first stop for a keyboard or screen-reader user on every page. */}
@@ -112,6 +115,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           explorerUrl={cfg.explorerUrl}
           demoMode={cfg.demoMode}
         >
+          <ServiceWorker />
           <SiteChrome>{children}</SiteChrome>
         </Providers>
       </body>

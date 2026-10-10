@@ -7,7 +7,7 @@
  *
  * Public: it exposes no personal data and no secret, only deployment facts and public addresses.
  */
-import { accountFromPrivateKey, deployedIntegrations } from "@modalis/chain";
+import { agentIdentity, agentLabel, deployedIntegrations } from "@modalis/chain";
 import { authConfigFromEnv, isAuthConfigured } from "@modalis/auth";
 import { isServerDbConfigured } from "@modalis/db";
 import type { Capabilities } from "@modalis/domain";
@@ -34,7 +34,8 @@ export async function GET(): Promise<Response> {
     }
 
     const signInReady = isAuthConfigured(auth);
-    const managerReady = Boolean(process.env.MANAGER_PRIVATE_KEY);
+    const agent = agentIdentity();
+    const managerReady = agent !== null;
 
     const limitations: string[] = [];
     if (!deployed) limitations.push("Modalis isn't set up on this network yet.");
@@ -64,6 +65,7 @@ export async function GET(): Promise<Response> {
       poweredBy: {
         settlement: deployed,
         signIn: Boolean(cfg.dynamicEnvironmentId),
+        agentWallet: agent?.kind === "dynamic",
         trading: integrations.kuru,
         independentMonitoring: integrations.cre,
         history: Boolean(process.env.ENVIO_GRAPHQL_URL),
@@ -82,6 +84,8 @@ export async function GET(): Promise<Response> {
         contracts: deployment.contracts,
         tokens: deployment.tokens,
         managerAddress: managerAddress(),
+        // Who signs adjustments: "Dynamic server wallet" or "Modalis key".
+        agent: agent ? { address: agent.address, kind: agent.kind, label: agentLabel(agent.kind) } : null,
       },
     });
   } catch (err) {
@@ -98,11 +102,5 @@ export async function GET(): Promise<Response> {
 function managerAddress(): string | null {
   const explicit = process.env.MANAGER_ADDRESS?.trim();
   if (explicit) return explicit;
-  const key = process.env.MANAGER_PRIVATE_KEY;
-  if (!key) return null;
-  try {
-    return accountFromPrivateKey(key).address;
-  } catch {
-    return null;
-  }
+  return agentIdentity()?.address ?? null;
 }

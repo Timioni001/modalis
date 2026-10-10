@@ -76,6 +76,10 @@ export async function apiPatch<T>(path: string, body?: unknown): Promise<T> {
   );
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  return parse<T>(await fetch(path, { method: "DELETE", headers: await authHeaders() }));
+}
+
 /**
  * A one-time key for a request that moves money.
  *
