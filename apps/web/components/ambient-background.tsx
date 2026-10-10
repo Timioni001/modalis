@@ -43,11 +43,11 @@ function usePrefersReducedMotion() {
 
 const SILK = {
   public: {
-    dark: ["#0b0b0d", "#1c1c20", "#0b0b0d", "#2b3a12"],
+    dark: ["#08080a", "#2c2c33", "#0b0b0d", "#4a4a54", "#0a0a0c", "#1f2a10"],
     light: ["#ffffff", "#e9e9ec", "#ffffff", "#e6f4c4"],
   },
   app: {
-    dark: ["#0b0b0d", "#1c1c20", "#0b0b0d", "#2b3a12"],
+    dark: ["#08080a", "#232329", "#0b0b0d", "#3a3a42", "#0a0a0c", "#1a230d"],
     light: ["#f4f4f5", "#e2e2e6", "#f4f4f5", "#e4f2c2"],
   },
 };
