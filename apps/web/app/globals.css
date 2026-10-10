@@ -431,3 +431,12 @@ select.field {
     background: #fff !important;
   }
 }
+
+/* Low-data mode (Settings): nothing moves, so nothing is spent on animating. */
+[data-lowdata="1"] *,
+[data-lowdata="1"] *::before,
+[data-lowdata="1"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

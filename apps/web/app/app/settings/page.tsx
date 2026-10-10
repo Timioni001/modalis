@@ -7,6 +7,7 @@
  * have allowed, take it back, pause the plan, or take all their money out. Every one of those is
  * owner-only where it counts, and the exit keeps working even when the plan is paused.
  */
+import { LowDataToggle } from "@/components/device-prefs";
 import { chooseCurrency, useLocalCurrency } from "@/components/local-amount";
 import { useCallback, useState } from "react";
 import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain";
@@ -94,6 +95,9 @@ function Settings() {
       <Card>
         <SectionTitle hint="Saved on this device only.">Appearance</SectionTitle>
         <ThemeChooser />
+        <div className="mt-4">
+          <LowDataToggle />
+        </div>
       </Card>
 
       <Card>
