@@ -8,6 +8,7 @@
  * owner-only where it counts, and the exit keeps working even when the plan is paused.
  */
 import { LowDataToggle } from "@/components/device-prefs";
+import { YourData } from "@/components/your-data";
 import { chooseCurrency, useLocalCurrency } from "@/components/local-amount";
 import { useCallback, useState } from "react";
 import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain";
@@ -105,6 +106,11 @@ function Settings() {
           Show amounts in your currency
         </SectionTitle>
         <CurrencyChooser />
+      </Card>
+
+      <Card>
+        <SectionTitle hint="Take a copy, or have it removed.">Your data</SectionTitle>
+        <YourData />
       </Card>
 
       {/* -------------------------------------------------------- permissions */}
