@@ -37,10 +37,14 @@ step "Reading .env.golive"
   "nano .env.golive        # fill it in, then run this again"
 # Windows editors save CRLF line endings, which would end up inside every value.
 sed -i 's/\r$//' .env.golive
+# Anything set on the command line (SITE_URL=... bash scripts/go-live.sh) wins over the file, even
+# when the file has the same name with an empty value.
+PRESET="$(export -p)"
 set -a
 # shellcheck disable=SC1091
 . ./.env.golive
 set +a
+eval "$PRESET"
 ok "loaded"
 
 CHAIN_ID=10143
