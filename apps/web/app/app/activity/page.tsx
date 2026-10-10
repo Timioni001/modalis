@@ -22,7 +22,7 @@ import { activityCsv, weekSummary } from "@/lib/statement";
 
 type ActivityFeed = {
   items: ActivityItem[];
-  sources: { chain: boolean; recommendations: boolean };
+  sources: { chain: boolean; recommendations: boolean; indexer?: "envio" | "rpc" };
 };
 
 export default function ActivityPage() {
@@ -91,6 +91,9 @@ function Activity() {
         </Card>
       ) : null}
 
+      {feed.sources.indexer === "envio" ? (
+        <p className="text-[13px] text-ink-muted">Indexed by Envio: settled history, read from Monad by an independent indexer.</p>
+      ) : null}
       {!feed.sources.chain ? (
         <Notice tone="warn">
           We couldn&apos;t reach the record of what has settled, so this list may be incomplete.

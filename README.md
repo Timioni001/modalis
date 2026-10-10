@@ -136,6 +136,28 @@ the demo adapter "not a venue".
 
 Details, setup and the code paths: [docs/dynamic.md](docs/dynamic.md). A two-minute demo script: [docs/dynamic-video-script.md](docs/dynamic-video-script.md).
 
+## How Modalis uses Envio
+
+A hosted Envio indexer reads every Modalis event from Monad: plans and their versions, deposits,
+withdrawals, settled adjustments and risk signals. When `ENVIO_GRAPHQL_URL` is set, the Activity
+page and `/stats` read from it and say "Indexed by Envio"; if it doesn't answer, both fall back to
+reading the chain directly.
+
+- Hosted GraphQL endpoint: (added once the hosted indexer is live)
+- Config: [`integrations/envio/config.yaml`](integrations/envio/config.yaml) (hosted copy with
+  real addresses: [`config.hosted.yaml`](integrations/envio/config.hosted.yaml))
+- Schema: [`integrations/envio/schema.graphql`](integrations/envio/schema.graphql)
+- Handlers: [`integrations/envio/src/handlers/`](integrations/envio/src/handlers/)
+- Readers in the app: `packages/domain/src/services/activity.ts`, `apps/web/lib/envio-stats.ts`
+
+## How Modalis uses Chainlink CRE
+
+A CRE workflow watches each plan on a schedule. Every node fetches a public market feed through
+the HTTP capability and the DON agrees on the median "market stress"; the workflow combines that
+with the plan's state read from Monad, using the same risk engine as the app, and writes a
+DON-signed risk signal to `RiskSignalReceiver`. It can flag a plan for review; it can never move
+money. Code and the consensus rules: [integrations/chainlink-cre](integrations/chainlink-cre/README.md).
+
 ## Architecture
 
 ```
