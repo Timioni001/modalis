@@ -399,135 +399,31 @@ select.field {
 
 /*
  * The backdrop (components/ambient-background.tsx). It sits on the page's own stacking layer, so
- * the wrapper that holds it needs `isolate`; content paints over it and opaque cards cover it.
+ * the wrapper that holds it needs `relative isolate`; content paints over it.
  */
-.ambient {
-  --aurora-1: rgb(200 242 80 / 0.38);
-  --aurora-2: rgb(125 211 252 / 0.32);
-  --aurora-3: rgb(196 181 253 / 0.26);
-  --trajectory: rgb(14 14 16 / 0.1);
-  --pulse: #5d8a0b;
-  --grain: 0.05;
-  position: fixed;
-  inset: 0;
+.ambient-mesh {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: min(100svh, 980px);
   z-index: -1;
-  overflow: hidden;
   pointer-events: none;
-}
-[data-theme="dark"] .ambient {
-  --aurora-1: rgb(200 242 80 / 0.15);
-  --aurora-2: rgb(45 212 191 / 0.14);
-  --aurora-3: rgb(129 140 248 / 0.17);
-  --trajectory: rgb(255 255 255 / 0.09);
-  --pulse: #c8f250;
-  --grain: 0.07;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .ambient {
-    --aurora-1: rgb(200 242 80 / 0.15);
-    --aurora-2: rgb(45 212 191 / 0.14);
-    --aurora-3: rgb(129 140 248 / 0.17);
-    --trajectory: rgb(255 255 255 / 0.09);
-    --pulse: #c8f250;
-    --grain: 0.07;
-  }
+  /* Full strength behind the headline, gone by the time the product card starts. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
 }
 
-/* The light pools: strongest behind the headline, gone by the middle of the screen. */
-.ambient-aurora {
-  position: absolute;
-  inset: 0;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 35%, transparent 85%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 35%, transparent 85%);
+.ambient-quiet {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 70vh;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 70% at 15% 0%, rgb(200 242 80 / 0.22), transparent 70%),
+    radial-gradient(55% 60% at 90% 0%, rgb(125 211 252 / 0.2), transparent 70%);
 }
-.ambient-blob {
-  position: absolute;
-  border-radius: 9999px;
-  will-change: transform;
-}
-.ambient-blob-1 {
-  top: -28vmax;
-  left: -12vmax;
-  width: 62vmax;
-  height: 62vmax;
-  background: radial-gradient(closest-side, var(--aurora-1), transparent);
-  animation: ambient-drift-1 26s ease-in-out infinite alternate;
-}
-.ambient-blob-2 {
-  top: -24vmax;
-  right: -16vmax;
-  width: 58vmax;
-  height: 58vmax;
-  background: radial-gradient(closest-side, var(--aurora-2), transparent);
-  animation: ambient-drift-2 32s ease-in-out infinite alternate;
-}
-.ambient-blob-3 {
-  top: -6vmax;
-  left: 22%;
-  width: 44vmax;
-  height: 44vmax;
-  background: radial-gradient(closest-side, var(--aurora-3), transparent);
-  animation: ambient-drift-3 38s ease-in-out infinite alternate;
-}
-@keyframes ambient-drift-1 {
-  to {
-    transform: translate3d(14vmax, 6vmax, 0) scale(1.12);
-  }
-}
-@keyframes ambient-drift-2 {
-  to {
-    transform: translate3d(-12vmax, 8vmax, 0) scale(0.9);
-  }
-}
-@keyframes ambient-drift-3 {
-  to {
-    transform: translate3d(-10vmax, -4vmax, 0) scale(1.18);
-  }
-}
-
-/* The plan trajectories: hairlines, with one pulse of the signal colour riding each. */
-.ambient-lines {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 30%, transparent 75%);
-  mask-image: radial-gradient(120% 90% at 50% 0%, #000 30%, transparent 75%);
-}
-.ambient-line {
-  stroke: var(--trajectory);
-  stroke-width: 1;
-}
-.ambient-pulse {
-  stroke: var(--pulse);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-dasharray: 90 910;
-  stroke-dashoffset: 1000;
-  opacity: 0.8;
-  animation: ambient-travel 12s linear infinite;
-}
-@keyframes ambient-travel {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-/* A phone shows three lines, not five: same picture, less to paint. */
-@media (max-width: 640px) {
-  .ambient-line-extra {
-    display: none;
-  }
-}
-
-.ambient-grain {
-  position: absolute;
-  inset: 0;
-  opacity: var(--grain);
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 160px 160px;
-}
-@media (prefers-reduced-motion: reduce) {
-  .ambient-pulse {
-    display: none;
-  }
+[data-theme="dark"] .ambient-quiet {
+  background:
+    radial-gradient(60% 70% at 15% 0%, rgb(200 242 80 / 0.08), transparent 70%),
+    radial-gradient(55% 60% at 90% 0%, rgb(45 212 191 / 0.07), transparent 70%);
 }

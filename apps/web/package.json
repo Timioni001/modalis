@@ -22,6 +22,7 @@
     "@modalis/execution": "workspace:*",
     "@modalis/portfolio": "workspace:*",
     "@modalis/risk-monitor": "workspace:*",
+    "@paper-design/shaders-react": "0.0.81",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^14.0.0",

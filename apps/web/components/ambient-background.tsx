@@ -1,56 +1,72 @@
+"use client";
+
 /**
  * The page's backdrop.
  *
- * Three slow pools of light drift behind the content, like the sky just before sunrise, and on the
- * public site a fan of plan trajectories rises across the top: the same shape the product draws for
- * a goal, with a small pulse of the signal colour travelling along each line. Fine grain over the
- * top stops the gradients from banding on cheap screens.
+ * Public pages open on a slow, living mesh gradient, the treatment Stripe made the standard for
+ * money products: a field of colour that moves like liquid behind the headline and dissolves into
+ * the page as you scroll. It is a WebGL shader (Paper Shaders), capped in resolution so a phone
+ * renders it cheaply, frozen for anyone who asks for reduced motion, and recoloured per theme.
  *
- * Pure CSS and one inline SVG, so it costs no JavaScript and only animates transforms and dash
- * offsets. Reduced motion freezes it (see globals.css), and phones get fewer lines.
+ * The app's own pages get a quieter version of the same idea: two still pools of light at the top,
+ * plain CSS, nothing moving while somebody is looking at their money.
  */
+import { useEffect, useState } from "react";
+import { MeshGradient } from "@paper-design/shaders-react";
 
-/* Rising from bottom-left: the cautious path at the bottom, the hopeful one at the top. */
-const TRAJECTORIES = [
-  "M-40 860 C 360 820, 760 640, 1480 140",
-  "M-40 860 C 420 830, 820 700, 1480 300",
-  "M-40 860 C 460 840, 880 760, 1480 450",
-  "M-40 860 C 500 850, 940 810, 1480 590",
-  "M-40 860 C 540 860, 1000 850, 1480 720",
-];
+/* Mostly canvas, so the headline always sits on calm ground, with the signal lime, a deep teal
+   and an indigo moving through it. */
+const MESH = {
+  dark: ["#0b0b0d", "#5a8512", "#0b0b0d", "#0e6259", "#34309a", "#0b0b0d"],
+  light: ["#ffffff", "#d6f58a", "#ffffff", "#addfff", "#d9cfff", "#ffffff"],
+};
 
-export function AmbientBackground({ lines = false }: { lines?: boolean }) {
+function useTheme(): "dark" | "light" {
+  const [theme, setTheme] = useState<"dark" | "light">("light");
+  useEffect(() => {
+    const root = document.documentElement;
+    const read = () => setTheme(root.dataset.theme === "dark" ? "dark" : "light");
+    read();
+    const watch = new MutationObserver(read);
+    watch.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => watch.disconnect();
+  }, []);
+  return theme;
+}
+
+function usePrefersReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const query = matchMedia("(prefers-reduced-motion: reduce)");
+    const read = () => setReduced(query.matches);
+    read();
+    query.addEventListener("change", read);
+    return () => query.removeEventListener("change", read);
+  }, []);
+  return reduced;
+}
+
+export function AmbientBackground({ variant = "app" }: { variant?: "public" | "app" }) {
+  const theme = useTheme();
+  const reduced = usePrefersReducedMotion();
+
+  if (variant === "app") {
+    return <div aria-hidden className="ambient-quiet" />;
+  }
+
   return (
-    <div aria-hidden className="ambient">
-      <div className="ambient-aurora">
-        <span className="ambient-blob ambient-blob-1" />
-        <span className="ambient-blob ambient-blob-2" />
-        <span className="ambient-blob ambient-blob-3" />
-      </div>
-
-      {lines ? (
-        <svg
-          className="ambient-lines"
-          viewBox="0 0 1440 900"
-          preserveAspectRatio="xMidYMid slice"
-          fill="none"
-        >
-          {TRAJECTORIES.map((d, i) => (
-            <g key={d} className={i % 2 ? "ambient-line-extra" : undefined}>
-              <path d={d} className="ambient-line" vectorEffect="non-scaling-stroke" />
-              <path
-                d={d}
-                pathLength={1000}
-                className="ambient-pulse"
-                style={{ animationDelay: `${i * -2.6}s`, animationDuration: `${11 + i * 1.7}s` }}
-                vectorEffect="non-scaling-stroke"
-              />
-            </g>
-          ))}
-        </svg>
-      ) : null}
-
-      <div className="ambient-grain" />
+    <div aria-hidden className="ambient-mesh">
+      <MeshGradient
+        className="h-full w-full"
+        colors={MESH[theme]}
+        distortion={0.85}
+        swirl={0.35}
+        speed={reduced ? 0 : 0.18}
+        grainMixer={0}
+        grainOverlay={theme === "dark" ? 0.12 : 0.06}
+        minPixelRatio={1}
+        maxPixelCount={1280 * 800}
+      />
     </div>
   );
 }

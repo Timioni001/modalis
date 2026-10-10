@@ -58,8 +58,8 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         </div>
       ) : (
         // The public site is white with grey cards; the app is grey with white cards.
-        <div className="isolate flex min-h-screen flex-col bg-surface">
-          <AmbientBackground lines={pathname === "/"} />
+        <div className="relative isolate flex min-h-screen flex-col bg-surface">
+          <AmbientBackground variant="public" />
           <SiteNav />
           <main id="main" className="flex-1">
             {children}
