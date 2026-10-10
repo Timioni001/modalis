@@ -14,7 +14,7 @@ import "server-only";
 import { AuthError, assertOwns, readSession, requireSession, type Session } from "@modalis/auth";
 import { serverClient } from "@modalis/db";
 import { DomainError, type DomainContext } from "@modalis/domain";
-import { accountFromPrivateKey } from "@modalis/chain";
+import { agentIdentity } from "@modalis/chain";
 import type { Address } from "viem";
 import { getServerContext } from "./server";
 import { errorResponse, jsonResponse } from "./serialize";
@@ -43,13 +43,7 @@ export async function domainContext(): Promise<DomainContext> {
 export function managerAddress(): Address | undefined {
   const explicit = process.env.MANAGER_ADDRESS?.trim();
   if (explicit) return explicit as Address;
-  const key = process.env.MANAGER_PRIVATE_KEY;
-  if (!key) return undefined;
-  try {
-    return accountFromPrivateKey(key).address as Address;
-  } catch {
-    return undefined;
-  }
+  return agentIdentity()?.address;
 }
 
 /**

@@ -9,7 +9,8 @@
  * on-chain (see integrations/chainlink-cre). This service is the always-available path and the
  * one that actually submits proposals, because CRE deliberately only writes a signal.
  */
-import { createManagerWalletClient, createMonadPublicClient, isFullyDeployed } from "@modalis/chain";
+import { agentLabel, createMonadPublicClient, isFullyDeployed } from "@modalis/chain";
+import { getAgentWallet } from "@modalis/chain/agent";
 import { automationWallets, serverClient } from "@modalis/db";
 import { getAddress, type Address } from "viem";
 import { loadConfig } from "./config.ts";
@@ -41,12 +42,14 @@ async function runOnce(): Promise<number> {
   }
 
   const client = createMonadPublicClient(cfg.rpc);
-  const wallet = cfg.managerPrivateKey
-    ? createManagerWalletClient(cfg.rpc, cfg.managerPrivateKey)
-    : null;
+  // The same agent the web app signs with (a Dynamic server wallet, or the manager key), because
+  // a mandate allows exactly one manager.
+  const agent = await getAgentWallet(cfg.rpc);
+  const wallet = agent?.wallet ?? null;
+  if (agent) console.log(`Signing as ${agentLabel(agent.kind)} ${agent.address}`);
 
   if (cfg.autoExecute && !wallet) {
-    console.error("RISK_MONITOR_AUTO_EXECUTE is on but MANAGER_PRIVATE_KEY is not set.");
+    console.error("RISK_MONITOR_AUTO_EXECUTE is on but no agent is set (DYNAMIC_AGENT_WALLET or MANAGER_PRIVATE_KEY).");
     return 1;
   }
 
@@ -95,9 +98,18 @@ async function runOnce(): Promise<number> {
   // The manager wallet's nonce manager hands each one its own nonce, so they don't collide.
   if (ready.length > 0 && wallet) {
     const started = Date.now();
-    const results = await Promise.all(
-      ready.map(async ({ owner, action }) => ({ owner, action, result: await execute(wallet, client, cfg.deployment, action) })),
-    );
+    const send = async ({ owner, action }: (typeof ready)[number]) => ({
+      owner,
+      action,
+      result: await execute(wallet, client, cfg.deployment, action),
+    });
+    // A Dynamic server wallet takes its nonce from the node, so its sends go one at a time.
+    const results = agent?.parallelSafe === false
+      ? await ready.reduce<Promise<Awaited<ReturnType<typeof send>>[]>>(
+          async (acc, item) => [...(await acc), await send(item)],
+          Promise.resolve([]),
+        )
+      : await Promise.all(ready.map(send));
     const blocks = new Set<string>();
     for (const { owner, action, result } of results) {
       if (result.submitted && result.hash && !result.rejectedWith) {

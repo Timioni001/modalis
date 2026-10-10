@@ -20,7 +20,8 @@ type Proof = {
   };
   totalValueE18: string;
   positions: { symbol: string; valueE18: string; allocationBps: number; targetBps: number; minBps: number; maxBps: number }[];
-  activity: { title: string; detail?: string; receipt: string | null }[];
+  activity: { title: string; detail?: string; receipt: string | null; signedBy?: string | null }[];
+  manager?: { address: string; label: string | null } | null;
   contracts: Record<string, string | null>;
 };
 
@@ -75,6 +76,20 @@ export function ProofView({ address }: { address: string }) {
       </section>
 
       <section>
+        <h2 className="text-lg font-semibold">Who can adjust it</h2>
+        {proof.manager ? (
+          <p className="mt-1 text-sm text-ink-muted">
+            The owner allowed{" "}
+            <span className="font-medium text-ink">{proof.manager.label ? `the ${proof.manager.label}` : "one account"}</span>{" "}
+            <ReceiptLink address={proof.manager.address} /> to rebalance inside the limits above. It can&rsquo;t take
+            money out or change a limit, and the owner can revoke it at any time.
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-ink-muted">Nobody. Only the owner can move this money.</p>
+        )}
+      </section>
+
+      <section>
         <h2 className="text-lg font-semibold">Where the money is · {usd(proof.totalValueE18)}</h2>
         <ul className="mt-4 divide-y divide-line overflow-hidden rounded-3xl bg-surface shadow-[var(--shadow-card)]">
           {proof.positions.map((p) => (
@@ -99,6 +114,7 @@ export function ProofView({ address }: { address: string }) {
                 <span>
                   <span className="font-medium">{a.title}</span>
                   {a.detail ? <span className="text-ink-muted"> · {a.detail}</span> : null}
+                  {a.signedBy ? <span className="text-ink-muted"> · signed by the {a.signedBy}</span> : null}
                 </span>
                 {a.receipt ? <ReceiptLink reference={a.receipt} /> : null}
               </li>

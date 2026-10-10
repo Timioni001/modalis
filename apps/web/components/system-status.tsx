@@ -14,12 +14,18 @@
 import { useEffect, useState } from "react";
 import { Badge, Card, Notice } from "./ui";
 import { shortAddress } from "@/lib/format";
+import { ReceiptLink } from "./receipt-link";
 import type { SystemStatus as Status } from "@/lib/api-types";
 
 /** `poweredBy` key -> what it does for the person, and who provides it. */
 const CAPABILITIES: { key: keyof NonNullable<Status["poweredBy"]>; does: string; by: string }[] = [
   { key: "settlement", does: "Your money and your limits are held where Modalis can't rewrite them", by: "Monad" },
   { key: "signIn", does: "Sign in with an email address and get an account only you control", by: "Dynamic" },
+  {
+    key: "agentWallet",
+    does: "Adjustments come from a separate wallet that can't take money out, and you can revoke it",
+    by: "Dynamic server wallet",
+  },
   { key: "trading", does: "Adjustments are carried out at a real market price", by: "Kuru" },
   { key: "independentMonitoring", does: "Something independent of Modalis watches your plan", by: "Chainlink CRE" },
   { key: "history", does: "Your full history, with a receipt for every action", by: "Envio" },
@@ -111,6 +117,14 @@ export function SystemStatus() {
             For anyone who wants to check: the addresses holding your limits
           </summary>
           <dl className="mt-3 space-y-2">
+            {status.technical.agent ? (
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-ink-muted">Adjustments signed by ({status.technical.agent.label})</dt>
+                <dd className="numeric text-ink">
+                  <ReceiptLink address={status.technical.agent.address} />
+                </dd>
+              </div>
+            ) : null}
             {Object.entries(status.technical.contracts).map(([name, address]) => (
               <div key={name} className="flex items-center justify-between gap-4">
                 <dt className="text-ink-muted">{name}</dt>

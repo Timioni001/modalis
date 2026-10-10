@@ -93,8 +93,8 @@ working in the UI — `/api/status` reports the real state and the landing page 
 - **Monad testnet/mainnet deployment.** The deploy script is verified against a real EVM node, and
   Monad testnet's public RPC is reachable from this environment (`eth_chainId` → `0x279f`), so the
   only thing missing is a funded key. One command once you have one.
-- **Dynamic.** Needs `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`. The app renders without it and says
-  wallet onboarding is unconfigured.
+- **Dynamic server wallet.** Needs `DYNAMIC_API_TOKEN` and `pnpm agent:create`
+  ([docs/dynamic.md](docs/dynamic.md)). Without them the manager key signs adjustments instead.
 - **Kuru.** The adapter is tested through the full execution path against a mock router built from
   the real ABI, but not against live markets.
 - **Chainlink CRE.** Needs the CRE CLI and `cre login` to simulate or deploy.
@@ -120,6 +120,21 @@ One synthetic input, clearly marked everywhere it appears:
 No transaction hash in this repository is fabricated. Where a step sent no transaction, it has no
 hash. The scenario engine refuses to run on mainnet, and where Kuru is unconfigured the UI labels
 the demo adapter "not a venue".
+
+## How Modalis uses Dynamic
+
+- **Sign-in and the person's wallet.** An email sign-in creates an embedded Monad wallet the
+  person owns. It signs every owner action, and adding money approves and deposits in one
+  signature where the wallet supports batched calls.
+- **Who is asking.** The server trusts only the wallet address inside a verified Dynamic JWT
+  (`packages/auth`), never an address sent in a request.
+- **"Do it for me" runs from a Dynamic server wallet.** The person delegates by signing
+  `setManager(agent)` from their embedded wallet. The agent can only call
+  `RebalanceExecutor.execute` inside the plan's limits; it can never withdraw or change a limit,
+  and **Revoke adjustments** in Settings takes the permission back. The agent's address and its
+  transactions are labelled "Dynamic server wallet" on `/security` and on each plan's proof page.
+
+Details, setup and the code paths: [docs/dynamic.md](docs/dynamic.md). A two-minute demo script: [docs/dynamic-video-script.md](docs/dynamic-video-script.md).
 
 ## Architecture
 

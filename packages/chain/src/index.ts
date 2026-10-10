@@ -8,6 +8,7 @@ export * from "./abis/index.ts";
 export * from "./addresses.ts";
 export * from "./chains.ts";
 export * from "./clients.ts";
+export * from "./agent-env.ts";
 export * from "./events.ts";
 export * from "./owner.ts";
 export * from "./portfolio.ts";

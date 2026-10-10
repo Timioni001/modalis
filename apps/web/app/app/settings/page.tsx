@@ -70,6 +70,7 @@ function Settings() {
   );
 
   const managerAddress = status?.technical?.managerAddress ?? null;
+  const agent = status?.technical?.agent ?? null;
   const adjustmentsAllowed = Boolean(plan?.adjustmentsEnabled);
 
   return (
@@ -124,6 +125,13 @@ function Settings() {
           </KeyValue>
           <KeyValue label="Take money out">Never</KeyValue>
           <KeyValue label="Change your limits">Never</KeyValue>
+          {agent ? (
+            <KeyValue label="Who makes adjustments">
+              <span title={agent.address}>
+                {agent.kind === "dynamic" ? "A Dynamic server wallet" : "A Modalis key"} ({shortAddress(agent.address)})
+              </span>
+            </KeyValue>
+          ) : null}
           <KeyValue label="Your plan">{plan ? planStateLabel(plan.status) : "Not set up yet"}</KeyValue>
         </dl>
 
@@ -134,7 +142,7 @@ function Settings() {
               disabled={busy !== null || !loggedIn}
               onClick={() => act("Stop allowing adjustments", (w, c) => setManager(w, c, ZERO))}
             >
-              {busy === "Stop allowing adjustments" ? "Saving…" : "Stop allowing adjustments"}
+              {busy === "Stop allowing adjustments" ? "Revoking…" : "Revoke adjustments"}
             </Button>
           ) : managerAddress ? (
             <Button
@@ -164,6 +172,13 @@ function Settings() {
         </div>
 
         <p className="mt-4 text-xs leading-relaxed text-ink-muted">
+          When you allow adjustments, you sign one permission naming a single account
+          {agent?.kind === "dynamic" ? ", a server wallet run through Dynamic," : ""} that may rebalance your
+          plan. Your plan contract lets it do exactly one thing: move money between your holdings, inside
+          your limits. It can never take money out, change a limit, or act for anyone else, and Revoke
+          takes the permission back straight away.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-ink-muted">
           Pausing your plan stops all adjustments. Taking money out keeps working while it is
           paused, by design &mdash; a pause must never trap your money.
         </p>

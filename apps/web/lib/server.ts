@@ -23,6 +23,7 @@ import {
   type Deployment,
   type RpcConfig,
 } from "@modalis/chain";
+import { getAgentWallet } from "@modalis/chain/agent";
 import type { PublicClient, WalletClient } from "viem";
 
 export type ServerContext = {
@@ -78,11 +79,13 @@ export async function getServerContext(): Promise<ServerContext> {
   return cached;
 }
 
-/** The manager wallet, or null when no manager key is configured. */
-export function getManagerWallet(rpc: RpcConfig): WalletClient | null {
-  const key = process.env.MANAGER_PRIVATE_KEY;
-  if (!key) return null;
-  return createManagerWalletClient(rpc, key);
+/**
+ * The agent's wallet (the mandate's manager), or null when none is configured: a Dynamic server
+ * wallet when DYNAMIC_AGENT_WALLET is set, the MANAGER_PRIVATE_KEY otherwise. The risk monitor
+ * builds the same one, so both sign as the single manager each mandate allows.
+ */
+export async function getManagerWallet(rpc: RpcConfig): Promise<WalletClient | null> {
+  return (await getAgentWallet(rpc))?.wallet ?? null;
 }
 
 /** The demo oracle updater, used only by the scenario engine. Never present on mainnet. */

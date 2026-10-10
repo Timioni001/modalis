@@ -50,7 +50,7 @@ export type RpcConfig = {
  * contracts. Worse, a write client holding an endpoint for a different node could broadcast
  * there. One configured endpoint, or the public default: never both.
  */
-function httpUrlsFor(cfg: RpcConfig, network: NetworkName, chain: Chain): string[] {
+export function httpUrlsFor(cfg: RpcConfig, network: NetworkName, chain: Chain): string[] {
   const configured: string[] = [];
   if (cfg.httpUrl) configured.push(cfg.httpUrl);
   if (cfg.alchemyApiKey) configured.push(alchemyHttpUrl(network, cfg.alchemyApiKey));

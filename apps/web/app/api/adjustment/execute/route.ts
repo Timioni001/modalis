@@ -65,7 +65,7 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       const { rpc } = await getServerContext();
-      const wallet = getManagerWallet(rpc);
+      const wallet = await getManagerWallet(rpc);
       if (!wallet) {
         return errorResponse(
           "Modalis can't make adjustments on this deployment because it has no signing key configured.",
