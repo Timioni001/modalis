@@ -12,12 +12,13 @@
  */
 import { useEffect, useState } from "react";
 import type { ActivityItem } from "@modalis/domain";
-import { Badge, Empty, Notice, PageHeader, Rows, Row, Skeleton } from "@/components/ui";
+import { Badge, Card, Empty, Notice, PageHeader, Rows, Row, SectionTitle, Skeleton } from "@/components/ui";
 import { ReceiptLink } from "@/components/receipt-link";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { apiGet } from "@/lib/client-api";
 import { moneyLabel, whenLabel } from "@/lib/format";
+import { activityCsv, weekSummary } from "@/lib/statement";
 
 type ActivityFeed = {
   items: ActivityItem[];
@@ -70,8 +71,25 @@ function Activity() {
       <PageHeader
         title="Activity"
         lede="Everything that has happened to your money, with a receipt for each one."
-        action={address ? <ShareProof address={address} /> : null}
+        action={
+          <div className="flex flex-wrap gap-2 print:hidden">
+            {feed.items.length ? <DownloadCsv items={feed.items} /> : null}
+            {feed.items.length ? (
+              <button type="button" className={PILL} onClick={() => window.print()} title="Print, or choose “Save as PDF”">
+                Statement (PDF)
+              </button>
+            ) : null}
+            {address ? <ShareProof address={address} /> : null}
+          </div>
+        }
       />
+
+      {feed.items.length ? (
+        <Card>
+          <SectionTitle>This week</SectionTitle>
+          <p className="text-[15px] leading-relaxed text-ink">{weekSummary(feed.items).sentence}</p>
+        </Card>
+      ) : null}
 
       {!feed.sources.chain ? (
         <Notice tone="warn">
@@ -118,6 +136,28 @@ function Activity() {
         </Rows>
       )}
     </div>
+  );
+}
+
+const PILL = "min-h-[42px] rounded-full bg-sunken px-4 text-[14px] font-semibold text-ink-soft hover:bg-line hover:text-ink";
+
+/** Every transaction as a spreadsheet file, built in the browser from the list on screen. */
+function DownloadCsv({ items }: { items: ActivityItem[] }) {
+  return (
+    <button
+      type="button"
+      className={PILL}
+      onClick={() => {
+        const url = URL.createObjectURL(new Blob([activityCsv(items)], { type: "text/csv" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `modalis-activity-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }}
+    >
+      Download CSV
+    </button>
   );
 }
 

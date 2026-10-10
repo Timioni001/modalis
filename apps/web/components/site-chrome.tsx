@@ -46,7 +46,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <AppFootnote />
         </div>
       ) : inApp ? (
-        <div className="flex min-h-screen flex-col bg-canvas lg:pl-[256px]">
+        <div className="flex min-h-screen flex-col bg-canvas lg:pl-[256px] print:pl-0">
           <AppNav />
           <main id="main" className="flex-1">
             {children}
