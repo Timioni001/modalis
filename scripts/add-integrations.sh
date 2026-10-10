@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# MODALIS — add the Chainlink CRE receiver and/or the Kuru adapter to the EXISTING testnet
+# MODALIS — add savings circles, the Chainlink CRE receiver and/or the Kuru adapter to the EXISTING testnet
 # deployment, without redeploying anything else (plans, balances and addresses stay as they are).
 #
 #   bash scripts/add-integrations.sh
@@ -11,7 +11,8 @@
 #   KURU_ROUTER_ADDRESS     Kuru's router on Monad testnet (from Kuru's docs)
 #   KURU_MARKET_ADDRESSES   optional, comma-separated Kuru markets the adapter may trade on
 #                           -> deploys KuruAdapter, allows those markets, approves it as a venue
-# Each part runs only if its variable is set and that contract isn't already in the deployment.
+# SavingsCircle needs no settings and is always added if missing.
+# Each other part runs only if its variable is set and that contract isn't already in the deployment.
 # Then rerun `SKIP_TESTS=1 bash scripts/go-live.sh` so the site learns the new addresses.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -56,9 +57,18 @@ if [ -n "${KURU_ROUTER_ADDRESS:-}" ] && [ -z "$(get kuruAdapter)" ]; then
   echo "KuruAdapter         $addr  (router $KURU_ROUTER_ADDRESS, approved as a venue)"
 fi
 
+# Savings circles need no outside address and have no owner, so they are always added.
+if [ -z "$(get savingsCircle)" ]; then
+  addr="$( (cd contracts && forge create src/SavingsCircle.sol:SavingsCircle --broadcast --rpc-url "$RPC" \
+     --private-key "$DEPLOYER_PRIVATE_KEY" 2>&1) | awk '/Deployed to:/ {print $3}')"
+  [ -n "$addr" ] || { echo "SavingsCircle deploy failed."; exit 1; }
+  put savingsCircle "$addr"; DID=1
+  echo "SavingsCircle       $addr"
+fi
+
 if [ "$DID" = "1" ]; then
   echo
   echo "Saved to $KEEP. Now: SKIP_TESTS=1 bash scripts/go-live.sh   (and bash scripts/verify-contracts.sh)"
 else
-  echo "Nothing to add: set CRE_FORWARDER_ADDRESS and/or KURU_ROUTER_ADDRESS in .env.golive."
+  echo "Nothing new to add. For more, set CRE_FORWARDER_ADDRESS and/or KURU_ROUTER_ADDRESS in .env.golive."
 fi

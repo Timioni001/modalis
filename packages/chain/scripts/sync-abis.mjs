@@ -28,6 +28,7 @@ const CONTRACTS = [
   "RebalanceExecutor",
   "RiskSignalReceiver",
   "KuruAdapter",
+  "SavingsCircle",
   "MockERC20",
   "MockPriceOracle",
   "MockExecutionAdapter",

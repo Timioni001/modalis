@@ -13,3 +13,4 @@ export * from "./owner.ts";
 export * from "./portfolio.ts";
 export * from "./proposals.ts";
 export * from "./faucet.ts";
+export * from "./circles.ts";
