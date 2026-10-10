@@ -412,18 +412,10 @@ select.field {
   mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
 }
 
-.ambient-quiet {
+/* Inside the app: pinned to the top of the screen and shorter, so it never sits under the numbers. */
+.ambient-mesh-app {
   position: fixed;
-  inset: 0 0 auto 0;
-  height: 70vh;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(60% 70% at 15% 0%, rgb(200 242 80 / 0.22), transparent 70%),
-    radial-gradient(55% 60% at 90% 0%, rgb(125 211 252 / 0.2), transparent 70%);
-}
-[data-theme="dark"] .ambient-quiet {
-  background:
-    radial-gradient(60% 70% at 15% 0%, rgb(200 242 80 / 0.08), transparent 70%),
-    radial-gradient(55% 60% at 90% 0%, rgb(45 212 191 / 0.07), transparent 70%);
+  height: 60vh;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
 }

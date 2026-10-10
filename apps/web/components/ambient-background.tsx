@@ -8,8 +8,8 @@
  * the page as you scroll. It is a WebGL shader (Paper Shaders), capped in resolution so a phone
  * renders it cheaply, frozen for anyone who asks for reduced motion, and recoloured per theme.
  *
- * The app's own pages get a quieter version of the same idea: two still pools of light at the top,
- * plain CSS, nothing moving while somebody is looking at their money.
+ * The app's own pages get the same gradient, softer and pinned behind the top of the screen, so the
+ * whole product moves the same way without competing with somebody's numbers.
  */
 import { useEffect, useState } from "react";
 import { MeshGradient } from "@paper-design/shaders-react";
@@ -17,8 +17,14 @@ import { MeshGradient } from "@paper-design/shaders-react";
 /* Mostly canvas, so the headline always sits on calm ground, with the signal lime, a deep teal
    and an indigo moving through it. */
 const MESH = {
-  dark: ["#0b0b0d", "#5a8512", "#0b0b0d", "#0e6259", "#34309a", "#0b0b0d"],
-  light: ["#ffffff", "#d6f58a", "#ffffff", "#addfff", "#d9cfff", "#ffffff"],
+  public: {
+    dark: ["#0b0b0d", "#46680f", "#0b0b0d", "#0e5a52", "#2f2b8c", "#0b0b0d"],
+    light: ["#ffffff", "#d6f58a", "#ffffff", "#addfff", "#d9cfff", "#ffffff"],
+  },
+  app: {
+    dark: ["#0b0b0d", "#3a5410", "#0b0b0d", "#0b3f3a", "#23206a", "#0b0b0d"],
+    light: ["#f4f4f5", "#e2f5a8", "#f4f4f5", "#c9e8ff", "#e2dbff", "#f4f4f5"],
+  },
 };
 
 function useTheme(): "dark" | "light" {
@@ -50,18 +56,14 @@ export function AmbientBackground({ variant = "app" }: { variant?: "public" | "a
   const theme = useTheme();
   const reduced = usePrefersReducedMotion();
 
-  if (variant === "app") {
-    return <div aria-hidden className="ambient-quiet" />;
-  }
-
   return (
-    <div aria-hidden className="ambient-mesh">
+    <div aria-hidden className={variant === "public" ? "ambient-mesh" : "ambient-mesh ambient-mesh-app"}>
       <MeshGradient
         className="h-full w-full"
-        colors={MESH[theme]}
+        colors={MESH[variant][theme]}
         distortion={0.85}
-        swirl={0.35}
-        speed={reduced ? 0 : 0.18}
+        swirl={0.3}
+        speed={reduced ? 0 : variant === "public" ? 0.5 : 0.35}
         grainMixer={0}
         grainOverlay={theme === "dark" ? 0.12 : 0.06}
         minPixelRatio={1}
