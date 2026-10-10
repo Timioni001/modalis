@@ -23,6 +23,7 @@ import {
   SectionTitle,
 } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
+import { StressTest } from "@/components/stress-test";
 import { apiPost, ApiError } from "@/lib/client-api";
 
 type ScenarioSet = {
@@ -121,6 +122,8 @@ function Scenarios() {
           </div>
         </Card>
       ) : null}
+
+      <StressTest />
 
       {busy && !result ? <Loading label="Working it out" /> : null}
 
