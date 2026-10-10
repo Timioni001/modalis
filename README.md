@@ -213,6 +213,18 @@ pnpm envio:validate      # Envio config against Envio's own schema
 Node 22+ (the TypeScript runs directly via Node's type stripping), pnpm, Foundry, and Python 3 for
 the Envio config check. `scripts/setup.sh` installs what is missing on Ubuntu / WSL2.
 
+## AI tools used
+
+Modalis was built with AI coding assistance. Claude (Anthropic), through Claude Code, wrote and
+revised much of the code, tests, scripts and documentation, working from the project owner's
+direction and review. The product decisions, deployments and every key or account are the owner's.
+Commits made with Claude's help carry a `Co-Authored-By: Claude` trailer, so the git history shows
+which changes it contributed to.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
+
 ## Disclaimer
 
 Prototype and technical demonstration only. Modalis is not an investment adviser, broker, fund or

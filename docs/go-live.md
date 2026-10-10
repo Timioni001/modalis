@@ -189,6 +189,14 @@ SKIP_VERCEL=1 bash scripts/go-live.sh       # do everything except touch Vercel
    (`bash scripts/fund-wallet.sh 0xYourAddress` still works from a terminal.)
 4. Build a plan, approve it, add money, and check **Activity**: every step links to a real transaction on the Monad explorer.
 
+5. **Make the market move.** The demo oracle only changes when something writes to it, and it refuses prices older than a day. Leave this running in a WSL window (especially while recording), and plans drift off target on their own:
+   ```bash
+   bash scripts/move-prices.sh            # nudges mBTC, mETH and mBOND every 30s; Ctrl+C to stop
+   bash scripts/move-prices.sh --once     # one nudge; also fixes "price is stale" errors
+   bash scripts/move-prices.sh --reset    # back to the opening prices
+   ```
+6. **Optional: demo buttons on the live site.** Put a fresh key (`cast wallet new`) in `.env.golive` as `ORACLE_UPDATER_PRIVATE_KEY` and rerun `SKIP_TESTS=1 bash scripts/go-live.sh`. It hands the demo price oracle to that key, tops it up with MON, and turns on "Simulate a market move" and "Test my rules" for signed-in users. The deployer key never goes to Vercel. Remove the key and rerun to turn them off.
+
 ---
 
 ## When something goes wrong

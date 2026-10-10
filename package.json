@@ -24,6 +24,7 @@
     "risk-monitor": "pnpm --filter @modalis/risk-monitor start",
     "risk-monitor:once": "pnpm --filter @modalis/risk-monitor once",
     "loop": "pnpm --filter @modalis/demo loop",
+    "prices": "pnpm --filter @modalis/demo prices",
     "envio:validate": "pnpm --filter @modalis/envio validate",
     "envio:codegen": "pnpm --filter @modalis/envio codegen",
     "envio:dev": "pnpm --filter @modalis/envio dev",
