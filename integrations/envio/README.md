@@ -47,7 +47,7 @@ Entities: `User`, `Mandate`, `MandateAllocation`, `Position`, `Transaction`, `Re
   `envio` package rather than from memory:
 
   ```bash
-  pnpm --filter @modalis/envio validate
+  (cd integrations/envio && pnpm validate)
   ```
 
   The same check also asserts every event named in the config actually exists in the generated
@@ -71,9 +71,10 @@ export NEXT_PUBLIC_RISK_SIGNAL_RECEIVER_ADDRESS=0x...
 export MONAD_TESTNET_RPC_URL=https://monad-testnet.g.alchemy.com/v2/<key>
 export ENVIO_START_BLOCK=<block of the first deployment>
 
-pnpm --filter @modalis/envio validate   # schema + ABI check, no Docker needed
-pnpm --filter @modalis/envio codegen
-pnpm --filter @modalis/envio dev        # local indexer + GraphQL at http://localhost:8080
+cd integrations/envio && pnpm install   # standalone: not part of the root workspace
+pnpm validate   # schema + ABI check, no Docker needed
+pnpm codegen
+pnpm dev        # local indexer + GraphQL at http://localhost:8080
 ```
 
 Hosted deployment uses `ENVIO_API_TOKEN` and `envio deploy`; set `ENVIO_GRAPHQL_URL` in the web

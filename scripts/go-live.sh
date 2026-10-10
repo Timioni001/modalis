@@ -207,7 +207,7 @@ for (const [k, e] of Object.entries(map)) if (all[k] && all[k].toLowerCase() !==
   [ -n "${MONAD_TESTNET_RPC_URL:-}" ] && echo "MONAD_TESTNET_RPC_URL=$MONAD_TESTNET_RPC_URL"
   for k in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY \
            NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID MANAGER_PRIVATE_KEY FAUCET_PRIVATE_KEY \
-           AI_API_KEY AI_MODEL ENVIO_GRAPHQL_URL; do
+           AI_API_KEY AI_MODEL ENVIO_GRAPHQL_URL SENTRY_DSN; do
     v="${!k:-}"; [ -n "$v" ] && echo "$k=$v"
   done
   if [ "$DEMO_LIVE" = "1" ]; then

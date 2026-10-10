@@ -21,6 +21,7 @@ import { errorResponse, jsonResponse } from "./serialize";
 import { TooManyRequests, callerHint, limit, once } from "./guard";
 import { idempotencyKey, readBody } from "./validate";
 import { count, log, timing } from "./observe";
+import { reportError } from "./error-report";
 
 export { jsonResponse, readBody };
 
@@ -129,6 +130,7 @@ export function handleError(err: unknown): Response {
   // — scrubbed, because upstream errors carry RPC URLs and those URLs carry API keys.
   count("api.errors.server");
   log("error", "api.unhandled", { error: err });
+  reportError(err, { kind: "api.unhandled" });
   return errorResponse("Something went wrong on our side. Nothing was changed.", 500);
 }
 
