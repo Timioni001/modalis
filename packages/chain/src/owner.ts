@@ -5,7 +5,7 @@
  * The manager key used by services/risk-monitor cannot call any of these; PortfolioMandate keys
  * every one of them off msg.sender, so authority is enforced on-chain rather than in this file.
  */
-import type { Address, Hex, PublicClient, WalletClient } from "viem";
+import { encodeFunctionData, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 import { MockERC20Abi, PortfolioMandateAbi, PortfolioVaultAbi } from "./abis/index.ts";
 import { requireContract, type Deployment } from "./addresses.ts";
 
@@ -189,4 +189,48 @@ export function assertAllocationsSumTo100(allocations: AllocationInput[]): void 
       throw new Error(`Invalid range for ${a.token}: need minBps <= targetBps <= maxBps`);
     }
   }
+}
+
+export type BatchStep = { kind: "allow" | "add"; token: Address; amount: bigint };
+
+/**
+ * Approve-and-deposit as raw calls, for wallets that can sign several in one go (EIP-5792
+ * `wallet_sendCalls`). Each call is exactly what `approveToken` / `deposit` would send, so the
+ * contract sees the same thing either way; only the number of signatures changes.
+ */
+export function fundingCalls(deployment: Deployment, steps: BatchStep[]): { to: Address; data: Hex }[] {
+  const vault = requireContract(deployment, "portfolioVault");
+  return steps.map((s) =>
+    s.kind === "allow"
+      ? { to: s.token, data: encodeFunctionData({ abi: MockERC20Abi, functionName: "approve", args: [vault, s.amount] }) }
+      : { to: vault, data: encodeFunctionData({ abi: PortfolioVaultAbi, functionName: "deposit", args: [s.token, s.amount] }) },
+  );
+}
+
+/**
+ * True when the connected wallet says it can run a batch atomically on this chain. Wallets that
+ * don't implement EIP-5792 throw on the question; that is a plain "no".
+ */
+export async function canBatch(wallet: WalletClient, chainId: number): Promise<boolean> {
+  try {
+    const account = requireAccount(wallet);
+    const caps = (await wallet.getCapabilities({ account, chainId })) as Record<string, unknown>;
+    const atomic = caps?.atomic as { status?: string } | undefined;
+    const legacy = caps?.atomicBatch as { supported?: boolean } | undefined;
+    return atomic?.status === "supported" || atomic?.status === "ready" || legacy?.supported === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Sends the calls as one batch and waits for it. Returns every transaction hash it produced. */
+export async function sendBatch(
+  wallet: WalletClient,
+  calls: { to: Address; data: Hex }[],
+): Promise<Hex[]> {
+  const account = requireAccount(wallet);
+  const { id } = await wallet.sendCalls({ account, chain: wallet.chain, calls, forceAtomic: true });
+  const result = await wallet.waitForCallsStatus({ id, pollingInterval: 200, timeout: 90_000 });
+  if (result.status !== "success") throw new Error("The batch didn't go through. Nothing moved.");
+  return (result.receipts ?? []).map((r) => r.transactionHash);
 }

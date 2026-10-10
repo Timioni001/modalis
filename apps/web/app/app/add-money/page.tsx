@@ -19,7 +19,7 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { approveToken, deposit } from "@modalis/chain";
+import { approveToken, canBatch, deposit, fundingCalls, sendBatch } from "@modalis/chain";
 import type { FundingPlan, FundingStep } from "@modalis/domain";
 import type { Address, Hex } from "viem";
 import { Badge, Button, Card, Notice, PageHeader, SectionTitle } from "@/components/ui";
@@ -100,6 +100,41 @@ function AddMoney() {
         contracts,
         tokens: (status?.technical?.tokens ?? {}) as Record<string, Address>,
       };
+
+      // One signature for every step, when the wallet can batch (EIP-5792). Same calls, same
+      // contract checks; just fewer prompts. Wallets that can't fall through to one step at a time.
+      const pending = funding.steps.filter((st) => steps.find((s) => s.id === st.id)?.status !== "done");
+      if (pending.length > 1 && (await canBatch(wallet, chainId))) {
+        for (const st of pending) mark(st.id, { status: "in_progress", error: undefined });
+        const started = performance.now();
+        try {
+          const hashes = await sendBatch(
+            wallet,
+            fundingCalls(
+              deployment,
+              pending.map((st) => ({ kind: st.kind, token: st.holdingId as Address, amount: BigInt(st.rawUnits) })),
+            ),
+          );
+          const ms = Math.round(performance.now() - started);
+          const last = hashes[hashes.length - 1];
+          for (const st of pending) {
+            mark(st.id, {
+              status: "done",
+              receipt: last ? { reference: last, confirmed: true, at: new Date().toISOString() } : undefined,
+            });
+          }
+          setTimes((t) => Object.fromEntries([...Object.entries(t), ...pending.map((st) => [st.id, ms])]));
+          for (const h of new Set(hashes)) {
+            await apiPostOnce("/api/money/confirm", { receipt: h, kind: "add" }).catch(() => undefined);
+          }
+          setFinished(true);
+          await refresh();
+          return;
+        } catch (err) {
+          for (const st of pending) mark(st.id, { status: "failed", error: gasHelpMessage(err) ?? undefined });
+          throw err;
+        }
+      }
 
       for (const step of funding.steps) {
         if (steps.find((s) => s.id === step.id)?.status === "done") continue;
