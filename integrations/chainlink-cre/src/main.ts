@@ -1,11 +1,13 @@
 /**
  * MODALIS — Chainlink CRE portfolio risk-monitoring workflow.
  *
- * On a cron schedule, for each watched portfolio:
+ * On a cron schedule:
  *
- *   read portfolio state (Monad) -> read mandate -> read asset metadata
- *     -> compute the risk state -> produce a DON-signed report
- *     -> write it to RiskSignalReceiver
+ *   fetch market stress (HTTP, each node) -> median across the DON
+ *   for each watched portfolio:
+ *     read portfolio state (Monad) -> read mandate -> read asset metadata
+ *       -> compute the risk state -> combine with market stress
+ *       -> produce a DON-signed report -> write it to RiskSignalReceiver
  *
  * Why CRE and not just our own service: the risk state that reaches the chain carries DON
  * consensus, so the portfolio's published risk is not something Modalis' backend asserts on its
@@ -17,7 +19,7 @@
  * RiskSignalReceiver has no authority over the vault. Do not describe this as autonomous fund
  * movement, because it is not.
  */
-import { cre, type Runtime } from "@chainlink/cre-sdk";
+import { consensusMedianAggregation, cre, json, type HTTPSendRequester, type Runtime } from "@chainlink/cre-sdk";
 import { assessRisk, type Allocation, type MandateRules } from "@modalis/portfolio";
 import type { Address, Hex } from "viem";
 import {
@@ -34,6 +36,7 @@ import {
   toHexFlexible,
   type RiskStatusCode,
 } from "./abi.ts";
+import { combineWithMarket, marketStressBps, type MarketConfig } from "./market.ts";
 
 /** Chain selectors from the CRE SDK's own table. Monad testnet and mainnet are both supported. */
 const CHAIN_SELECTORS = {
@@ -53,6 +56,8 @@ export type Config = {
   /** Portfolios to monitor. */
   owners: Address[];
   gasLimit?: string;
+  /** Optional off-chain market signal. Without it the workflow judges from chain state alone. */
+  market?: MarketConfig;
   /**
    * Report encoder/signing/hashing names. These are CRE platform identifiers rather than
    * anything Modalis defines, so they are configuration: check them against the current CRE docs
@@ -162,6 +167,13 @@ export function riskForOwner(
   };
 }
 
+/** Runs on each node: one GET, reduced to a single integer the DON can take the median of. */
+function fetchMarketStress(sendRequester: HTTPSendRequester, market: MarketConfig): number {
+  const response = sendRequester.sendRequest({ url: market.url, method: "GET" }).result();
+  if (response.statusCode !== 200) throw new Error(`Market feed answered ${response.statusCode}`);
+  return marketStressBps(json(response), market.ids);
+}
+
 /** Cron handler: evaluate every watched portfolio and publish each risk state on-chain. */
 const onCron = async (runtime: Runtime<Config>): Promise<{ evaluated: number; published: number }> => {
   const cfg = runtime.config;
@@ -175,15 +187,33 @@ const onCron = async (runtime: Runtime<Config>): Promise<{ evaluated: number; pu
     hashingAlgo: cfg.report?.hashingAlgo ?? "keccak256",
   };
 
+  // Off-chain signal: every node fetches the feed itself and the DON agrees on the median, so the
+  // number that reaches the report is consensus, not one server's reading.
+  let stress: number | null = null;
+  if (cfg.market) {
+    const http = new cre.capabilities.HTTPClient();
+    stress = http
+      .sendRequest(runtime, fetchMarketStress, consensusMedianAggregation<number>())(cfg.market)
+      .result();
+    runtime.log(`market stress ${stress} bps (flag at ${cfg.market.stressBps})`);
+  }
+
   let evaluated = 0;
   let published = 0;
 
   for (const owner of cfg.owners) {
-    const risk = riskForOwner(evm, runtime, owner);
-    if (!risk) {
+    const onchain = riskForOwner(evm, runtime, owner);
+    if (!onchain) {
       runtime.log(`${owner}: no active mandate, skipping`);
       continue;
     }
+    const combined = combineWithMarket(onchain, stress, cfg.market?.stressBps ?? 0);
+    const risk: OwnerRisk = {
+      ...onchain,
+      status: combined.status,
+      statusName: (["OK", "DRIFT", "BREACH"] as const)[combined.status],
+      reason: combined.reason,
+    };
     evaluated++;
     runtime.log(
       `${owner}: ${risk.statusName} (drift ${risk.maxDriftBps} bps, value ${risk.totalValue}) — ${risk.reason}`,

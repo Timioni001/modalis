@@ -1,14 +1,18 @@
 # Chainlink CRE — portfolio risk monitoring
 
-A real workflow, not a logo. On a cron schedule it reads each watched portfolio from Monad,
-computes its risk state, and writes a **DON-signed risk signal** to `RiskSignalReceiver`.
+A real workflow, not a logo. On a cron schedule it fetches an off-chain market signal, reads each
+watched portfolio from Monad, combines the two into a risk state, and writes a **DON-signed risk
+signal** to `RiskSignalReceiver`.
 
 ```
 cron trigger
+   -> GET market prices                 (CRE HTTP capability, on every node)
+   -> median across the DON             (consensusMedianAggregation)
    -> read portfolioState(owner)        (RebalanceExecutor, via CRE's EVM capability)
    -> read mandateOf / allocationsOf    (PortfolioMandate)
    -> read getAsset                     (AssetRegistry — decides what counts as liquid)
    -> assessRisk()                      (packages/portfolio, the same engine the app runs)
+   -> combineWithMarket()               (src/market.ts: stress can raise OK to DRIFT, nothing more)
    -> runtime.report(...)               (DON consensus + signature)
    -> writeReport -> RiskSignalReceiver.onReport
    -> RiskStateUpdated / RebalanceRequired
@@ -20,6 +24,19 @@ The risk state that lands on-chain is not something Modalis' backend asserts on 
 carries DON consensus. That works only because the computation is deterministic: the same
 `assessRisk` function, over the same contract reads, with no clocks, randomness or private data.
 Every node reaches the same answer, so the signal is verifiable rather than merely reported.
+
+## The off-chain signal, and why it is safe to combine
+
+Each node fetches a public price feed (`config.market.url`, CoinGecko's `/simple/price` with 24h
+change by default) and reduces it to one integer: **market stress**, the largest absolute 24-hour
+move among `market.ids`, in basis points (`marketStressBps`). The DON takes the **median**, so one
+node with a stale or doctored reply cannot move it.
+
+Stress is combined with the on-chain verdict by one rule (`combineWithMarket`): at or above
+`market.stressBps` it raises an otherwise-OK plan to `DRIFT`, a prompt to review, and it is noted in
+the report's reason as `MARKET:<stress>/<threshold>`. It can never cause a `BREACH` and never
+lowers a verdict, so the limits are still judged from chain state alone. Remove `market` from the
+config and the workflow runs on chain data only. Tests: `pnpm test` in this folder.
 
 ## Scope: this writes a SIGNAL, and only a signal
 
@@ -40,6 +57,8 @@ Every CRE binding used here was read from the installed SDK's own type definitio
 | `new cre.capabilities.EVMClient(chainSelector)` | `dist/generated-sdk/capabilities/blockchain/evm/v1alpha/client_sdk_gen.d.ts` |
 | `evm.callContract(runtime, { call: { from, to, data } })` | same file |
 | `evm.writeReport(runtime, { receiver, report, gasConfig })` | same file |
+| `new cre.capabilities.HTTPClient().sendRequest(runtime, fn, aggregation)` | `dist/generated-sdk/capabilities/networking/http/v1alpha/client_sdk_gen.d.ts` |
+| `consensusMedianAggregation()`, `json(response)` | `dist/sdk/utils/values/consensus_aggregators.d.ts`, `dist/sdk/utils/capabilities/http/http-helpers.d.ts` |
 | `runtime.report({ encodedPayload, encoderName, signingAlgo, hashingAlgo })` | `dist/sdk/runtime.d.ts` |
 | Monad chain selectors | `SUPPORTED_CHAIN_SELECTORS` in the EVM client — `monad-testnet` `2183018362218727504`, `monad-mainnet` `8481857512324358265` |
 
@@ -82,7 +101,7 @@ CRE_FORWARDER_ADDRESS=0x... DEPLOYER_PRIVATE_KEY=0x... \
 
 # 3. simulate, then deploy (CRE CLI >= 1.29.0)
 cre login
-cre workflow simulate .
+bash scripts/cre-simulate.sh 0xPlanOwner   # from the repo root: fills the config, saves SIMULATION.md
 cre workflow deploy .
 ```
 
