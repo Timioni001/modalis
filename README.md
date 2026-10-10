@@ -213,6 +213,12 @@ pnpm envio:validate      # Envio config against Envio's own schema
 Node 22+ (the TypeScript runs directly via Node's type stripping), pnpm, Foundry, and Python 3 for
 the Envio config check. `scripts/setup.sh` installs what is missing on Ubuntu / WSL2.
 
+## Contracts on Monad testnet
+
+Every deployed address, with its verified source on the Monad explorer, is listed in
+[docs/testnet-contracts.md](docs/testnet-contracts.md). `bash scripts/verify-contracts.sh`
+verifies them and regenerates that list.
+
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
