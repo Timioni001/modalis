@@ -38,6 +38,18 @@ idempotently, with 13 real transactions.
 bash scripts/demo-local.sh
 ```
 
+**What only Monad makes practical, in the product** (see `/why-monad` and
+[parallel-execution.md](parallel-execution.md)):
+
+| Monad property | Where you see it | Code |
+|---|---|---|
+| ~0.4s blocks, fast finality | "Confirmed in 0.6s" on every signed action | `apps/web/lib/chain-client.ts`, `components/confirmed-in.tsx` |
+| Cheap reads every block | Live drift meter re-read per block | `apps/web/components/drift-meter.tsx` |
+| Parallel execution | Monitor sends all adjustments at once; per-user storage | `services/risk-monitor/src/cli.ts`, `docs/parallel-execution.md` |
+| Tiny fees | One-tap test money, small balances worth managing | `apps/web/app/api/faucet/route.ts`, `packages/chain/src/faucet.ts` |
+| Multicall3 / EIP-5792 | Four mints in one transaction; approve + deposit in one signature | `packages/chain/src/faucet.ts`, `packages/chain/src/owner.ts` |
+| Public chain data | `/stats` live numbers, `/proof/<address>` shareable proof | `apps/web/app/api/stats/route.ts`, `apps/web/app/api/proof/` |
+
 ## Dynamic — required
 
 Email / social login and an embedded Monad wallet, so a first-time user never sees "connect
