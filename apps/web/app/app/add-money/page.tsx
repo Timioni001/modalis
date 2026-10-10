@@ -26,6 +26,7 @@ import { Badge, Button, Card, Notice, PageHeader, SectionTitle } from "@/compone
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
+import { TestMoney, gasHelpMessage } from "@/components/test-money";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
 import { apiPostOnce } from "@/lib/client-api";
 import { moneyLabel } from "@/lib/format";
@@ -120,7 +121,9 @@ function AddMoney() {
         } catch (err) {
           mark(step.id, {
             status: "failed",
-            error: err instanceof Error ? err.message : "That step didn't go through.",
+            error:
+              gasHelpMessage(err) ??
+              (err instanceof Error ? err.message : "That step didn't go through."),
           });
           throw err;
         }
@@ -130,9 +133,10 @@ function AddMoney() {
       await refresh();
     } catch (err) {
       setError(
-        err instanceof Error
+        gasHelpMessage(err) ??
+        (err instanceof Error
           ? `${err.message} Anything that already went through is safely in your plan.`
-          : "Something didn't go through.",
+          : "Something didn't go through."),
       );
     } finally {
       setWorking(false);
@@ -157,6 +161,14 @@ function AddMoney() {
           You have {moneyLabel(money.total)} in your plan today.
         </p>
       ) : null}
+
+      <TestMoney
+        onFunded={async () => {
+          setFunding(null);
+          setSteps([]);
+          await refresh();
+        }}
+      />
 
       {/* ------------------------------------------------------- how much */}
       <Card>
@@ -243,7 +255,8 @@ function AddMoney() {
               </ul>
               <p className="mt-2">
                 You can still add the rest; the steps you can&apos;t cover will simply not go
-                through.
+                through. On the test network, &ldquo;Get test money&rdquo; above fills your
+                wallet in one tap.
               </p>
             </Notice>
           ) : null}

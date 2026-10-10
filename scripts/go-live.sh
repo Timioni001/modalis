@@ -179,7 +179,7 @@ for (const [k, e] of Object.entries(map)) if (all[k] && all[k].toLowerCase() !==
   echo "MODALIS_NETWORK=testnet"
   [ -n "${MONAD_TESTNET_RPC_URL:-}" ] && echo "MONAD_TESTNET_RPC_URL=$MONAD_TESTNET_RPC_URL"
   for k in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY \
-           NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID MANAGER_PRIVATE_KEY; do
+           NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID MANAGER_PRIVATE_KEY FAUCET_PRIVATE_KEY; do
     v="${!k:-}"; [ -n "$v" ] && echo "$k=$v"
   done
   # A fresh metrics token on the first run only; afterwards the one in Vercel is kept.

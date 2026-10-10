@@ -146,6 +146,7 @@ Paste in the values from Part 3:
 | `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` | from 3c |
 | `SITE_URL` | your site, e.g. `https://modalis-six.vercel.app` |
 | `FUND_WALLET` | optional; leave empty for now (see Part 6) |
+| `FAUCET_PRIVATE_KEY` | optional; a separate funded testnet key that pays for **Get test money** (see Part 6) |
 
 Save with `Ctrl+O`, `Enter`, then exit with `Ctrl+X`.
 
@@ -178,12 +179,14 @@ SKIP_VERCEL=1 bash scripts/go-live.sh       # do everything except touch Vercel
 ## Part 6 — Try it as a user
 
 1. Open your site, click **Start**, and sign in with your wallet or email through Dynamic.
-2. Open **Settings**, copy the address under *Your account*, and send it demo tokens:
+2. Open **Add money** and press **Get test money**. With `FAUCET_PRIVATE_KEY` set, Modalis sends demo tokens and 0.05 MON for fees, and you sign nothing. Without it, your wallet mints the demo tokens in one transaction; if it has no MON, the card links to <https://faucet.monad.xyz> with your address ready to copy.
+3. To turn on the no-signature version, make a key just for this and fund it:
    ```bash
-   # put the address in .env.golive as FUND_WALLET, then:
-   SKIP_TESTS=1 SKIP_VERCEL=1 bash scripts/go-live.sh
+   cast wallet new                     # copy the private key and address
+   # fund the address at https://faucet.monad.xyz, put the key in .env.golive as FAUCET_PRIVATE_KEY, then:
+   SKIP_TESTS=1 bash scripts/go-live.sh
    ```
-3. Your wallet also needs a little testnet MON for gas: <https://faucet.monad.xyz>.
+   (`bash scripts/fund-wallet.sh 0xYourAddress` still works from a terminal.)
 4. Build a plan, approve it, add money, and check **Activity**: every step links to a real transaction on the Monad explorer.
 
 ---
