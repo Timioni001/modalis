@@ -3,32 +3,37 @@
 /**
  * The page's backdrop.
  *
- * Public pages open on a slow, living mesh gradient, the treatment Stripe made the standard for
- * money products: a field of colour that moves like liquid behind the headline and dissolves into
- * the page as you scroll. It is a WebGL shader (Paper Shaders), capped in resolution so a phone
- * renders it cheaply, frozen for anyone who asks for reduced motion, and recoloured per theme.
+ * Light falling from above the page: soft beams that slowly turn and breathe, the treatment Linear
+ * and Vercel use, rather than a wash of colour. It keeps the page near-monochrome, so the one lime
+ * accent and the numbers stay the brightest things on screen, with a faint lime thread in the light.
  *
- * The app's own pages get the same gradient, softer and pinned behind the top of the screen, so the
- * whole product moves the same way without competing with somebody's numbers.
+ * A WebGL shader (Paper Shaders' God Rays), capped in resolution so a phone renders it cheaply,
+ * still for anyone who asks for reduced motion, and re-lit per theme. App pages get the same light,
+ * dimmer and pinned to the top of the screen.
  */
 import { useEffect, useState } from "react";
-import { MeshGradient } from "@paper-design/shaders-react";
+import { GodRays } from "@paper-design/shaders-react";
 
-/* Mostly canvas, so the headline always sits on calm ground, with the signal lime, a deep teal
-   and an indigo moving through it. */
-const MESH = {
-  public: {
-    dark: ["#0b0b0d", "#46680f", "#0b0b0d", "#0e5a52", "#2f2b8c", "#0b0b0d"],
-    light: ["#ffffff", "#d6f58a", "#ffffff", "#addfff", "#d9cfff", "#ffffff"],
-  },
-  app: {
-    dark: ["#0b0b0d", "#3a5410", "#0b0b0d", "#0b3f3a", "#23206a", "#0b0b0d"],
-    light: ["#f4f4f5", "#e2f5a8", "#f4f4f5", "#c9e8ff", "#e2dbff", "#f4f4f5"],
-  },
-};
+type Theme = "dark" | "light";
 
-function useTheme(): "dark" | "light" {
-  const [theme, setTheme] = useState<"dark" | "light">("light");
+/* Dark: white light with a lime thread, added onto the canvas. Light: graphite shadows on white. */
+const LIGHT = {
+  dark: {
+    colorBack: "#0b0b0d",
+    colorBloom: "#e8e8ea",
+    colors: ["#ffffff14", "#ffffff2b", "#c8f25026", "#ffffff1c"],
+    bloom: 1,
+  },
+  light: {
+    colorBack: "#ffffff",
+    colorBloom: "#ffffff",
+    colors: ["#0e0e100a", "#0e0e1014", "#7fa31a17", "#0e0e100d"],
+    bloom: 0,
+  },
+} as const;
+
+function useTheme(): Theme {
+  const [theme, setTheme] = useState<Theme>("light");
   useEffect(() => {
     const root = document.documentElement;
     const read = () => setTheme(root.dataset.theme === "dark" ? "dark" : "light");
@@ -56,16 +61,24 @@ export function AmbientBackground({ variant = "app" }: { variant?: "public" | "a
   const theme = useTheme();
   const reduced = usePrefersReducedMotion();
 
+  const light = LIGHT[theme];
+  const app = variant === "app";
   return (
-    <div aria-hidden className={variant === "public" ? "ambient-mesh" : "ambient-mesh ambient-mesh-app"}>
-      <MeshGradient
+    <div aria-hidden className={app ? "ambient-mesh ambient-mesh-app" : "ambient-mesh"}>
+      <GodRays
         className="h-full w-full"
-        colors={MESH[variant][theme]}
-        distortion={0.85}
-        swirl={0.3}
-        speed={reduced ? 0 : variant === "public" ? 0.5 : 0.35}
-        grainMixer={0}
-        grainOverlay={theme === "dark" ? 0.12 : 0.06}
+        colorBack={light.colorBack}
+        colorBloom={light.colorBloom}
+        colors={[...light.colors]}
+        bloom={light.bloom}
+        offsetX={0}
+        offsetY={-0.9}
+        density={0.22}
+        spotty={0.35}
+        midSize={0.25}
+        midIntensity={app ? 0.3 : 0.5}
+        intensity={app ? 0.4 : 0.6}
+        speed={reduced ? 0 : 0.5}
         minPixelRatio={1}
         maxPixelCount={1280 * 800}
       />
