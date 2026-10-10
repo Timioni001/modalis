@@ -100,6 +100,6 @@ export function isDemoMode(): boolean {
   return (process.env.DEMO_MODE ?? "false").toLowerCase() === "true";
 }
 
-export function aiConfig(): { apiKey?: string; model?: string } {
-  return { apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL };
+export function aiConfig(): { apiKey?: string; model?: string; baseUrl?: string } {
+  return { apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL, baseUrl: process.env.AI_BASE_URL || undefined };
 }

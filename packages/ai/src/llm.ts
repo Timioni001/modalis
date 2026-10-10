@@ -49,15 +49,60 @@ const ParsedGoalSchema = z.object({
 export type AiConfig = {
   apiKey?: string;
   model?: string;
+  /**
+   * An OpenAI-compatible endpoint (Kimi, Qwen, OpenRouter, a local server...), e.g.
+   * https://api.moonshot.ai/v1. When set, requests go to `${baseUrl}/chat/completions` instead of
+   * Anthropic, and AI_MODEL must name that provider's model.
+   */
+  baseUrl?: string;
+  /** Injectable for tests: the fetch used for the OpenAI-compatible path. */
+  fetch?: typeof fetch;
   /** Injectable for tests. Defaults to a client built from apiKey. */
   client?: Anthropic;
 };
 
 export function aiConfigFromEnv(env: Record<string, string | undefined> = process.env): AiConfig {
-  return { apiKey: env.AI_API_KEY, model: env.AI_MODEL || DEFAULT_AI_MODEL };
+  const baseUrl = env.AI_BASE_URL?.trim() || undefined;
+  // The default model is an Anthropic one; another provider's endpoint needs its own model name.
+  return { apiKey: env.AI_API_KEY, model: env.AI_MODEL || (baseUrl ? undefined : DEFAULT_AI_MODEL), baseUrl };
+}
+
+/**
+ * One chat completion against an OpenAI-compatible endpoint. Returns the text, or null on any
+ * failure, so callers fall back exactly as they do for Anthropic errors.
+ */
+async function openAiCompatible(
+  cfg: AiConfig,
+  system: string,
+  user: string,
+  json: boolean,
+): Promise<string | null> {
+  if (!cfg.baseUrl || !cfg.apiKey || !cfg.model) return null;
+  try {
+    const res = await (cfg.fetch ?? fetch)(`${cfg.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${cfg.apiKey}` },
+      body: JSON.stringify({
+        model: cfg.model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        ...(json ? { response_format: { type: "json_object" } } : {}),
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const text = body.choices?.[0]?.message?.content?.trim();
+    return text || null;
+  } catch {
+    return null;
+  }
 }
 
 export function isAiConfigured(cfg: AiConfig): boolean {
+  if (cfg.baseUrl) return Boolean(cfg.apiKey && cfg.model);
   return Boolean(cfg.client ?? cfg.apiKey);
 }
 
@@ -92,6 +137,33 @@ export async function interpretGoal(
   text: string,
   cfg: AiConfig = aiConfigFromEnv(),
 ): Promise<InterpretGoalResult | null> {
+  if (cfg.baseUrl) {
+    if (!text.trim()) return null;
+    const reply = await openAiCompatible(
+      cfg,
+      `${GOAL_SYSTEM}\n\nAnswer with one JSON object with exactly these keys: goal_type (one of ${GOAL_TYPES.join(", ")}), target_value_usd, horizon_months, confidence (high, medium or low), restatement.`,
+      text,
+      true,
+    );
+    if (!reply) return null;
+    try {
+      const parsed = ParsedGoalSchema.safeParse(JSON.parse(reply.replace(/^```(?:json)?\s*|\s*```$/g, "")));
+      if (!parsed.success) return null;
+      return {
+        goal: {
+          goalType: parsed.data.goal_type as GoalType,
+          targetValue: parsed.data.target_value_usd,
+          horizonMonths: parsed.data.horizon_months,
+          source: "llm",
+        },
+        confidence: parsed.data.confidence,
+        restatement: parsed.data.restatement,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   const client = clientFor(cfg);
   if (!client || !text.trim()) return null;
 
@@ -161,6 +233,16 @@ export async function writeExplanation(
   facts: ExplanationFacts,
   cfg: AiConfig = aiConfigFromEnv(),
 ): Promise<{ body: string; model: string | null }> {
+  if (cfg.baseUrl) {
+    const body = await openAiCompatible(
+      cfg,
+      EXPLANATION_SYSTEM,
+      `Event: ${facts.event}\n\nFacts:\n${facts.facts.map((f) => `- ${f}`).join("\n")}`,
+      false,
+    );
+    return body ? { body, model: cfg.model ?? null } : { body: facts.fallback, model: null };
+  }
+
   const client = clientFor(cfg);
   if (!client) return { body: facts.fallback, model: null };
 

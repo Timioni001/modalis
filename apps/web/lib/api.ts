@@ -34,7 +34,7 @@ export async function domainContext(): Promise<DomainContext> {
     db: serverClient(),
     explorerUrl: process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL || undefined,
     rpcUrl: rpc.httpUrl,
-    ai: { apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL },
+    ai: { apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL, baseUrl: process.env.AI_BASE_URL || undefined },
     managerAddress: managerAddress(),
     envioUrl: process.env.ENVIO_GRAPHQL_URL || undefined,
   };

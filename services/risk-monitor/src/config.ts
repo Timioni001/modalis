@@ -25,7 +25,7 @@ export type MonitorConfig = {
   demoMode: boolean;
   /** When false the monitor reports and proposes but never submits a transaction. */
   autoExecute: boolean;
-  ai: { apiKey?: string; model?: string };
+  ai: { apiKey?: string; model?: string; baseUrl?: string };
 };
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): MonitorConfig {
@@ -56,6 +56,6 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     demoMode,
     // Submitting a transaction is opt-in, so a misconfigured monitor cannot trade by surprise.
     autoExecute: (env.RISK_MONITOR_AUTO_EXECUTE ?? "false").toLowerCase() === "true",
-    ai: { apiKey: env.AI_API_KEY, model: env.AI_MODEL },
+    ai: { apiKey: env.AI_API_KEY, model: env.AI_MODEL, baseUrl: env.AI_BASE_URL || undefined },
   };
 }
