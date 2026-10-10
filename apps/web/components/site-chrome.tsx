@@ -18,6 +18,7 @@ import { WalletButton } from "./wallet-button";
 import { SiteNav } from "./site-nav";
 import { SiteFooter } from "./site-footer";
 import { AppNav } from "./app-nav";
+import { AmbientBackground } from "./ambient-background";
 
 /** Routes that are somebody's money rather than a marketing page. */
 const APP_PREFIXES = ["/app", "/onboarding", "/plan"];
@@ -38,7 +39,8 @@ export function SiteChrome({ children }: { children: ReactNode }) {
   return (
     <>
       {focused ? (
-        <div className="flex min-h-screen flex-col bg-canvas">
+        <div className="isolate flex min-h-screen flex-col bg-canvas">
+          <AmbientBackground />
           <FocusedNav />
           <main id="main" className="flex-1">
             {children}
@@ -46,7 +48,8 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <AppFootnote />
         </div>
       ) : inApp ? (
-        <div className="flex min-h-screen flex-col bg-canvas lg:pl-[256px]">
+        <div className="isolate flex min-h-screen flex-col bg-canvas lg:pl-[256px]">
+          <AmbientBackground />
           <AppNav />
           <main id="main" className="flex-1">
             {children}
@@ -55,7 +58,8 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         </div>
       ) : (
         // The public site is white with grey cards; the app is grey with white cards.
-        <div className="flex min-h-screen flex-col bg-surface">
+        <div className="relative isolate flex min-h-screen flex-col bg-surface">
+          <AmbientBackground variant="public" />
           <SiteNav />
           <main id="main" className="flex-1">
             {children}

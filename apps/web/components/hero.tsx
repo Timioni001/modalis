@@ -17,7 +17,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { moneyInSentence, project } from "@modalis/domain";
-import { DotShader } from "@/components/shadcn/dot-shader";
 import { RainbowButton } from "@/components/shadcn/rainbow-button";
 import { moneyCompact } from "@/lib/format";
 
@@ -92,9 +91,8 @@ export function Hero() {
             A clear plan for <span className="accent-serif">every goal.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-md text-[16.5px] leading-relaxed text-ink-soft sm:text-lg">
-            Tell us what you&rsquo;re saving for and how much risk you&rsquo;re comfortable with.
-            Modalis builds the plan, keeps your money within your limits, and checks with you
-            before making any change.
+            Pick a goal and how much risk you can take. Modalis builds the plan, keeps your money
+            inside the limits you set, and asks you before it changes anything.
           </p>
           <div className="mt-8 flex justify-center">
             <RainbowButton asChild size="lg" className="rounded-full">
@@ -110,13 +108,7 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
           className="mt-14"
         >
-          <DotShader
-            className="overflow-hidden rounded-[32px] bg-panel shadow-[var(--shadow-float)]"
-            dotColor="rgba(255,255,255,0.10)"
-            accentColor="#c8f250"
-            spacing={24}
-            overlay={false}
-          >
+          <div className="relative w-full overflow-hidden rounded-[32px] bg-panel shadow-[var(--shadow-float)]">
             <div className="relative grid w-full gap-3 p-3 sm:p-5 lg:grid-cols-[1fr_380px] lg:gap-4">
               {/* the inputs */}
               <div className="rounded-[26px] bg-surface p-5 sm:p-7">
@@ -204,7 +196,7 @@ export function Hero() {
                 </Link>
               </div>
             </div>
-          </DotShader>
+          </div>
         </motion.div>
       </div>
     </section>

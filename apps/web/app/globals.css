@@ -398,23 +398,24 @@ select.field {
 }
 
 /*
- * Dark mode only: a faint grid of white dots behind the landing page, fading out toward the
- * bottom so it frames the hero without competing with the footer. Light mode stays plain.
+ * The backdrop (components/ambient-background.tsx). It sits on the page's own stacking layer, so
+ * the wrapper that holds it needs `relative isolate`; content paints over it.
  */
-.landing-dots {
-  position: relative;
-  isolation: isolate;
-}
-/* The dots live on their own layer so the fade never touches the page content above them. */
-[data-theme="dark"] .landing-dots::before {
-  content: "";
+.ambient-mesh {
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto 0;
+  height: min(100svh, 980px);
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(rgb(255 255 255 / 0.13) 1px, transparent 1.4px);
-  background-size: 22px 22px;
-  background-position: center top;
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, rgb(0 0 0 / 0.3) 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, rgb(0 0 0 / 0.3) 100%);
+  /* Full strength behind the headline, gone by the time the product card starts. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 50%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 50%, transparent 100%);
+}
+
+/* Inside the app: pinned to the top of the screen and shorter, so it never sits under the numbers. */
+.ambient-mesh-app {
+  position: fixed;
+  height: 60vh;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 100%);
 }
