@@ -2,4 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
   - "services/*"
-  - "integrations/*"
+  - "integrations/chainlink-cre"
+# integrations/envio is deliberately NOT in the workspace: Envio Cloud builds it on its own, from
+# its own folder and its own lockfile, so it must install and run codegen standalone.

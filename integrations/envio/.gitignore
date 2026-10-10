@@ -1,0 +1,5 @@
+node_modules/
+.envio/
+generated/
+envio-env.d.ts
+*.log
