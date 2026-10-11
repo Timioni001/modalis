@@ -273,3 +273,6 @@ else
 fi
 
 printf '\n\033[1;32mDone.\033[0m Open %s and sign in.\n' "${SITE_URL:-your site}"
+printf 'To see which settings Vercel has, and what each missing one adds:\n'
+printf '  bash scripts/check-env.sh\n'
+
