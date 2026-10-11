@@ -16,7 +16,17 @@ import { DynamicContextProvider, useDynamicContext, useIsLoggedIn } from "@dynam
 import { EthereumWalletConnectors, isEthereumWallet } from "@dynamic-labs/ethereum";
 import { getAddress, type Address, type WalletClient } from "viem";
 import { useCallback, useMemo, type ReactNode } from "react";
+import { chainById } from "@modalis/chain";
 import { WalletContext, type WalletState } from "@/components/wallet-context";
+
+/** The chain's own public endpoint, from viem's registry. Used only when none is configured. */
+function fallbackRpcUrl(chainId: number): string {
+  try {
+    return chainById(chainId).rpcUrls.default.http[0];
+  } catch {
+    return "https://testnet-rpc.monad.xyz";
+  }
+}
 
 type Deployment = {
   chainId: number;
@@ -50,7 +60,11 @@ export function Providers({
               chainName: deployment.networkName,
               name: deployment.networkName,
               nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
-              rpcUrls: deployment.rpcUrl ? [deployment.rpcUrl] : [],
+              // Never an empty list: the connector builds its transport from this, and with
+              // nothing in it every signature fails with "No URL was provided to the Transport".
+              // `publicConfig` already falls back to the chain's own endpoint; this is the
+              // backstop for any caller that doesn't.
+              rpcUrls: [deployment.rpcUrl ?? fallbackRpcUrl(deployment.chainId)],
               blockExplorerUrls: deployment.explorerUrl ? [deployment.explorerUrl] : [],
               iconUrls: [],
             },

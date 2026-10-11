@@ -110,6 +110,30 @@ export function walletFromClaims(payload: JWTPayload): `0x${string}` | null {
   return null;
 }
 
+/**
+ * Which Dynamic environment a token was issued for, when the token says so.
+ *
+ * Dynamic has used three shapes for this: an `environment_id` claim, an issuer ending in the
+ * environment id (`app.dynamicauth.com/<id>`), and — in older SDKs — the environment id as the
+ * audience. Any of them identifies the environment; none of them is guaranteed to be present,
+ * so an absent one is not treated as a mismatch.
+ */
+function environmentOf(payload: JWTPayload): string | null {
+  const claim = payload["environment_id"];
+  if (typeof claim === "string" && claim.trim()) return claim.trim();
+
+  const iss = typeof payload.iss === "string" ? payload.iss.replace(/\/$/, "") : "";
+  const last = iss.slice(iss.lastIndexOf("/") + 1);
+  if (UUID.test(last)) return last;
+
+  const aud = Array.isArray(payload.aud) ? payload.aud[0] : payload.aud;
+  if (typeof aud === "string" && UUID.test(aud)) return aud;
+
+  return null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Verifies a Dynamic JWT and returns the session it proves. Throws AuthError otherwise. */
 export async function verifyToken(token: string, cfg: AuthConfig = authConfigFromEnv()): Promise<Session> {
   if (!cfg.jwksUrl) {
@@ -122,14 +146,22 @@ export async function verifyToken(token: string, cfg: AuthConfig = authConfigFro
 
   let payload: JWTPayload;
   try {
-    const verified = await jwtVerify(token, jwks(cfg.jwksUrl), {
-      // Dynamic sets the environment id as the audience.
-      ...(cfg.environmentId ? { audience: cfg.environmentId } : {}),
-    });
+    // The audience is deliberately NOT pinned here. Dynamic's `aud` is the app's own origin
+    // (and has changed shape between SDK versions), so pinning it to the environment id refused
+    // every real token with `unexpected "aud" claim value`. The environment binding comes from
+    // the signature instead: `jwksUrl` is per-environment, so another environment's token is
+    // signed by a key that is not in this set and fails here. `environmentOf` below is the
+    // belt-and-braces check on top of that.
+    const verified = await jwtVerify(token, jwks(cfg.jwksUrl));
     payload = verified.payload;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new AuthError("invalid_token", `Your sign-in could not be verified: ${message}`);
+  }
+
+  const tokenEnvironment = environmentOf(payload);
+  if (cfg.environmentId && tokenEnvironment && tokenEnvironment !== cfg.environmentId) {
+    throw new AuthError("invalid_token", "That sign-in belongs to a different deployment.");
   }
 
   const walletAddress = walletFromClaims(payload);

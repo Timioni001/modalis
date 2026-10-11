@@ -91,11 +91,11 @@ export function AppNav() {
 
       {/* ------------------------------------------------------------ phone top bar */}
       <header className="sticky top-0 z-40 px-4 pt-4 lg:hidden">
-        <div className="mx-auto flex max-w-5xl items-center gap-2 rounded-full bg-surface/90 px-3 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl items-center gap-2 overflow-hidden rounded-full bg-surface/90 px-3 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
           <Link href="/app" className="flex min-h-[44px] items-center px-1 text-ink" aria-label="Modalis">
             <ModalisLogo size={24} />
           </Link>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex min-w-0 items-center gap-0.5">
             <NotificationBell />
             <Link
               href="/app/goals"
@@ -118,7 +118,7 @@ export function AppNav() {
             >
               <SettingsIcon />
             </Link>
-            <WalletButton />
+            <WalletButton compact />
           </div>
         </div>
       </header>
@@ -168,8 +168,6 @@ export function AppNav() {
           <AskIcon />
         </Link>
       </div>
-      {/* Keeps the last row of content clear of the dock. */}
-      <div aria-hidden className="h-[92px] lg:hidden" />
     </>
   );
 }

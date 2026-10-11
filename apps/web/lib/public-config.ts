@@ -38,7 +38,14 @@ export function publicConfig(): PublicConfig {
       chain?.blockExplorers?.default.url ||
       undefined,
     dynamicEnvironmentId: process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || undefined,
-    rpcUrl: process.env.NEXT_PUBLIC_MONAD_RPC_URL || undefined,
+    // Same reasoning as the explorer: fall back to the chain's own endpoint rather than leaving
+    // this empty. It is not cosmetic — the wallet connector is handed this list verbatim, and an
+    // empty one leaves it with no endpoint to send a signed transaction to, which surfaced as
+    // "No URL was provided to the Transport" on every action.
+    rpcUrl:
+      process.env.NEXT_PUBLIC_MONAD_RPC_URL?.trim() ||
+      chain?.rpcUrls.default.http[0] ||
+      undefined,
     demoMode: (process.env.NEXT_PUBLIC_DEMO_MODE ?? "false").toLowerCase() === "true",
   };
 }

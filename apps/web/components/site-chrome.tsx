@@ -48,7 +48,10 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <AppFootnote />
         </div>
       ) : inApp ? (
-        <div className="isolate flex min-h-screen flex-col bg-canvas lg:pl-[256px] print:pl-0">
+        // The bottom padding clears the floating phone dock. It lives here, on the shell, so it
+        // sits BELOW the content: inside AppNav it rendered above <main>, which left a dead gap
+        // at the top of every screen and the footer underneath the dock.
+        <div className="isolate flex min-h-screen flex-col bg-canvas pb-[104px] lg:pb-0 lg:pl-[256px] print:pb-0 print:pl-0">
           <AmbientBackground />
           <AppNav />
           <main id="main" className="flex-1">
