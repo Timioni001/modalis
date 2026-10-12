@@ -199,6 +199,9 @@ SKIP_VERCEL=1 bash scripts/go-live.sh       # do everything except touch Vercel
 
 ---
 
+> Turning on Kuru, Chainlink CRE, Envio, the Dynamic server wallet or the AI goal reader?
+> **[integrations.md](integrations.md)** has the verified addresses and the steps for each.
+
 ## Setting variables in the Vercel dashboard instead
 
 You do not have to keep everything in `.env.golive`. Anything you set in
