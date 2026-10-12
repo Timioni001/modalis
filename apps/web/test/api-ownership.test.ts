@@ -38,6 +38,11 @@ const PUBLIC_ROUTES: Record<string, string> = {
     "only needed to make a plan real.",
   "plan/compare/route.ts":
     "Answers a 'what if' from numbers the caller supplied. Writes nothing and reads nobody's money.",
+  "stats/route.ts":
+    "Aggregate chain figures and counts of on-chain-verified transactions. No account or address, nothing changed.",
+  "proof/[address]/route.ts":
+    "The shareable proof page. Returns only what Monad already makes public for that address (its " +
+    "on-chain plan, balances and events), nothing from the database, and changes nothing.",
 };
 
 /** Patterns that would mean an account came from the caller rather than from a verified session. */

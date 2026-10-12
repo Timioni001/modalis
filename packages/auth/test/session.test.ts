@@ -30,7 +30,7 @@ import {
 
 const OWNER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const SOMEONE_ELSE = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
-const ENVIRONMENT_ID = "env-under-test";
+const ENVIRONMENT_ID = "3f1c2a9e-1234-4abc-9def-0123456789ab";
 
 let server: Server;
 let config: AuthConfig;
@@ -74,7 +74,9 @@ async function signedToken(
   return new SignJWT(claims)
     .setProtectedHeader({ alg: "RS256", kid: "test-key" })
     .setIssuedAt()
-    .setAudience(options.audience ?? ENVIRONMENT_ID)
+    // What Dynamic really sets: the audience is the app's own origin, not the environment id.
+    .setAudience(options.audience ?? "https://modalis.example")
+    .setIssuer(`app.dynamicauth.com/${ENVIRONMENT_ID}`)
     .setExpirationTime(options.expiresIn ?? "1h")
     .sign(options.key ?? signingKey);
 }
@@ -143,11 +145,28 @@ test("an expired token is refused", async () => {
 });
 
 test("a token issued for a different deployment is refused", async () => {
-  const wrongAudience = await signedToken({ wallet_address: OWNER }, { audience: "someone-elses-env" });
+  const otherEnvironment = await signedToken({
+    wallet_address: OWNER,
+    environment_id: "99999999-9999-4999-8999-999999999999",
+  });
   await assert.rejects(
-    () => verifyToken(wrongAudience, config),
+    () => verifyToken(otherEnvironment, config),
     (err: unknown) => err instanceof AuthError && err.code === "invalid_token",
   );
+});
+
+test("the audience Dynamic actually sets — the app origin — is accepted", async () => {
+  // Regression: pinning `audience` to the environment id refused every real sign-in with
+  // `unexpected "aud" claim value`, which locked people out of the whole product.
+  const token = await signedToken({ wallet_address: OWNER }, { audience: "https://modalis-six.vercel.app" });
+  const session = await verifyToken(token, config);
+  assert.equal(session.walletAddress, OWNER);
+});
+
+test("an environment_id claim naming this deployment is accepted", async () => {
+  const token = await signedToken({ wallet_address: OWNER, environment_id: ENVIRONMENT_ID });
+  const session = await verifyToken(token, config);
+  assert.equal(session.walletAddress, OWNER);
 });
 
 test("an unsigned token is refused", async () => {

@@ -9,12 +9,13 @@
  * on-chain (see integrations/chainlink-cre). This service is the always-available path and the
  * one that actually submits proposals, because CRE deliberately only writes a signal.
  */
-import { createManagerWalletClient, createMonadPublicClient, isFullyDeployed } from "@modalis/chain";
+import { agentLabel, createMonadPublicClient, isFullyDeployed } from "@modalis/chain";
+import { getAgentWallet } from "@modalis/chain/agent";
 import { automationWallets, serverClient } from "@modalis/db";
 import { getAddress, type Address } from "viem";
 import { loadConfig } from "./config.ts";
 import { consentFor, recordFinding } from "./consent.ts";
-import { describeOutcome, evaluate, execute } from "./monitor.ts";
+import { describeOutcome, evaluate, execute, type BuiltAction } from "./monitor.ts";
 
 async function runOnce(): Promise<number> {
   const cfg = loadConfig();
@@ -41,16 +42,19 @@ async function runOnce(): Promise<number> {
   }
 
   const client = createMonadPublicClient(cfg.rpc);
-  const wallet = cfg.managerPrivateKey
-    ? createManagerWalletClient(cfg.rpc, cfg.managerPrivateKey)
-    : null;
+  // The same agent the web app signs with (a Dynamic server wallet, or the manager key), because
+  // a mandate allows exactly one manager.
+  const agent = await getAgentWallet(cfg.rpc);
+  const wallet = agent?.wallet ?? null;
+  if (agent) console.log(`Signing as ${agentLabel(agent.kind)} ${agent.address}`);
 
   if (cfg.autoExecute && !wallet) {
-    console.error("RISK_MONITOR_AUTO_EXECUTE is on but MANAGER_PRIVATE_KEY is not set.");
+    console.error("RISK_MONITOR_AUTO_EXECUTE is on but no agent is set (DYNAMIC_AGENT_WALLET or MANAGER_PRIVATE_KEY).");
     return 1;
   }
 
   let exitCode = 0;
+  const ready: { owner: Address; action: BuiltAction }[] = [];
   for (const owner of owners) {
     try {
       const outcome = await evaluate({ client, deployment: cfg.deployment, ai: cfg.ai }, owner);
@@ -81,18 +85,45 @@ async function runOnce(): Promise<number> {
         continue;
       }
 
-      const result = await execute(wallet, client, cfg.deployment, action);
-      if (result.submitted && result.hash && !result.rejectedWith) {
-        console.log(`  settled in block ${result.blockNumber}: ${result.hash}`);
-        await recordFinding(db, owner, "adjustment_executed", action.explanation, result.hash);
-      } else {
-        console.log(`  not settled: ${result.skipped ?? result.rejectedWith}`);
-        exitCode = 1;
-      }
+      // Queued, not sent yet: every approved adjustment goes out together below.
+      ready.push({ owner, action });
     } catch (err) {
       console.error(`${owner}: ${err instanceof Error ? err.message : String(err)}`);
       exitCode = 1;
     }
+  }
+
+  // Send every adjustment at once. Each one touches only its owner's plan, balances and nonce, so
+  // Monad can run them side by side, and they typically land in the same block or the next one.
+  // The manager wallet's nonce manager hands each one its own nonce, so they don't collide.
+  if (ready.length > 0 && wallet) {
+    const started = Date.now();
+    const send = async ({ owner, action }: (typeof ready)[number]) => ({
+      owner,
+      action,
+      result: await execute(wallet, client, cfg.deployment, action),
+    });
+    // A Dynamic server wallet takes its nonce from the node, so its sends go one at a time.
+    const results = agent?.parallelSafe === false
+      ? await ready.reduce<Promise<Awaited<ReturnType<typeof send>>[]>>(
+          async (acc, item) => [...(await acc), await send(item)],
+          Promise.resolve([]),
+        )
+      : await Promise.all(ready.map(send));
+    const blocks = new Set<string>();
+    for (const { owner, action, result } of results) {
+      if (result.submitted && result.hash && !result.rejectedWith) {
+        blocks.add(String(result.blockNumber));
+        console.log(`${owner}: settled in block ${result.blockNumber}: ${result.hash}`);
+        await recordFinding(db, owner, "adjustment_executed", action.explanation, result.hash);
+      } else {
+        console.log(`${owner}: not settled: ${result.skipped ?? result.rejectedWith}`);
+        exitCode = 1;
+      }
+    }
+    console.log(
+      `${results.length} adjustment(s) sent together, settled across ${blocks.size} block(s) in ${((Date.now() - started) / 1000).toFixed(1)}s.`,
+    );
   }
   return exitCode;
 }

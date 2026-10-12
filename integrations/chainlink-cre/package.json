@@ -7,7 +7,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "simulate": "cre workflow simulate .",
-    "deploy": "cre workflow deploy ."
+    "deploy": "cre workflow deploy .",
+    "test": "node --test --experimental-strip-types test/*.test.ts"
   },
   "dependencies": {
     "@chainlink/cre-sdk": "^1.23.0",

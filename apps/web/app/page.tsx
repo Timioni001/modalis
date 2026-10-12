@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Hero } from "@/components/hero";
 import { SystemStatus } from "@/components/system-status";
-import { DotShader } from "@/components/shadcn/dot-shader";
 import { RainbowButton } from "@/components/shadcn/rainbow-button";
 import { CardFan, DiscStack, PillArc } from "@/components/live-visuals";
 
@@ -62,7 +61,7 @@ const FEATURES = [
 
 export default function LandingPage() {
   return (
-    <div className="landing-dots">
+    <>
       <Hero />
 
       {/* ------------------------------------------------------- live visuals */}
@@ -141,12 +140,7 @@ export default function LandingPage() {
 
       {/* ------------------------------------------------------------- the claim */}
       <section className="mx-auto max-w-6xl px-5 pb-16 sm:pb-24">
-        <DotShader
-          className="rounded-[32px] bg-panel text-panel-ink shadow-[var(--shadow-lift)]"
-          dotColor="rgba(255,255,255,0.09)"
-          accentColor="#c8f250"
-          overlay={false}
-        >
+        <div className="relative w-full overflow-hidden rounded-[32px] bg-panel text-panel-ink shadow-[var(--shadow-lift)]">
           <div className="grid w-full gap-10 px-6 py-14 sm:px-12 sm:py-20 lg:grid-cols-[1fr_minmax(0,380px)] lg:gap-16">
             <div>
               <h2 className="display text-[2.25rem] font-semibold sm:text-6xl">
@@ -196,7 +190,7 @@ export default function LandingPage() {
               </ul>
             </div>
           </div>
-        </DotShader>
+        </div>
       </section>
 
       {/* ------------------------------------------------------------ live status */}
@@ -224,6 +218,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-    </div>
+    </>
   );
 }

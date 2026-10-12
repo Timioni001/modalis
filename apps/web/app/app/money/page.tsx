@@ -7,6 +7,7 @@
  * spinner: someone acting on a number from five minutes ago is someone making a decision from
  * fiction — so the time it was read is on the screen, not in a tooltip.
  */
+import { LocalAmount } from "@/components/local-amount";
 import { motion } from "motion/react";
 import { Button, Card, Loading, PageHeader, SectionTitle } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
@@ -52,6 +53,7 @@ function Money() {
           <div className="numeric mt-4 text-[48px] font-semibold leading-none tracking-[-0.03em] sm:text-[60px]">
             {moneyLabel(money.total)}
           </div>
+          <LocalAmount usd={money.total.amount} className="mt-2 block text-panel-soft" />
 
           <div className="mt-8" aria-hidden>
             <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-panel-line">

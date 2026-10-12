@@ -30,6 +30,10 @@ import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { ApiError, apiGet, apiPost } from "@/lib/client-api";
 import { moneyLabel, monthYear } from "@/lib/format";
+import { inflatedTarget } from "@/lib/afford";
+
+/** A steady yearly inflation assumption for "in today's money". Stated on screen, never hidden. */
+const INFLATION = 0.03;
 
 export default function GoalsPage() {
   return (
@@ -149,6 +153,27 @@ function Goals() {
   );
 }
 
+function GiftLink({ name }: { name: string }) {
+  const { address } = usePortfolio();
+  const [copied, setCopied] = useState(false);
+  if (!address) return null;
+  async function copy() {
+    const url = `${window.location.origin}/app/gift/${address}?for=${encodeURIComponent(name)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy this gift link:", url);
+    }
+  }
+  return (
+    <button type="button" onClick={copy} className="mt-2 text-[13px] font-semibold text-ink underline underline-offset-4">
+      {copied ? "Gift link copied" : "Copy a gift link for family and friends"}
+    </button>
+  );
+}
+
 function GoalRowCard({
   goal,
   isPlanGoal,
@@ -203,6 +228,16 @@ function GoalRowCard({
           <motion.div className="h-full rounded-full bg-ink" initial={false} animate={{ width: `${pct}%` }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} />
         </div>
         <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">{goal.summary}</p>
+        <GiftLink name={goal.name} />
+        {goal.monthsRemaining >= 12 ? (
+          <p className="mt-1.5 text-[13px] text-ink-muted">
+            To keep its value at {Math.round(INFLATION * 100)}% yearly inflation, aim for about{" "}
+            <span className="numeric">
+              ${Math.round(inflatedTarget(Number(goal.target.amount), goal.monthsRemaining, INFLATION)).toLocaleString("en-US")}
+            </span>{" "}
+            by {monthYear(goal.targetDate)}.
+          </p>
+        ) : null}
       </div>
     </div>
   );

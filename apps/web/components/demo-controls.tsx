@@ -24,7 +24,7 @@ type SecurityResult = {
 };
 
 export function DemoControls() {
-  const { refresh } = usePortfolio();
+  const { refresh, status } = usePortfolio();
   const [busy, setBusy] = useState<string | null>(null);
   const [scenario, setScenario] = useState<ScenarioResult | null>(null);
   const [security, setSecurity] = useState<SecurityResult | null>(null);
@@ -58,12 +58,18 @@ export function DemoControls() {
     }
   }
 
+  // Off a demo deployment both buttons would only answer "not available", so don't offer them.
+  if (!status?.demoMode) return null;
+
   return (
     <Card className="border-dashed">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionTitle hint="Available because this is a demonstration deployment.">
           Try it out
         </SectionTitle>
+        <Button variant="quiet" href="/app/tour">
+          Take the 2-minute tour
+        </Button>
         <Badge tone="warn">Test network only</Badge>
       </div>
 

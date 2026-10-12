@@ -65,6 +65,9 @@ const nextConfig: NextConfig = {
     "@modalis/risk-monitor",
   ],
   typedRoutes: false,
+  // The Dynamic server-wallet SDK (the agent's signer, packages/chain/src/agent.ts) is Node-only
+  // and loads WASM at runtime, so it is required from node_modules rather than bundled.
+  serverExternalPackages: ["@dynamic-labs-wallet/node-evm"],
 
   async headers() {
     return [

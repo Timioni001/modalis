@@ -19,9 +19,10 @@ import { Button } from "./ui";
 import { apiPostOnce } from "@/lib/client-api";
 import { usePortfolio } from "./portfolio-provider";
 import { useWallet, useWalletConfig } from "./wallet-context";
+import { confirmOnChain, secondsLabel } from "@/lib/chain-client";
 
 export function PauseControl({ variant }: { variant?: "danger" | "secondary" }) {
-  const { chainId } = useWalletConfig();
+  const { chainId, rpcUrl } = useWalletConfig();
   const { loggedIn, getWalletClient } = useWallet();
   const { plan, status, refresh } = usePortfolio();
   const [busy, setBusy] = useState(false);
@@ -42,13 +43,14 @@ export function PauseControl({ variant }: { variant?: "danger" | "secondary" }) 
         { chainId, contracts, tokens: (status?.technical?.tokens ?? {}) as Record<string, Address> },
         paused,
       );
+      const confirmed = await confirmOnChain(hash, { chainId, rpcUrl });
       // Recorded after the fact, and verified on-chain by the server before it is believed.
       await apiPostOnce("/api/money/confirm", { receipt: hash, kind: paused ? "resume" : "pause" }).catch(() => undefined);
       await refresh();
       toast.success(
         paused
-          ? "Your plan is running again."
-          : "Paused. Modalis won't act until you resume — you can still withdraw.",
+          ? `Your plan is running again. Confirmed in ${secondsLabel(confirmed.ms)}.`
+          : `Paused, confirmed in ${secondsLabel(confirmed.ms)}. Modalis won't act until you resume; you can still withdraw.`,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "That didn't go through.");

@@ -5,6 +5,7 @@ export { PortfolioVaultAbi } from "./PortfolioVault.ts";
 export { RebalanceExecutorAbi } from "./RebalanceExecutor.ts";
 export { RiskSignalReceiverAbi } from "./RiskSignalReceiver.ts";
 export { KuruAdapterAbi } from "./KuruAdapter.ts";
+export { SavingsCircleAbi } from "./SavingsCircle.ts";
 export { MockERC20Abi } from "./MockERC20.ts";
 export { MockPriceOracleAbi } from "./MockPriceOracle.ts";
 export { MockExecutionAdapterAbi } from "./MockExecutionAdapter.ts";

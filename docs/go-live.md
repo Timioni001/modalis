@@ -146,6 +146,7 @@ Paste in the values from Part 3:
 | `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` | from 3c |
 | `SITE_URL` | your site, e.g. `https://modalis-six.vercel.app` |
 | `FUND_WALLET` | optional; leave empty for now (see Part 6) |
+| `FAUCET_PRIVATE_KEY` | optional; a separate funded testnet key that pays for **Get test money** (see Part 6) |
 
 Save with `Ctrl+O`, `Enter`, then exit with `Ctrl+X`.
 
@@ -178,13 +179,104 @@ SKIP_VERCEL=1 bash scripts/go-live.sh       # do everything except touch Vercel
 ## Part 6 — Try it as a user
 
 1. Open your site, click **Start**, and sign in with your wallet or email through Dynamic.
-2. Open **Settings**, copy the address under *Your account*, and send it demo tokens:
+2. Open **Add money** and press **Get test money**. With `FAUCET_PRIVATE_KEY` set, Modalis sends demo tokens and 0.05 MON for fees, and you sign nothing. Without it, your wallet mints the demo tokens in one transaction; if it has no MON, the card links to <https://faucet.monad.xyz> with your address ready to copy.
+3. To turn on the no-signature version, make a key just for this and fund it:
    ```bash
-   # put the address in .env.golive as FUND_WALLET, then:
-   SKIP_TESTS=1 SKIP_VERCEL=1 bash scripts/go-live.sh
+   cast wallet new                     # copy the private key and address
+   # fund the address at https://faucet.monad.xyz, put the key in .env.golive as FAUCET_PRIVATE_KEY, then:
+   SKIP_TESTS=1 bash scripts/go-live.sh
    ```
-3. Your wallet also needs a little testnet MON for gas: <https://faucet.monad.xyz>.
+   (`bash scripts/fund-wallet.sh 0xYourAddress` still works from a terminal.)
 4. Build a plan, approve it, add money, and check **Activity**: every step links to a real transaction on the Monad explorer.
+
+5. **Make the market move.** The demo oracle only changes when something writes to it, and it refuses prices older than a day. Leave this running in a WSL window (especially while recording), and plans drift off target on their own:
+   ```bash
+   bash scripts/move-prices.sh            # nudges mBTC, mETH and mBOND every 30s; Ctrl+C to stop
+   bash scripts/move-prices.sh --once     # one nudge; also fixes "price is stale" errors
+   bash scripts/move-prices.sh --reset    # back to the opening prices
+   ```
+6. **Optional: demo buttons on the live site.** Put a fresh key (`cast wallet new`) in `.env.golive` as `ORACLE_UPDATER_PRIVATE_KEY` and rerun `SKIP_TESTS=1 bash scripts/go-live.sh`. It hands the demo price oracle to that key, tops it up with MON, and turns on "Simulate a market move" and "Test my rules" for signed-in users. The deployer key never goes to Vercel. Remove the key and rerun to turn them off.
+
+---
+
+> Turning on Kuru, Chainlink CRE, Envio, the Dynamic server wallet or the AI goal reader?
+> **[integrations.md](integrations.md)** has the verified addresses and the steps for each.
+
+## Setting variables in the Vercel dashboard instead
+
+You do not have to keep everything in `.env.golive`. Anything you set in
+**Vercel → Project → Settings → Environment Variables** is left alone by `go-live.sh`, which only
+writes variables it has a value for. So you can put the secrets you would rather not keep in a
+file — the Supabase keys, the AI key, Sentry — straight into Vercel, and leave those lines blank
+locally.
+
+Two rules:
+
+- Set them for the **Production** environment (tick Preview too if you use preview deploys).
+- **Redeploy afterwards.** A variable added in the dashboard does not reach the running site until
+  the next deploy: `vercel deploy --prod --yes`.
+
+To see what is actually set, and what each missing value would switch on:
+
+```bash
+bash scripts/check-env.sh
+```
+
+It reads the names from Vercel, never the values, and changes nothing.
+
+### What to set
+
+**Required.** `go-live.sh` writes all of these for you; they are listed so you can check them.
+
+| Variable | Without it |
+|---|---|
+| `NEXT_PUBLIC_MONAD_CHAIN_ID` | The site does not know which network it is on |
+| `NEXT_PUBLIC_PORTFOLIO_VAULT_ADDRESS` | "Modalis isn't set up on this network" |
+| `NEXT_PUBLIC_PORTFOLIO_MANDATE_ADDRESS` | Same |
+| `NEXT_PUBLIC_ASSET_REGISTRY_ADDRESS` | Same |
+| `NEXT_PUBLIC_REBALANCE_EXECUTOR_ADDRESS` | Adjustments cannot be carried out |
+| `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` | Nobody can sign in |
+
+**Saved data.** Without these the product still runs, straight off the chain, but goal names, plan
+history and notifications are not kept.
+
+| Variable | Where it comes from |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → Data API → Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Project Settings → API Keys → Legacy API keys → **anon** |
+| `SUPABASE_SERVICE_ROLE_KEY` | The same page → **service_role**. Server only — a key named `NEXT_PUBLIC_` is published to every visitor |
+
+`SUPABASE_DB_URL` is **not** one of these. It is used by the migrations on your own machine and
+should never be in Vercel.
+
+**Optional.** Each one switches on a feature; leaving it out is a supported state, and
+`/api/status` says so rather than pretending.
+
+| Variable | What it switches on |
+|---|---|
+| `MANAGER_PRIVATE_KEY` | Modalis carries out adjustments people approve, instead of only suggesting them |
+| `DYNAMIC_API_TOKEN` + `DYNAMIC_AGENT_WALLET` | The same, run from a Dynamic server wallet. Preferred: no raw private key in Vercel. See `docs/dynamic.md` |
+| `FAUCET_PRIVATE_KEY` | "Get test money" works in the app, so a new user never needs the faucet |
+| `AI_API_KEY` | Typed goals ("a house in 5 years") are understood. Without it the form is used |
+| `AI_BASE_URL` + `AI_MODEL` | Use an OpenAI-compatible provider instead of Anthropic |
+| `ENVIO_GRAPHQL_URL` | Activity history comes from the indexer instead of chain logs |
+| `SENTRY_DSN` | Unhandled server errors go to Sentry, with secrets scrubbed |
+| `MONAD_TESTNET_RPC_URL` | Your own RPC endpoint instead of the shared public one. Worth setting before a demo |
+| `NEXT_PUBLIC_SITE_URL` | Correct links in share previews and `robots.txt` |
+| `OPS_METRICS_TOKEN` | `/api/ops/metrics` answers instead of returning 404 |
+
+**Never set in production.** `go-live.sh` removes these on every run, and `check-env.sh` flags them.
+
+| Variable | Why |
+|---|---|
+| `MODALIS_DEV_AUTH` | Accepts a header instead of a real sign-in |
+| `NEXT_PUBLIC_DEV_WALLET` | Pins the browser to one wallet |
+| `DEPLOYER_PRIVATE_KEY` | Owns the contracts. It should never reach a web host |
+| `SUPABASE_DB_URL` | Direct database access the app never uses |
+
+**Easy to get wrong.** These names are ignored, so the feature silently stays off:
+`SUPABASE_URL` (needs the `NEXT_PUBLIC_` prefix), `SUPABASE_ANON_KEY` (same), and
+`MONAD_RPC_URL` (the app reads `MONAD_TESTNET_RPC_URL`). `check-env.sh` looks for all three.
 
 ---
 

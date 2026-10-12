@@ -7,6 +7,9 @@
  * have allowed, take it back, pause the plan, or take all their money out. Every one of those is
  * owner-only where it counts, and the exit keeps working even when the plan is paused.
  */
+import { LowDataToggle } from "@/components/device-prefs";
+import { YourData } from "@/components/your-data";
+import { chooseCurrency, useLocalCurrency } from "@/components/local-amount";
 import { useCallback, useState } from "react";
 import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain";
 import type { Address, Hex } from "viem";
@@ -67,6 +70,7 @@ function Settings() {
   );
 
   const managerAddress = status?.technical?.managerAddress ?? null;
+  const agent = status?.technical?.agent ?? null;
   const adjustmentsAllowed = Boolean(plan?.adjustmentsEnabled);
 
   return (
@@ -93,6 +97,21 @@ function Settings() {
       <Card>
         <SectionTitle hint="Saved on this device only.">Appearance</SectionTitle>
         <ThemeChooser />
+        <div className="mt-4">
+          <LowDataToggle />
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle hint="Saved on this device only. Your plan is always held in US dollars.">
+          Show amounts in your currency
+        </SectionTitle>
+        <CurrencyChooser />
+      </Card>
+
+      <Card>
+        <SectionTitle hint="Take a copy, or have it removed.">Your data</SectionTitle>
+        <YourData />
       </Card>
 
       {/* -------------------------------------------------------- permissions */}
@@ -106,6 +125,13 @@ function Settings() {
           </KeyValue>
           <KeyValue label="Take money out">Never</KeyValue>
           <KeyValue label="Change your limits">Never</KeyValue>
+          {agent ? (
+            <KeyValue label="Who makes adjustments">
+              <span title={agent.address}>
+                {agent.kind === "dynamic" ? "A Dynamic server wallet" : "A Modalis key"} ({shortAddress(agent.address)})
+              </span>
+            </KeyValue>
+          ) : null}
           <KeyValue label="Your plan">{plan ? planStateLabel(plan.status) : "Not set up yet"}</KeyValue>
         </dl>
 
@@ -116,7 +142,7 @@ function Settings() {
               disabled={busy !== null || !loggedIn}
               onClick={() => act("Stop allowing adjustments", (w, c) => setManager(w, c, ZERO))}
             >
-              {busy === "Stop allowing adjustments" ? "Saving…" : "Stop allowing adjustments"}
+              {busy === "Stop allowing adjustments" ? "Revoking…" : "Revoke adjustments"}
             </Button>
           ) : managerAddress ? (
             <Button
@@ -146,6 +172,13 @@ function Settings() {
         </div>
 
         <p className="mt-4 text-xs leading-relaxed text-ink-muted">
+          When you allow adjustments, you sign one permission naming a single account
+          {agent?.kind === "dynamic" ? ", a server wallet run through Dynamic," : ""} that may rebalance your
+          plan. Your plan contract lets it do exactly one thing: move money between your holdings, inside
+          your limits. It can never take money out, change a limit, or act for anyone else, and Revoke
+          takes the permission back straight away.
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-ink-muted">
           Pausing your plan stops all adjustments. Taking money out keeps working while it is
           paused, by design &mdash; a pause must never trap your money.
         </p>
@@ -230,4 +263,40 @@ function Settings() {
 
 function planStateLabel(state: "draft" | "active" | "paused"): string {
   return state === "active" ? "Running" : state === "paused" ? "Paused" : "Not approved yet";
+}
+
+const LOCAL_CURRENCIES: [string, string][] = [
+  ["", "Dollars only"],
+  ["NGN", "Naira (₦)"],
+  ["GHS", "Cedi (GH₵)"],
+  ["KES", "Shilling (KSh)"],
+  ["ZAR", "Rand (R)"],
+  ["INR", "Rupee (₹)"],
+  ["IDR", "Rupiah (Rp)"],
+  ["BRL", "Real (R$)"],
+  ["MXN", "Peso (MX$)"],
+  ["EUR", "Euro (€)"],
+  ["GBP", "Pound (£)"],
+];
+
+/** Shows a second, local-currency figure under dollar totals, at today's rate. */
+function CurrencyChooser() {
+  const code = useLocalCurrency() ?? "";
+  return (
+    <div className="flex flex-wrap gap-2">
+      {LOCAL_CURRENCIES.map(([value, label]) => (
+        <button
+          key={value || "usd"}
+          type="button"
+          aria-pressed={code === value}
+          onClick={() => chooseCurrency(value || null)}
+          className={`min-h-[40px] rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
+            code === value ? "bg-panel text-panel-ink" : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 }

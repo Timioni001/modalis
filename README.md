@@ -1,6 +1,6 @@
 # MODALIS
 
-**Turn your goal into a plan that manages itself.**
+**A clear plan for every goal.**
 
 Tell Modalis what you are saving for. It builds a plan, you approve the limits, and it manages
 your money to them — and it cannot step outside them, because the limits are not enforced by
@@ -38,6 +38,9 @@ GOAL → PROFILE → MANDATE → ONCHAIN POLICY → PORTFOLIO
 The second is the engineering. The first is the product. `packages/domain` is the boundary between
 them, and the only place where one becomes the other — see
 [`docs/domain.md`](docs/domain.md).
+
+> **Going live or submitting?** [docs/launch-checklist.md](docs/launch-checklist.md) is the
+> single page: every key to collect, the commands in order, and what the submission needs.
 
 ## Quick start
 
@@ -93,8 +96,8 @@ working in the UI — `/api/status` reports the real state and the landing page 
 - **Monad testnet/mainnet deployment.** The deploy script is verified against a real EVM node, and
   Monad testnet's public RPC is reachable from this environment (`eth_chainId` → `0x279f`), so the
   only thing missing is a funded key. One command once you have one.
-- **Dynamic.** Needs `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID`. The app renders without it and says
-  wallet onboarding is unconfigured.
+- **Dynamic server wallet.** Needs `DYNAMIC_API_TOKEN` and `pnpm agent:create`
+  ([docs/dynamic.md](docs/dynamic.md)). Without them the manager key signs adjustments instead.
 - **Kuru.** The adapter is tested through the full execution path against a mock router built from
   the real ABI, but not against live markets.
 - **Chainlink CRE.** Needs the CRE CLI and `cre login` to simulate or deploy.
@@ -120,6 +123,43 @@ One synthetic input, clearly marked everywhere it appears:
 No transaction hash in this repository is fabricated. Where a step sent no transaction, it has no
 hash. The scenario engine refuses to run on mainnet, and where Kuru is unconfigured the UI labels
 the demo adapter "not a venue".
+
+## How Modalis uses Dynamic
+
+- **Sign-in and the person's wallet.** An email sign-in creates an embedded Monad wallet the
+  person owns. It signs every owner action, and adding money approves and deposits in one
+  signature where the wallet supports batched calls.
+- **Who is asking.** The server trusts only the wallet address inside a verified Dynamic JWT
+  (`packages/auth`), never an address sent in a request.
+- **"Do it for me" runs from a Dynamic server wallet.** The person delegates by signing
+  `setManager(agent)` from their embedded wallet. The agent can only call
+  `RebalanceExecutor.execute` inside the plan's limits; it can never withdraw or change a limit,
+  and **Revoke adjustments** in Settings takes the permission back. The agent's address and its
+  transactions are labelled "Dynamic server wallet" on `/security` and on each plan's proof page.
+
+Details, setup and the code paths: [docs/dynamic.md](docs/dynamic.md). A two-minute demo script: [docs/dynamic-video-script.md](docs/dynamic-video-script.md).
+
+## How Modalis uses Envio
+
+A hosted Envio indexer reads every Modalis event from Monad: plans and their versions, deposits,
+withdrawals, settled adjustments and risk signals. When `ENVIO_GRAPHQL_URL` is set, the Activity
+page and `/stats` read from it and say "Indexed by Envio"; if it doesn't answer, both fall back to
+reading the chain directly.
+
+- Hosted GraphQL endpoint: (added once the hosted indexer is live)
+- Config: [`integrations/envio/config.yaml`](integrations/envio/config.yaml) (hosted copy with
+  real addresses: [`config.hosted.yaml`](integrations/envio/config.hosted.yaml))
+- Schema: [`integrations/envio/schema.graphql`](integrations/envio/schema.graphql)
+- Handlers: [`integrations/envio/src/handlers/`](integrations/envio/src/handlers/)
+- Readers in the app: `packages/domain/src/services/activity.ts`, `apps/web/lib/envio-stats.ts`
+
+## How Modalis uses Chainlink CRE
+
+A CRE workflow watches each plan on a schedule. Every node fetches a public market feed through
+the HTTP capability and the DON agrees on the median "market stress"; the workflow combines that
+with the plan's state read from Monad, using the same risk engine as the app, and writes a
+DON-signed risk signal to `RiskSignalReceiver`. It can flag a plan for review; it can never move
+money. Code and the consensus rules: [integrations/chainlink-cre](integrations/chainlink-cre/README.md).
 
 ## Architecture
 
@@ -212,6 +252,24 @@ pnpm envio:validate      # Envio config against Envio's own schema
 
 Node 22+ (the TypeScript runs directly via Node's type stripping), pnpm, Foundry, and Python 3 for
 the Envio config check. `scripts/setup.sh` installs what is missing on Ubuntu / WSL2.
+
+## Contracts on Monad testnet
+
+Every deployed address, with its verified source on the Monad explorer, is listed in
+[docs/testnet-contracts.md](docs/testnet-contracts.md). `bash scripts/verify-contracts.sh`
+verifies them and regenerates that list.
+
+## How this was built
+
+Written with AI assistance (Anthropic's Claude, through Claude Code), disclosed here because the
+hackathon rules ask for it. Every design decision, every security boundary and every line was
+reviewed before it landed. The guarantees the product claims are not taken on trust: they are
+enforced by the Solidity contracts and proved by the test suites listed under
+[Verification status](#verification-status), which anyone can run.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
 
 ## Disclaimer
 

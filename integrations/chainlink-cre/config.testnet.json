@@ -7,6 +7,14 @@
   "riskSignalReceiver": "0x0000000000000000000000000000000000000000",
   "owners": [],
   "gasLimit": "1500000",
+  "market": {
+    "url": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true",
+    "ids": [
+      "bitcoin",
+      "ethereum"
+    ],
+    "stressBps": 800
+  },
   "report": {
     "encoderName": "evm",
     "signingAlgo": "ecdsa",
