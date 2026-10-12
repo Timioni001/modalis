@@ -26,24 +26,28 @@ command -v vercel >/dev/null || { echo "The Vercel CLI is missing: npm i -g verc
 PULLED="$(mktemp)"
 trap 'rm -f "$PULLED"' EXIT
 
-say "Reading your Vercel production environment"
-# `env pull` writes a dotenv file, whose format is stable across CLI versions — more reliable
-# than parsing the table `env ls` prints.
-if ! vercel env pull "$PULLED" --environment=production --yes >/tmp/modalis-envpull.log 2>&1; then
-  tail -5 /tmp/modalis-envpull.log
-  echo "Couldn't read the environment. Are you logged in?  vercel whoami" >&2
-  exit 1
-fi
-# Names only. Values are never read, printed or kept.
-NAMES="$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$PULLED" | tr -d '=' | sort -u)"
-: >"$PULLED"
-printf '    %s variables set\n' "$(printf '%s\n' "$NAMES" | grep -c . || echo 0)"
+# Every environment, not just production. A development-only MODALIS_DEV_AUTH is low risk, but a
+# preview deploy is a public URL, so a sign-in bypass or DEMO_MODE there is a real hole.
+NAMES=""; PROD_NAMES=""
+for envname in production preview development; do
+  if vercel env pull "$PULLED" --environment="$envname" --yes >/tmp/modalis-envpull.log 2>&1; then
+    got="$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$PULLED" | tr -d '=' | sort -u)"
+    : >"$PULLED"   # names only; values are never kept
+    printf '    %-12s %s variables\n' "$envname" "$(printf '%s\n' "$got" | grep -c . || echo 0)"
+    NAMES="$NAMES
+$(printf '%s\n' "$got" | sed "s/\$/|$envname/")"
+    [ "$envname" = "production" ] && PROD_NAMES="$got"
+  else
+    printf '    %-12s could not read\n' "$envname"
+  fi
+done
+[ -n "$PROD_NAMES" ] || { echo "Couldn't read production. Are you logged in?  vercel whoami" >&2; exit 1; }
 
-set_in_vercel() { printf '%s\n' "$NAMES" | grep -qx "$1"; }
+set_in_vercel() { printf '%s\n' "$PROD_NAMES" | grep -qx "$1"; }
+# Which environments a name appears in, e.g. "production preview"
+envs_of() { printf '%s\n' "$NAMES" | grep "^$1|" | cut -d'|' -f2 | tr '\n' ' '; }
 
-report() { # name, description
-  if set_in_vercel "$1"; then have "$1" "$2"; else miss "$1" "$2"; fi
-}
+report() { if set_in_vercel "$1"; then have "$1" "$2"; else miss "$1" "$2"; fi; }
 
 say "Required — the product does not work without these"
 for pair in \
@@ -76,17 +80,35 @@ report MONAD_TESTNET_RPC_URL "Your own RPC endpoint instead of the shared public
 report NEXT_PUBLIC_SITE_URL  "Correct links in share previews and robots.txt"
 report OPS_METRICS_TOKEN     "/api/ops/metrics answers instead of returning 404"
 
-say "Must NOT be set in production"
+say "Must NOT be set — in any environment"
 DANGER=0
 for pair in \
-  "MODALIS_DEV_AUTH|Accepts a header instead of a real sign-in" \
-  "NEXT_PUBLIC_DEV_WALLET|Pins the browser to one wallet" \
-  "DEPLOYER_PRIVATE_KEY|Owns the contracts. It should never reach a web host" \
-  "SUPABASE_DB_URL|Direct database access. The app never uses it"; do
+  "MODALIS_DEV_AUTH|a sign-in bypass: any request can claim to be any wallet" \
+  "NEXT_PUBLIC_DEV_WALLET|pins every visitor's browser to one wallet" \
+  "DEMO_MODE|exposes the demo and security-test endpoints" \
+  "NEXT_PUBLIC_DEMO_MODE|same, in the browser" \
+  "DEPLOYER_PRIVATE_KEY|owns every contract. It must never reach a web host" \
+  "SUPABASE_DB_URL|full database access that bypasses row-level security. The app never reads it"; do
   name="${pair%%|*}"; desc="${pair#*|}"
-  if set_in_vercel "$name"; then bad "$name" "$desc — REMOVE IT"; DANGER=1; fi
+  where="$(envs_of "$name")"
+  if [ -n "$where" ]; then bad "$name" "$desc  [$where] — REMOVE"; DANGER=1; fi
 done
-[ "$DANGER" = "0" ] && printf '    \033[0;32m✓\033[0m none of them are set\n'
+[ "$DANGER" = "0" ] && printf '    \033[0;32m✓\033[0m none of them are set anywhere\n'
+
+say "Set in Vercel, but the app never reads them"
+printf '    These are used by scripts on your own machine, from .env.golive. Harmless here, but\n'
+printf '    they are clutter and make it look as though a feature is on when it is not.\n'
+CLUTTER=0
+for pair in \
+  "SITE_URL|go-live.sh uses it locally. The app reads NEXT_PUBLIC_SITE_URL" \
+  "CRE_FORWARDER_ADDRESS|add-integrations.sh uses it locally, to deploy the receiver" \
+  "KURU_ROUTER_ADDRESS|add-integrations.sh uses it locally, to deploy the adapter" \
+  "KURU_MARKET_ADDRESSES|add-integrations.sh uses it locally"; do
+  name="${pair%%|*}"; desc="${pair#*|}"
+  where="$(envs_of "$name")"
+  if [ -n "$where" ]; then miss "$name" "$desc  [$where]"; CLUTTER=1; fi
+done
+[ "$CLUTTER" = "0" ] && printf '    \033[0;32m✓\033[0m none found\n'
 
 say "Names that look like a typo"
 TYPOS=0
