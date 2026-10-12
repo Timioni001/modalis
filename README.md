@@ -1,6 +1,6 @@
 # MODALIS
 
-**Turn your goal into a plan that manages itself.**
+**A clear plan for every goal.**
 
 Tell Modalis what you are saving for. It builds a plan, you approve the limits, and it manages
 your money to them — and it cannot step outside them, because the limits are not enforced by
@@ -38,6 +38,9 @@ GOAL → PROFILE → MANDATE → ONCHAIN POLICY → PORTFOLIO
 The second is the engineering. The first is the product. `packages/domain` is the boundary between
 them, and the only place where one becomes the other — see
 [`docs/domain.md`](docs/domain.md).
+
+> **Going live or submitting?** [docs/launch-checklist.md](docs/launch-checklist.md) is the
+> single page: every key to collect, the commands in order, and what the submission needs.
 
 ## Quick start
 
@@ -255,6 +258,14 @@ the Envio config check. `scripts/setup.sh` installs what is missing on Ubuntu / 
 Every deployed address, with its verified source on the Monad explorer, is listed in
 [docs/testnet-contracts.md](docs/testnet-contracts.md). `bash scripts/verify-contracts.sh`
 verifies them and regenerates that list.
+
+## How this was built
+
+Written with AI assistance (Anthropic's Claude, through Claude Code), disclosed here because the
+hackathon rules ask for it. Every design decision, every security boundary and every line was
+reviewed before it landed. The guarantees the product claims are not taken on trust: they are
+enforced by the Solidity contracts and proved by the test suites listed under
+[Verification status](#verification-status), which anyone can run.
 
 ## Licence
 
