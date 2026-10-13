@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Modalis — Pitch</title>
+<!--
+  The Modalis pitch, 1:52, 1920x1080. Every frame is a pure function of time: render(t) sets
+  every style from t alone, so the renderer can step frame by frame and the output is exact.
+  Open in a browser to watch it play (it runs off requestAnimationFrame when not rendering).
+  Fonts are the product's own: Inter Tight, Instrument Serif, Geist.
+-->
+<style>
+@font-face { font-family: "Inter Tight"; src: url(fonts/inter-tight.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Instrument Serif"; src: url(fonts/instrument-serif-italic.woff2) format("woff2"); font-style: italic; }
+@font-face { font-family: "Instrument Serif"; src: url(fonts/instrument-serif.woff2) format("woff2"); font-style: normal; }
+@font-face { font-family: "Geist"; src: url(fonts/geist.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Geist Mono"; src: url(fonts/geist-mono.woff2) format("woff2"); font-weight: 100 900; }
+
+:root {
+  --ink: #f7f7f8; --soft: #a9a9b2; --muted: #6f6f78; --line: #26262b;
+  --canvas: #0a0a0c; --surface: #141416; --lime: #c8f250; --red: #f87171; --monad: #836ef9;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--canvas); }
+body { position: relative; color: var(--ink); font-family: "Geist", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+
+/* ------------------------------------------------------------------ atmosphere */
+.dots { position: absolute; inset: -40px; background-image: radial-gradient(rgb(255 255 255 / .11) 1.2px, transparent 1.6px); background-size: 34px 34px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 50%, #000 30%, transparent 100%); mask-image: radial-gradient(ellipse 75% 70% at 50% 50%, #000 30%, transparent 100%); }
+.glow { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; }
+.glow.lime { width: 900px; height: 900px; background: rgb(200 242 80 / .13); }
+.glow.violet { width: 800px; height: 800px; background: rgb(131 110 249 / .16); }
+.vignette { position: absolute; inset: 0; background: radial-gradient(ellipse 85% 80% at 50% 50%, transparent 55%, rgb(0 0 0 / .65) 100%); pointer-events: none; }
+.grain { position: absolute; inset: -100px; opacity: .07; mix-blend-mode: overlay; pointer-events: none; }
+.black { position: absolute; inset: 0; background: #000; pointer-events: none; }
+
+/* ------------------------------------------------------------------ HUD */
+.hud { position: absolute; left: 96px; right: 96px; top: 64px; display: flex; justify-content: space-between; align-items: center;
+  font: 500 17px/1 "Geist Mono", monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.hud .brand { display: flex; align-items: center; gap: 14px; color: var(--soft); }
+.hud .chapter { color: var(--soft); }
+.hud .chapter b { color: var(--lime); font-weight: 500; }
+.progress { position: absolute; left: 96px; right: 96px; bottom: 64px; height: 2px; background: var(--line); }
+.progress i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--lime); }
+
+/* ------------------------------------------------------------------ type */
+section { position: absolute; inset: 0; }
+.display { font-family: "Inter Tight", sans-serif; font-weight: 600; letter-spacing: -.045em; line-height: .96; }
+em { font-family: "Instrument Serif", serif; font-style: italic; font-weight: 400; letter-spacing: -.01em; color: var(--lime); }
+.muted-em em { color: var(--soft); }
+.label { font: 500 18px/1 "Geist Mono", monospace; letter-spacing: .18em; text-transform: uppercase; color: var(--lime); }
+.center { position: absolute; left: 0; right: 0; text-align: center; }
+.w { display: inline-block; will-change: transform, opacity, filter; }
+.a { will-change: transform, opacity, filter; }
+
+/* scene C rows */
+.row { position: absolute; left: 160px; right: 160px; display: grid; grid-template-columns: 110px 1fr 1fr; align-items: baseline; }
+.row .num { font: 500 22px/1 "Geist Mono", monospace; color: var(--lime); letter-spacing: .1em; }
+.row .lead { font: 600 70px/1 "Inter Tight"; letter-spacing: -.04em; }
+.row .result { font: italic 400 76px/1 "Instrument Serif"; color: var(--soft); }
+.rule { position: absolute; left: 160px; right: 160px; height: 1px; background: var(--line); }
+
+/* scene D bar */
+.bar { position: absolute; left: 510px; width: 900px; height: 14px; border-radius: 99px; background: #1d1d21; overflow: hidden; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; background: var(--lime); }
+
+/* cards */
+.card { position: absolute; width: 370px; height: 250px; border-radius: 30px; background: var(--surface); border: 1px solid #222227; padding: 34px; }
+.card .n { font: 600 92px/1 "Inter Tight"; letter-spacing: -.05em; color: var(--lime); font-variant-numeric: tabular-nums; }
+.card .t { margin-top: 26px; font: 600 27px/1.15 "Inter Tight"; letter-spacing: -.02em; }
+.card .d { margin-top: 8px; font: 400 19px/1.35 "Geist"; color: var(--muted); }
+.frame { position: absolute; border: 2px solid var(--lime); border-radius: 44px; }
+
+.pill { position: absolute; height: 120px; padding: 0 44px; border-radius: 99px; border: 1px solid #2c2c32; background: var(--surface);
+  display: flex; align-items: center; font: 600 46px/1 "Inter Tight"; letter-spacing: -.03em; white-space: nowrap; }
+.pill.on { background: var(--lime); color: #111; border-color: var(--lime); }
+.cap { position: absolute; font: 400 27px/1.3 "Geist"; color: var(--soft); text-align: center; width: 420px; }
+.link { position: absolute; height: 2px; background: linear-gradient(90deg, #3a3a42, var(--lime)); transform-origin: left center; }
+
+.block { position: absolute; top: 760px; width: 78px; height: 78px; border-radius: 18px; border: 1px solid #2c2c32; background: var(--surface);
+  display: flex; align-items: center; justify-content: center; }
+.block.hit { background: var(--lime); border-color: var(--lime); }
+
+.foot { position: absolute; left: 0; right: 0; display: flex; justify-content: center; gap: 56px; font: 500 22px/1 "Geist Mono"; letter-spacing: .08em; color: var(--soft); text-transform: uppercase; }
+.foot span { display: flex; align-items: center; gap: 14px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); }
+</style>
+</head>
+<body>
+
+<div class="dots" id="dots"></div>
+<div class="glow lime" id="g1"></div>
+<div class="glow violet" id="g2"></div>
+
+<!-- ============================================================ A. The goal (0 – 7) -->
+<section class="a" data-in="0" data-out="6.6" data-fx="fade">
+  <h1 class="display center a" style="top:395px;font-size:132px" data-split="0.07" data-in="0.35" data-out="2.75" data-fx="up">Everyone is saving <em>for something.</em></h1>
+  <div class="center a" style="top:330px;font:italic 400 300px/1 'Instrument Serif';color:var(--lime)" data-in="3.0" data-out="3.95" data-fx="up" data-dur=".7">a home.</div>
+  <div class="center a" style="top:330px;font:italic 400 300px/1 'Instrument Serif';color:var(--lime)" data-in="4.0" data-out="4.95" data-fx="up" data-dur=".7">school fees.</div>
+  <div class="center a" style="top:330px;font:italic 400 300px/1 'Instrument Serif';color:var(--lime)" data-in="5.0" data-out="5.95" data-fx="up" data-dur=".7">a safety net.</div>
+  <div class="center a" style="top:330px;font:italic 400 280px/1 'Instrument Serif';color:var(--lime)" data-in="6.0" data-out="6.6" data-fx="up" data-dur=".7">later.</div>
+</section>
+
+<!-- ============================================================ B. Saving blind (7 – 13.4) -->
+<section class="a" data-in="6.9" data-out="13.1" data-fx="fade">
+  <h1 class="display center a" style="top:360px;font-size:150px" data-split="0.08" data-in="7.1" data-fx="up">Most of us are saving <em>blind.</em></h1>
+  <p class="center a" style="top:590px;font:400 46px/1.2 'Geist';color:var(--soft)" data-in="9.6" data-fx="up">We put money away, and hope.</p>
+  <div class="a" id="hopeLine" style="position:absolute;left:660px;width:600px;top:700px;height:2px;background:linear-gradient(90deg,var(--lime),transparent)" data-in="10.4" data-fx="wipe" data-dur="1.6"></div>
+</section>
+
+<!-- ============================================================ C. Three bad options (13.4 – 30) -->
+<section class="a" data-in="13.3" data-out="29.7" data-fx="fade">
+  <div class="label a" style="position:absolute;left:160px;top:200px" data-in="13.5" data-fx="up">The problem</div>
+
+  <div class="row" style="top:330px">
+    <span class="num a" data-in="13.8" data-fx="up">01</span>
+    <span class="lead a" data-in="13.9" data-fx="left">Leave it in the bank.</span>
+    <span class="result a" data-in="15.6" data-fx="up">It quietly shrinks.</span>
+  </div>
+  <div class="rule a" style="top:440px" data-in="14.1" data-fx="wipe" data-dur="1.2"></div>
+
+  <div class="row" style="top:520px">
+    <span class="num a" data-in="18.2" data-fx="up">02</span>
+    <span class="lead a" data-in="18.3" data-fx="left">Hand it to someone.</span>
+    <span class="result a" data-in="19.8" data-fx="up">You lose control.</span>
+  </div>
+  <div class="rule a" style="top:630px" data-in="18.5" data-fx="wipe" data-dur="1.2"></div>
+
+  <div class="row" style="top:710px">
+    <span class="num a" data-in="22.6" data-fx="up">03</span>
+    <span class="lead a" data-in="22.7" data-fx="left">Manage it yourself.</span>
+    <span class="result a" data-in="24.4" data-fx="up">Charts, not answers.</span>
+  </div>
+  <div class="rule a" style="top:820px" data-in="22.9" data-fx="wipe" data-dur="1.2"></div>
+</section>
+
+<!-- ============================================================ D. The question (30 – 36.2) -->
+<section class="a" data-in="29.9" data-out="35.9" data-fx="fade">
+  <h1 class="display center a" style="top:330px;font-size:170px" data-split="0.09" data-in="30.1" data-fx="up">Am I going to <em>make it?</em></h1>
+  <div class="a" style="position:absolute;left:510px;width:900px;top:640px;display:flex;justify-content:space-between;font:500 20px/1 'Geist Mono';letter-spacing:.14em;text-transform:uppercase;color:var(--muted)" data-in="31.0" data-fx="up">
+    <span>Your goal</span><span id="qmark" style="color:var(--lime)">?</span>
+  </div>
+  <div class="bar a" style="top:680px" data-in="31.0" data-fx="up"><i id="qbar"></i></div>
+</section>
+
+<!-- ============================================================ E. The keys (36.2 – 45) -->
+<section class="a" data-in="36.1" data-out="44.7" data-fx="fade">
+  <svg class="a" style="position:absolute;left:170px;top:330px" width="420" height="420" viewBox="0 0 120 120" fill="none" data-in="36.3" data-fx="scale">
+    <g id="keyWhite" stroke="#f7f7f8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="38" cy="60" r="20" class="draw" />
+      <path d="M58 60H104M90 60v14M100 60v10" class="draw" />
+    </g>
+    <g id="keyRed" stroke="#f87171" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0">
+      <circle cx="38" cy="60" r="20" />
+      <path d="M58 60H104M90 60v14M100 60v10" />
+    </g>
+  </svg>
+  <div style="position:absolute;left:700px;top:330px;right:140px">
+    <p class="a" style="font:400 46px/1.25 'Geist';color:var(--soft)" data-in="36.6" data-fx="up">The tools that promise to do it for you</p>
+    <p class="a" style="font:400 46px/1.25 'Geist';color:var(--soft)" data-in="37.9" data-fx="up">usually want one thing:</p>
+    <h2 class="display a" style="margin-top:46px;font-size:128px" data-split="0.08" data-in="39.4" data-fx="up">the keys to <em style="color:var(--red)">your money.</em></h2>
+  </div>
+</section>
+
+<!-- ============================================================ F. The builder (45 – 63) -->
+<section class="a" data-in="44.9" data-out="62.7" data-fx="fade">
+  <div class="label a" style="position:absolute;left:160px;top:250px" data-in="45.2" data-fx="up">The team</div>
+  <h1 class="display a" style="position:absolute;left:150px;top:320px;font-size:240px" data-split="0.12" data-in="45.5" data-fx="up">I'm Timi.</h1>
+  <div class="a" style="position:absolute;left:160px;top:590px;font:italic 400 96px/1 'Instrument Serif';color:var(--lime)" data-in="46.8" data-fx="up">Solo builder.</div>
+
+  <div class="a" style="position:absolute;left:1010px;top:250px;width:1px;height:560px;background:var(--line);transform-origin:top" data-in="49.4" data-fx="grow" data-dur="1.2"></div>
+
+  <p class="a" style="position:absolute;left:1090px;top:262px;width:690px;font:italic 400 64px/1.12 'Instrument Serif';color:var(--ink)" data-split="0.045" data-in="50.0" data-fx="up">“I've watched people I love save for years, and still not know if they were on track.”</p>
+  <p class="display a" style="position:absolute;left:1090px;top:660px;width:690px;font-size:64px" data-split="0.09" data-in="56.8" data-fx="up">Plain answers. <em>Full control.</em></p>
+</section>
+
+<!-- ============================================================ G1. Modalis (63 – 67.4) -->
+<section class="a" data-in="62.9" data-out="67.2" data-fx="fade">
+  <div class="center a" style="top:330px;display:flex;justify-content:center;align-items:center;gap:40px" data-in="63.1" data-fx="scale">
+    <svg width="150" height="150" viewBox="0 0 32 32" fill="none">
+      <rect x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4" stroke="#f7f7f8" stroke-width="2" class="logoFrame" />
+      <path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="#c8f250" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="logoStair" />
+    </svg>
+    <span class="display" style="font-size:170px">Modalis</span>
+  </div>
+  <p class="center a" style="top:580px;font:600 72px/1 'Inter Tight';letter-spacing:-.035em" data-split="0.07" data-in="64.4" data-fx="up">turns a goal into <em>a plan.</em></p>
+</section>
+
+<!-- ============================================================ G2. Goal → limits → plan (67.4 – 73) -->
+<section class="a" data-in="67.3" data-out="72.8" data-fx="fade">
+  <div class="pill a" style="left:180px;top:440px" data-in="67.6" data-fx="up">Your goal</div>
+  <div class="link a" style="left:528px;top:500px;width:200px" data-in="68.5" data-fx="wipe" data-dur=".7"></div>
+  <div class="pill a" style="left:745px;top:440px" data-in="68.9" data-fx="up">Your limits</div>
+  <div class="link a" style="left:1140px;top:500px;width:200px" data-in="69.8" data-fx="wipe" data-dur=".7"></div>
+  <div class="pill on a" style="left:1360px;top:440px" data-in="70.2" data-fx="up">Your plan</div>
+  <div class="cap a" style="left:150px;top:600px" data-in="68.0" data-fx="up">a home, in five years</div>
+  <div class="cap a" style="left:735px;top:600px" data-in="69.3" data-fx="up">what you're comfortable with</div>
+  <div class="cap a" style="left:1330px;top:600px" data-in="70.6" data-fx="up">built for you, and kept to</div>
+</section>
+
+<!-- ============================================================ G3. The limits (73 – 84) -->
+<section class="a" data-in="72.9" data-out="83.7" data-fx="fade">
+  <h2 class="display center a" style="top:190px;font-size:110px" data-split="0.08" data-in="73.1" data-fx="up">You set <em>the limits.</em></h2>
+  <div class="card a" style="left:160px;top:400px" data-in="74.2" data-fx="up"><div class="n" data-count="15" data-from="74.3">0%</div><div class="t">Maximum loss</div><div class="d">Then the plan turns cautious</div></div>
+  <div class="card a" style="left:570px;top:400px" data-in="74.5" data-fx="up"><div class="n" data-count="30" data-from="74.6">0%</div><div class="t">Kept available</div><div class="d">Yours to withdraw, any time</div></div>
+  <div class="card a" style="left:980px;top:400px" data-in="74.8" data-fx="up"><div class="n" data-count="40" data-from="74.9">0%</div><div class="t">Largest holding</div><div class="d">No single bet grows past it</div></div>
+  <div class="card a" style="left:1390px;top:400px" data-in="75.1" data-fx="up"><div class="n" data-count="5" data-from="75.2">0%</div><div class="t">Rebalancing point</div><div class="d">How far it may drift</div></div>
+  <div class="frame a" style="left:130px;top:370px;width:1660px;height:310px" data-in="78.4" data-fx="frame" data-dur="1.2"></div>
+  <div class="center a" style="top:740px;display:flex;justify-content:center;align-items:center;gap:22px;font:500 38px/1.2 'Geist';color:var(--ink)" data-in="79.0" data-fx="up">
+    <svg width="46" height="46" viewBox="0 0 40 40"><path fill="#836EF9" fill-rule="evenodd" d="M20 2c-5.2 0-18 12.8-18 18s12.8 18 18 18 18-12.8 18-18S25.2 2 20 2Zm-2.8 28.3c-2.2-.6-8.1-6.5-8.7-8.7-.6-2.2 1.6-10.3 3.2-11.9 1.6-1.6 9.7-3.8 11.9-3.2 2.2.6 8.1 6.5 8.7 8.7.6 2.2-1.6 10.3-3.2 11.9-1.6 1.6-9.7 3.8-11.9 3.2Z"/></svg>
+    Enforced by a smart contract on Monad.
+  </div>
+  <p class="center a" style="top:810px;font:italic 400 52px/1.2 'Instrument Serif';color:var(--soft)" data-in="80.4" data-fx="up">Not even Modalis can step outside them.</p>
+</section>
+
+<!-- ============================================================ G4. Suggests / decide (84 – 92) -->
+<section class="a" data-in="83.9" data-out="91.7" data-fx="fade">
+  <h1 class="display center a" style="top:250px;font-size:180px" data-split="0.1" data-in="84.2" data-fx="up">Modalis <em>suggests.</em></h1>
+  <h1 class="display center a" style="top:440px;font-size:180px" data-split="0.1" data-in="85.5" data-fx="up">You <em>decide.</em></h1>
+  <p class="center a" style="top:700px;font:400 46px/1.2 'Geist';color:var(--soft)" data-in="87.8" data-fx="up">And only you can ever take your money out.</p>
+</section>
+
+<!-- ============================================================ H. Why Monad (92 – 101) -->
+<section class="a" data-in="91.9" data-out="100.7" data-fx="fade">
+  <div class="label a" style="position:absolute;left:160px;top:210px;color:#a99bff" data-in="92.2" data-fx="up">Why Monad</div>
+  <h1 class="display a" style="position:absolute;left:150px;top:280px;width:1620px;font-size:118px" data-split="0.06" data-in="92.4" data-fx="up">Fast enough to check <em style="color:#a99bff">every plan,</em> on every block.</h1>
+  <div id="blocks" class="a" data-in="94.6" data-fx="fade" style="position:absolute;inset:0"></div>
+  <div class="a" style="position:absolute;left:160px;top:900px;display:flex;align-items:center;gap:18px;font:500 22px/1 'Geist Mono';letter-spacing:.12em;text-transform:uppercase;color:var(--soft)" data-in="96.4" data-fx="up">
+    <svg width="34" height="34" viewBox="0 0 40 40"><path fill="#836EF9" fill-rule="evenodd" d="M20 2c-5.2 0-18 12.8-18 18s12.8 18 18 18 18-12.8 18-18S25.2 2 20 2Zm-2.8 28.3c-2.2-.6-8.1-6.5-8.7-8.7-.6-2.2 1.6-10.3 3.2-11.9 1.6-1.6 9.7-3.8 11.9-3.2 2.2.6 8.1 6.5 8.7 8.7.6 2.2-1.6 10.3-3.2 11.9-1.6 1.6-9.7 3.8-11.9 3.2Z"/></svg>
+    Built on Monad &nbsp;·&nbsp; ~0.4s blocks &nbsp;·&nbsp; low fees &nbsp;·&nbsp; fully EVM
+  </div>
+</section>
+
+<!-- ============================================================ I. Close (101 – 112) -->
+<section class="a" data-in="100.9" data-fx="fade">
+  <svg class="a" id="closeMark" style="position:absolute;left:840px;top:200px" width="240" height="240" viewBox="0 0 32 32" fill="none" data-in="101.1" data-fx="scale">
+    <rect x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4" stroke="#f7f7f8" stroke-width="1.6" id="cFrame" />
+    <path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="#c8f250" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="cStair" />
+  </svg>
+  <h1 class="display center a" style="top:500px;font-size:170px" data-split="0.0" data-in="102.6" data-fx="up">Modalis</h1>
+  <p class="center a" style="top:700px;font:600 64px/1 'Inter Tight';letter-spacing:-.035em" data-split="0.07" data-in="103.6" data-fx="up">A clear plan for <em>every goal.</em></p>
+  <div class="foot a" style="top:880px" data-in="105.3" data-fx="up">
+    <span><i class="dot"></i>Timi · solo builder</span>
+    <span><svg width="26" height="26" viewBox="0 0 40 40"><path fill="#836EF9" fill-rule="evenodd" d="M20 2c-5.2 0-18 12.8-18 18s12.8 18 18 18 18-12.8 18-18S25.2 2 20 2Zm-2.8 28.3c-2.2-.6-8.1-6.5-8.7-8.7-.6-2.2 1.6-10.3 3.2-11.9 1.6-1.6 9.7-3.8 11.9-3.2 2.2.6 8.1 6.5 8.7 8.7.6 2.2-1.6 10.3-3.2 11.9-1.6 1.6-9.7 3.8-11.9 3.2Z"/></svg>Built on Monad</span>
+    <span>modalis-six.vercel.app</span>
+  </div>
+</section>
+
+<!-- ============================================================ chrome -->
+<div class="hud a" data-in="0.2" data-out="100.6" data-fx="fade">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4" stroke="currentColor" stroke-width="2"/><path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="#c8f250" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Modalis
+  </div>
+  <div class="chapter" id="chapter"></div>
+</div>
+<div class="progress a" data-in="0.2" data-out="100.6" data-fx="fade"><i id="prog"></i></div>
+
+<div class="vignette"></div>
+<div class="grain" id="grain"></div>
+<div class="black" id="black"></div>
+
+<script>
+const DURATION = 112;
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const expo = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+const inOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+// ---- split headings into words, keeping <em> styling, each word a staggered animated unit
+document.querySelectorAll("[data-split]").forEach((el) => {
+  const stagger = parseFloat(el.dataset.split);
+  const base = parseFloat(el.dataset.in);
+  let i = 0;
+  const walk = (node) => {
+    [...node.childNodes].forEach((child) => {
+      if (child.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        child.textContent.split(/(\s+)/).forEach((part) => {
+          if (!part) return;
+          if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+          const s = document.createElement("span");
+          s.className = "w a";
+          s.textContent = part;
+          s.dataset.in = (base + i++ * stagger).toFixed(3);
+          s.dataset.fx = el.dataset.fx;
+          s.dataset.dur = el.dataset.dur || "0.9";
+          frag.appendChild(s);
+        });
+        child.replaceWith(frag);
+      } else if (child.nodeType === 1) walk(child);
+    });
+  };
+  walk(el);
+  // The parent keeps only its exit; entry is carried by the words.
+  el.dataset.in = "-10";
+  el.dataset.fx = "fade";
+});
+
+const animated = [...document.querySelectorAll(".a")].map((el) => ({
+  el,
+  tin: parseFloat(el.dataset.in ?? "-10"),
+  tout: el.dataset.out !== undefined ? parseFloat(el.dataset.out) : null,
+  fx: el.dataset.fx || "up",
+  dur: parseFloat(el.dataset.dur || "0.9"),
+}));
+
+// ---- SVG path drawing
+const prepDraw = (el) => { const L = el.getTotalLength(); el.style.strokeDasharray = L; el.dataset.len = L; return L; };
+document.querySelectorAll("#keyWhite .draw, .logoFrame, .logoStair, #cFrame, #cStair").forEach(prepDraw);
+const draw = (el, p) => {
+  // Once fully drawn, drop the dash so the line closes without a seam where it began.
+  if (p >= 0.999) { el.style.strokeDasharray = "none"; return; }
+  el.style.strokeDasharray = el.dataset.len;
+  el.style.strokeDashoffset = (1 - clamp(p)) * parseFloat(el.dataset.len);
+};
+
+// ---- grain texture, generated once
+(() => {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const x = c.getContext("2d"); const img = x.createImageData(256, 256);
+  let s = 7; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < img.data.length; i += 4) { const v = rnd() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  document.getElementById("grain").style.backgroundImage = `url(${c.toDataURL()})`;
+})();
+
+// ---- block ticker for the Monad scene
+const blocksEl = document.getElementById("blocks");
+const BLOCKS = 26;
+for (let i = 0; i < BLOCKS; i++) {
+  const b = document.createElement("div");
+  b.className = "block";
+  b.innerHTML = '<svg width="30" height="30" viewBox="0 0 20 20" fill="none"><path d="M5 10.5l3.2 3.2L15 7" stroke="#111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  blocksEl.appendChild(b);
+}
+
+const CHAPTERS = [[0, "01", "The goal"], [13.4, "02", "The problem"], [45, "03", "The builder"], [63, "04", "The product"], [92, "05", "Why Monad"]];
+const chapterEl = document.getElementById("chapter");
+let lastChapter = "";
+
+function render(t) {
+  for (const a of animated) {
+    const pi = expo(clamp((t - a.tin) / a.dur));
+    const po = a.tout === null ? 0 : inOut(clamp((t - a.tout) / 0.55));
+    const op = pi * (1 - po);
+    const s = a.el.style;
+    s.opacity = op;
+    s.visibility = op <= 0.001 ? "hidden" : "visible";
+    switch (a.fx) {
+      case "fade": break;
+      case "up":
+        s.transform = `translateY(${(1 - pi) * 70 - po * 36}px)`;
+        s.filter = `blur(${(1 - pi) * 16 + po * 10}px)`;
+        break;
+      case "left":
+        s.transform = `translateX(${(1 - pi) * -80}px)`;
+        s.filter = `blur(${(1 - pi) * 14 + po * 8}px)`;
+        break;
+      case "scale":
+        s.transform = `scale(${0.86 + 0.14 * pi + po * 0.05})`;
+        s.filter = `blur(${(1 - pi) * 18 + po * 10}px)`;
+        break;
+      case "wipe":
+        s.clipPath = `inset(0 ${(1 - pi) * 100}% 0 0)`;
+        break;
+      case "grow":
+        s.transform = `scaleY(${pi})`;
+        break;
+      case "frame":
+        s.clipPath = `inset(0 ${(1 - pi) * 100}% 0 0 round 44px)`;
+        s.boxShadow = `0 0 ${60 * pi}px rgb(200 242 80 / ${0.25 * pi})`;
+        break;
+    }
+  }
+
+  // atmosphere: two slow glows, the violet one brightening for the Monad scenes
+  const g1 = document.getElementById("g1"), g2 = document.getElementById("g2");
+  g1.style.transform = `translate(${300 + Math.sin(t * 0.21) * 260}px, ${-120 + Math.cos(t * 0.17) * 160}px)`;
+  const violet = 0.35 + 0.65 * Math.max(clamp((t - 77) / 3) * (1 - clamp((t - 83) / 2)), clamp((t - 91.5) / 2) * (1 - clamp((t - 101) / 3)), clamp((t - 104) / 2));
+  g2.style.transform = `translate(${1100 + Math.cos(t * 0.15) * 240}px, ${420 + Math.sin(t * 0.19) * 140}px)`;
+  g2.style.opacity = violet;
+  document.getElementById("dots").style.transform = `translateY(${-(t * 6) % 34}px)`;
+
+  // grain jitter, deterministic per frame
+  const f = Math.floor(t * 30);
+  document.getElementById("grain").style.backgroundPosition = `${(f * 73) % 256}px ${(f * 151) % 256}px`;
+
+  // HUD
+  document.getElementById("prog").style.width = `${clamp(t / 100.6) * 100}%`;
+  let ch = CHAPTERS[0];
+  for (const c of CHAPTERS) if (t >= c[0]) ch = c;
+  const label = `<b>${ch[1]}</b>&nbsp;&nbsp;${ch[2]}`;
+  if (label !== lastChapter) { chapterEl.innerHTML = label; lastChapter = label; }
+
+  // D: the progress bar that cannot decide
+  const fill = clamp((t - 31.6) / 1.8);
+  const wobble = t > 33.4 ? Math.sin((t - 33.4) * 3.1) * 0.07 : 0;
+  document.getElementById("qbar").style.width = `${(inOut(fill) * 0.62 + wobble) * 100}%`;
+  document.getElementById("qmark").style.opacity = t > 33.4 ? 0.45 + 0.55 * Math.abs(Math.sin((t - 33.4) * 2.4)) : 1;
+
+  // E: the key draws itself, then turns red
+  document.querySelectorAll("#keyWhite .draw").forEach((el) => draw(el, inOut(clamp((t - 36.4) / 1.6))));
+  const red = clamp((t - 39.6) / 0.8);
+  document.getElementById("keyRed").setAttribute("opacity", red);
+  document.getElementById("keyWhite").setAttribute("opacity", 1 - red);
+
+  // G1: the mark draws — frame first, then the plan climbing inside it
+  document.querySelectorAll(".logoFrame").forEach((el) => draw(el, inOut(clamp((t - 63.1) / 1.0))));
+  document.querySelectorAll(".logoStair").forEach((el) => draw(el, inOut(clamp((t - 63.7) / 0.9))));
+
+  // G3: the limits count up
+  document.querySelectorAll("[data-count]").forEach((el) => {
+    const p = inOut(clamp((t - parseFloat(el.dataset.from)) / 1.1));
+    el.textContent = `${Math.round(p * parseFloat(el.dataset.count))}%`;
+  });
+
+  // H: blocks every 0.4s, scrolling left, each one checked
+  if (t > 94 && t < 101.5) {
+    const kids = blocksEl.children, spacing = 98, speed = spacing / 0.4;
+    const shift = ((t - 94) * speed) % spacing;
+    const tick = Math.floor((t - 94) / 0.4);
+    for (let i = 0; i < kids.length; i++) {
+      const x = 160 + i * spacing - shift;
+      kids[i].style.left = `${x}px`;
+      const fresh = x > 1450 && x < 1560;
+      // New blocks arrive grey on the right and turn lime as they pass the check line.
+      kids[i].className = "block" + (x < 1450 ? " hit" : "");
+      kids[i].style.opacity = x < 160 ? clamp((x - 60) / 100) : x > 1600 ? clamp(1 - (x - 1600) / 160) : 1;
+      kids[i].style.transform = fresh ? `scale(${1 + 0.08 * Math.sin((x - 1450) / 110 * Math.PI)})` : "none";
+    }
+  }
+
+  // I: the closing mark
+  draw(document.getElementById("cFrame"), inOut(clamp((t - 101.2) / 1.0)));
+  draw(document.getElementById("cStair"), inOut(clamp((t - 101.8) / 1.0)));
+
+  // fade from black at the start, to black at the end
+  document.getElementById("black").style.opacity = Math.max(1 - clamp(t / 0.5), clamp((t - 110.8) / 1.2));
+}
+
+window.render = render;
+window.DURATION = DURATION;
+
+// Live preview when opened in a browser; the renderer calls render(t) itself.
+if (!new URLSearchParams(location.search).has("render")) {
+  const start = performance.now();
+  const loop = () => { render(((performance.now() - start) / 1000) % DURATION); requestAnimationFrame(loop); };
+  document.fonts.ready.then(loop);
+} else {
+  render(0);
+}
+</script>
+</body>
+</html>
