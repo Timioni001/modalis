@@ -483,6 +483,20 @@ export type UserInsert = {
   updated_at?: string;
 };
 
+export type WaitlistSignupRow = {
+  id: string;
+  email: string;
+  source: string;
+  created_at: string;
+};
+
+export type WaitlistSignupInsert = {
+  id?: string;
+  email: string;
+  source?: string;
+  created_at?: string;
+};
+
 /** Every table, for the typed supabase-js client. */
 export type Database = {
   public: {
@@ -504,6 +518,7 @@ export type Database = {
       scenarios: { Row: ScenarioRow; Insert: ScenarioInsert; Update: Partial<ScenarioInsert>; Relationships: [] };
       transactions: { Row: TransactionRow; Insert: TransactionInsert; Update: Partial<TransactionInsert>; Relationships: [] };
       users: { Row: UserRow; Insert: UserInsert; Update: Partial<UserInsert>; Relationships: [] };
+      waitlist_signups: { Row: WaitlistSignupRow; Insert: WaitlistSignupInsert; Update: Partial<WaitlistSignupInsert>; Relationships: [] };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

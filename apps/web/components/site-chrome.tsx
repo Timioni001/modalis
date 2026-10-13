@@ -116,7 +116,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
 /** Just the mark and the way to sign in. Nothing to click away with. */
 function FocusedNav() {
   return (
-    <header className="px-4 pt-4 sm:px-5 sm:pt-5">
+    <header className="relative z-50 px-4 pt-4 sm:px-5 sm:pt-5">
       <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-full bg-surface/90 px-4 py-2.5 shadow-[var(--shadow-card)] backdrop-blur-xl">
         <Link
           href="/"

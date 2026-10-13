@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Hero } from "@/components/hero";
-import { SystemStatus } from "@/components/system-status";
 import { RainbowButton } from "@/components/shadcn/rainbow-button";
 import { CardFan, DiscStack, PillArc } from "@/components/live-visuals";
+import { WaitlistForm } from "@/components/waitlist-form";
 
 export const metadata: Metadata = {
   description:
@@ -193,29 +193,24 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------------ live status */}
-      <section className="mx-auto max-w-6xl px-5 pb-16 sm:pb-24">
-        <h2 className="display text-[2rem] font-semibold text-ink sm:text-5xl">
-          System status
-        </h2>
-        <p className="mt-4 max-w-md text-[17px] text-ink-soft">Checked live each time you load this page.</p>
-        <div className="mt-9">
-          <SystemStatus />
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------- last word */}
+      {/* ------------------------------------------------------------- wait list */}
       <section className="mx-auto max-w-6xl px-5 pb-20 sm:pb-28">
-        <div className="rounded-[32px] bg-canvas px-6 py-16 text-center sm:px-14">
-          <h2 className="display mx-auto max-w-lg text-[2rem] font-semibold text-ink sm:text-[2.75rem]">
-            Start with your <span className="accent-serif">goal.</span>
-          </h2>
-          <p className="mt-4 text-ink-soft">It takes about two minutes, and nothing happens until you approve.</p>
-          <div className="mt-8 flex justify-center">
-            <RainbowButton asChild size="lg" className="rounded-full">
-              <Link href="/onboarding">Create my plan</Link>
-            </RainbowButton>
+        <div className="grid gap-8 rounded-[32px] bg-panel px-6 py-10 text-panel-ink shadow-[var(--shadow-lift)] sm:px-12 sm:py-14 lg:grid-cols-[1fr_minmax(320px,420px)] lg:items-center lg:gap-16">
+          <div>
+            <div className="eyebrow text-panel-soft">Early access</div>
+            <h2 className="display mt-4 max-w-xl text-[2rem] font-semibold sm:text-[2.75rem]">
+              Keep your goals in reach.
+            </h2>
+            <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-panel-soft">
+              Join the early access list for a calmer way to save, review your limits, and stay on track.
+            </p>
+            <div className="mt-7">
+              <RainbowButton asChild size="lg" className="rounded-full">
+                <Link href="/onboarding">Create my plan</Link>
+              </RainbowButton>
+            </div>
           </div>
+          <WaitlistForm />
         </div>
       </section>
     </>
