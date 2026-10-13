@@ -24,9 +24,9 @@ export default function PrivacyPage() {
 
         <h2>The principle</h2>
         <p>
-          Modalis collects what it needs to do its job and nothing else. There is no account
-          signup form, no profile to fill in, no marketing database, and no advertising of any
-          kind.
+          Modalis collects what it needs to do its job and nothing else. You can explore without
+          an account; the optional early-access form stores one email address so we can contact
+          people who ask to hear when the product opens more broadly. There is no advertising.
         </p>
 
         <h2>What Modalis stores</h2>
@@ -50,6 +50,10 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>An email address,</strong> only if you chose to sign in with one.
+          </li>
+          <li>
+            <strong>An early-access email,</strong> only if you submit the wait-list form. It is
+            stored separately from wallet and plan data and is used only for launch updates.
           </li>
         </ul>
 
