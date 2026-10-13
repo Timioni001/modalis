@@ -40,7 +40,7 @@ The executed toolchain was Node 24.19.0, pnpm 10.28.0, Foundry 1.7.1, PostgreSQL
 
 ## What remains outside this verification
 
-The existing Vercel deployment was **not changed**. Its public RPC and contract addresses were inspected, but no signed-in production session or real hosted user action was performed. No funded production key, hosted service credential or deployment credential was attached to this environment.
+The initial local verification did not change the Vercel deployment. The later authorized publication is recorded below. Its public RPC and contract addresses were inspected, but no signed-in production session or real hosted user action was performed. No oracle-owner key, hosted database credential or direct Vercel administrator token was attached to this environment. Publication used the existing GitHub-to-Vercel connection.
 
 To apply the repair to that deployment:
 
@@ -70,6 +70,15 @@ The four new domain tests exercise exact-cent boundaries, malformed/extreme inpu
 
 The additional 320-pixel browser flow passed against real local Anvil and the local integration database: custom onboarding validation, approval and saved block time, safe display of literal script text in notes, reload, direct preference editing without a new mandate transaction, below-minimum funding rejection in both UI and API, early-withdrawal review, malformed input rejection and foreign-account isolation. The anonymous preview browser case also passed again with the new fields expanded at 320, 360, 390, 768 and 1280 pixels; it issued no API writes. The six distinct browser cases consist of the earlier five plus this saved-settings flow; they were run in the database configurations appropriate to each case.
 
-Personal retrieval time remains an editable reminder. No lock was added to the deployed vault, no hosted database was changed, and no Vercel deployment, commit or push was performed. Persistence requires the new migration on the dedicated configured database. The source archive includes that migration, the UI, the API and the tests.
+Personal retrieval time remains an editable reminder. During that local verification, no lock was added to the deployed vault and no hosted database was changed. Publication happened later as recorded below. Persistence requires the new migration on the dedicated configured database. The source archive includes that migration, the UI, the API and the tests.
 
 The full repository typecheck and updated production build both passed. The production server's `/demo` passed a further interactive check with custom contribution and retrieval fields at 320, 390, 768 and 1280 pixels, with no browser exceptions, API writes or horizontal overflow. Local database containers were removed after verification.
+
+
+## Vercel publication
+
+The owner subsequently requested publication through Vercel instead of local WSL commands. The update was committed, reconciled with the remote's new pitch files, and pushed without force to `claude/awesome-gates-h1pxk0` in `Timioni001/modalis`. The initial published commit is `3bcf9726a278799e65a9c8a0313ba190a1aa0daf`; [Vercel reported success](https://vercel.com/timilabs/modalis/CUXZXaNnTDNmMHXqKEkYqz5RBtWY), and all GitHub Actions checks passed. The public `/demo` was checked in a real Chromium browser at 320, 390, 768 and 1280 pixels: contribution arithmetic and custom savings fields worked, with no page exceptions, API writes or horizontal overflow. Public testnet transactions were not signed by the assistant.
+
+The hosted `/api/status` confirmed two existing operational settings: demo mode is disabled and synthetic quotes are expired. A follow-up browser recovery control uses the existing authenticated `scenario: refresh` action from the price-independent plan page. It is shown only on Monad testnet with demo mode enabled and expired quotes. It updates quote timestamps while preserving values; it never changes a mandate or signs a user deposit/withdrawal. The endpoint is rate-limited. A real local browser check advanced the Anvil clock beyond quote expiry, invoked the control, checked restored pricing/funding readiness and verified every quote value stayed unchanged. This is the seventh distinct browser case.
+
+Vercel dashboard configuration is still owned by the user: set production `DEMO_MODE=true` and the private `ORACLE_UPDATER_PRIVATE_KEY` to the account that owns the existing testnet oracle, then redeploy and use **Your plan → Refresh demo prices**. Existing `DEPLOYER_PRIVATE_KEY` can serve as the server fallback if it is the same oracle owner. No secret should be supplied in chat or bundled into the browser. Saved custom preferences also require migration 0004 in the dedicated database; a Vercel deployment cannot apply a Supabase schema change automatically.

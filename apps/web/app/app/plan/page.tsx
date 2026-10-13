@@ -31,6 +31,7 @@ import { ReceiptLink } from "@/components/receipt-link";
 import { PauseControl } from "@/components/pause-control";
 import { PlanHistory } from "@/components/plan-history";
 import { SavingsPreferencesEditor } from "@/components/savings-preferences-editor";
+import { DemoPriceRecovery } from "@/components/demo-price-recovery";
 import { monthYear, percent, usdFromDecimal } from "@/lib/format";
 
 export default function PlanPage() {
@@ -111,6 +112,7 @@ function PlanView() {
           </Badge>
         }
       />
+      <DemoPriceRecovery />
       <SavingsPreferencesEditor
         key={address}
         savings={plan.goal.savings}

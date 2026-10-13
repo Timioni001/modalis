@@ -85,7 +85,7 @@ execution** means a command in this repository runs it and it passes.
 | | |
 |---|---|
 | **54 contract tests pass** | mandate enforcement, access control, replay, slippage, pause, emergency exit, Kuru adapter, CRE report decoding |
-| **291 package and web tests pass** | portfolio (9), execution (6), intelligence (32), chain (26), persistence (7), authentication (28), domain (124), web (59); plus 5 monitor tests, 3 CRE tests, 3 database integration tests and 6 browser flows |
+| **291 package and web tests pass** | portfolio (9), execution (6), intelligence (32), chain (26), persistence (7), authentication (28), domain (124), web (59); plus 5 monitor tests, 3 CRE tests, 3 database integration tests and 7 browser flows |
 | **Sign-in is verified against real signatures** | tokens signed with a real key pair and verified through the real JWKS path; a token signed by the wrong key, expired, unsigned or issued for another deployment is refused |
 | **No route can act on an account the caller does not own** | a static audit over every route in the app: the acting account comes from a verified session, never from a body, path or query string |
 | **No protocol vocabulary reaches a person** | every user-facing sentence in the domain layer is swept for it, and the guard is tested against a planted leak |
@@ -293,3 +293,8 @@ behind this.
 Open **Your limits → Custom savings details** during onboarding, or **Your plan → Edit savings preferences** after saving the approved goal. Choose a minimum per complete contribution ($0–$100,000, including cents), a personal retrieval waiting period (0–3,650 days after plan approval), and optional notes. An undersized contribution is refused by the funding planner before any signature. Withdrawal review shows an early-retrieval reminder while preserving the owner's ability to withdraw. Direct owner contract calls retain the vault's existing rules.
 
 Apply `supabase/migrations/0004_savings_preferences.sql` to the configured demo database before deploying this update. Saved settings use the existing owner-scoped goals policies. Without a database, approval explicitly reports that these details were not saved. `/demo` lets visitors try the controls using sample data. See the [research and distinction between saving periods, notice and enforced locks](docs/metropolis-research.md#savings-minimums-and-retrieval-timing-research).
+
+
+### Browser recovery on the hosted demo
+
+On a Monad testnet demo with expired quotes, **Your plan → Refresh demo prices** republishes the existing synthetic quote values with fresh timestamps. This restores funding and adjustment readiness without local commands. Enable `DEMO_MODE=true` in Vercel and configure the server-only `ORACLE_UPDATER_PRIVATE_KEY` for the existing oracle owner (or its existing `DEPLOYER_PRIVATE_KEY` fallback). The control requires a signed-in session and only appears when a refresh is needed. Keep all private keys out of `NEXT_PUBLIC_` variables and Git. It does not sign an owner's financial action or change their plan.
