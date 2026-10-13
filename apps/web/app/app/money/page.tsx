@@ -9,12 +9,20 @@
  */
 import { LocalAmount } from "@/components/local-amount";
 import { motion } from "motion/react";
-import { Button, Card, Loading, PageHeader, SectionTitle } from "@/components/ui";
+import {
+  Button,
+  Card,
+  Loading,
+  PageHeader,
+  SectionTitle,
+} from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { AllocationTable } from "@/components/allocation-table";
 import { ExposureCard } from "@/components/exposure-card";
 import { moneyLabel, percent, whenLabel } from "@/lib/format";
+import { AssetQuantities } from "@/components/asset-quantities";
+import { DemoPriceRecovery } from "@/components/demo-price-recovery";
 
 export default function MoneyPage() {
   return (
@@ -26,10 +34,25 @@ export default function MoneyPage() {
 
 function Money() {
   const { money, plan, loading } = usePortfolio();
-  if (!money || !plan) return loading ? <Loading label="Loading your money" /> : <div className="mt-5"><Button href="/app/plan" variant="secondary">View your saved plan</Button></div>;
+  if (!plan) return <Loading label="Loading your plan" />;
+  if (!money)
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Your assets"
+          lede="Your asset quantities remain readable while portfolio pricing is paused."
+        />
+        <DemoPriceRecovery />
+        <AssetQuantities />
+        <Button href="/app/payments" variant="secondary">
+          Open payments
+        </Button>
+      </div>
+    );
 
   const total = Number(money.total.amount);
-  const availableShare = total > 0 ? (Number(money.available.amount) / total) * 100 : 0;
+  const availableShare =
+    total > 0 ? (Number(money.available.amount) / total) * 100 : 0;
 
   return (
     <motion.div
@@ -53,7 +76,10 @@ function Money() {
           <div className="numeric mt-4 text-[48px] font-semibold leading-none tracking-[-0.03em] sm:text-[60px]">
             {moneyLabel(money.total)}
           </div>
-          <LocalAmount usd={money.total.amount} className="mt-2 block text-panel-soft" />
+          <LocalAmount
+            usd={money.total.amount}
+            className="mt-2 block text-panel-soft"
+          />
 
           <div className="mt-8" aria-hidden>
             <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-panel-line">
@@ -80,7 +106,9 @@ function Money() {
             />
           </div>
 
-          <p className="mt-7 text-xs text-panel-soft">Read at {whenLabel(money.asOf)}.</p>
+          <p className="mt-7 text-xs text-panel-soft">
+            Read at {whenLabel(money.asOf)}.
+          </p>
         </div>
       </section>
 
@@ -96,8 +124,9 @@ function Money() {
       <Card>
         <SectionTitle>Taking money out</SectionTitle>
         <p className="text-[15px] leading-relaxed text-ink-soft">
-          You can withdraw everything at any time, and nobody can stop you &mdash; not Modalis, not
-          anyone. It works even if your plan is paused, because a pause must never trap your money.
+          You can withdraw everything at any time, and nobody can stop you
+          &mdash; not Modalis, not anyone. It works even if your plan is paused,
+          because a pause must never trap your money.
         </p>
         <div className="mt-5">
           <div className="flex flex-wrap gap-3">

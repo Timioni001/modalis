@@ -6,7 +6,12 @@
  * AssetRegistry's oracle, rules from PortfolioMandate. Nothing is cached or synthesised.
  */
 import { formatUnits, type Address, type PublicClient } from "viem";
-import { AssetRegistryAbi, PortfolioMandateAbi, PortfolioVaultAbi, RebalanceExecutorAbi } from "./abis/index.ts";
+import {
+  AssetRegistryAbi,
+  PortfolioMandateAbi,
+  PortfolioVaultAbi,
+  RebalanceExecutorAbi,
+} from "./abis/index.ts";
 import { requireContract, type Deployment } from "./addresses.ts";
 
 export type OnchainMandate = {
@@ -50,8 +55,21 @@ export type PortfolioState = {
 };
 
 /** Approved rules and targets, with no balance or price fields. */
-export type PlanState = Pick<PortfolioState, "owner" | "mandate" | "blockNumber" | "hasMandate"> & {
-  positions: Pick<OnchainPosition, "token" | "symbol" | "decimals" | "isLiquid" | "assetMaxBps" | "targetBps" | "minBps" | "maxBps">[];
+export type PlanState = Pick<
+  PortfolioState,
+  "owner" | "mandate" | "blockNumber" | "hasMandate"
+> & {
+  positions: Pick<
+    OnchainPosition,
+    | "token"
+    | "symbol"
+    | "decimals"
+    | "isLiquid"
+    | "assetMaxBps"
+    | "targetBps"
+    | "minBps"
+    | "maxBps"
+  >[];
 };
 
 const BPS = 10_000n;
@@ -64,24 +82,81 @@ export function bpsOf(value: bigint, total: bigint): number {
 /** USD (1e18) as a display string, e.g. 2840.21 -> "2,840.21". */
 export function formatUsd(valueE18: bigint, fractionDigits = 2): string {
   const n = Number(formatUnits(valueE18, 18));
-  return n.toLocaleString("en-US", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
+  return n.toLocaleString("en-US", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  });
 }
 
 /** Rules and target allocations do not depend on prices. Never use this result as a balance. */
-export async function readPlanState(client: PublicClient, deployment: Deployment, owner: Address): Promise<PlanState> {
+export async function readPlanState(
+  client: PublicClient,
+  deployment: Deployment,
+  owner: Address,
+): Promise<PlanState> {
   const state = await readState(client, deployment, owner, false);
   return {
     owner: state.owner,
     mandate: state.mandate,
     blockNumber: state.blockNumber,
     hasMandate: state.hasMandate,
-    positions: state.positions.map(({ token, symbol, decimals, isLiquid, assetMaxBps, targetBps, minBps, maxBps }) =>
-      ({ token, symbol, decimals, isLiquid, assetMaxBps, targetBps, minBps, maxBps })),
+    positions: state.positions.map(
+      ({
+        token,
+        symbol,
+        decimals,
+        isLiquid,
+        assetMaxBps,
+        targetBps,
+        minBps,
+        maxBps,
+      }) => ({
+        token,
+        symbol,
+        decimals,
+        isLiquid,
+        assetMaxBps,
+        targetBps,
+        minBps,
+        maxBps,
+      }),
+    ),
+  };
+}
+
+/** Exact token quantities can be read without an oracle. No zero or stale valuation is returned. */
+export async function readAssetBalances(
+  client: PublicClient,
+  deployment: Deployment,
+  owner: Address,
+) {
+  const state = await readState(client, deployment, owner, false);
+  const balances = await Promise.all(
+    state.positions.map((position) =>
+      client.readContract({
+        address: requireContract(deployment, "portfolioVault"),
+        abi: PortfolioVaultAbi,
+        functionName: "balanceOf",
+        args: [state.owner, position.token],
+      }),
+    ),
+  );
+  return {
+    hasMandate: state.hasMandate,
+    holdings: state.positions.map((position, index) => ({
+      token: position.token,
+      symbol: position.symbol,
+      units: formatUnits(balances[index], position.decimals),
+    })),
   };
 }
 
 /** Live, priced balances for the dashboard and monitor. Never substitutes expired quotes. */
-export async function readPortfolio(client: PublicClient, deployment: Deployment, owner: Address): Promise<PortfolioState> {
+export async function readPortfolio(
+  client: PublicClient,
+  deployment: Deployment,
+  owner: Address,
+): Promise<PortfolioState> {
   return readState(client, deployment, owner, true);
 }
 
@@ -127,46 +202,56 @@ async function readState(
 
   // Asset metadata + balances, batched by the client's multicall.
   const assets = await Promise.all(
-    allocations.map((a) =>
-      client.readContract({
-        address: registryAddr,
-        abi: AssetRegistryAbi,
-        functionName: "getAsset",
-        args: [a.token],
-      }) as Promise<AssetRaw>,
+    allocations.map(
+      (a) =>
+        client.readContract({
+          address: registryAddr,
+          abi: AssetRegistryAbi,
+          functionName: "getAsset",
+          args: [a.token],
+        }) as Promise<AssetRaw>,
     ),
   );
-  const balances = includeValuation ? await Promise.all(
-    allocations.map((a) =>
-      client.readContract({
-        address: vaultAddr,
-        abi: PortfolioVaultAbi,
-        functionName: "balanceOf",
-        args: [owner, a.token],
-      }) as Promise<bigint>,
-    ),
-  ) : allocations.map(() => 0n);
+  const balances = includeValuation
+    ? await Promise.all(
+        allocations.map(
+          (a) =>
+            client.readContract({
+              address: vaultAddr,
+              abi: PortfolioVaultAbi,
+              functionName: "balanceOf",
+              args: [owner, a.token],
+            }) as Promise<bigint>,
+        ),
+      )
+    : allocations.map(() => 0n);
   // Values come from the registry so the app values the portfolio exactly as the contract does.
-  const values = includeValuation ? await Promise.all(
-    allocations.map((a, i) =>
-      client.readContract({
-        address: registryAddr,
-        abi: AssetRegistryAbi,
-        functionName: "value",
-        args: [a.token, balances[i]],
-      }) as Promise<bigint>,
-    ),
-  ) : allocations.map(() => 0n);
-  const prices = includeValuation ? await Promise.all(
-    allocations.map((a, i) =>
-      client.readContract({
-        address: registryAddr,
-        abi: AssetRegistryAbi,
-        functionName: "value",
-        args: [a.token, 10n ** BigInt(assets[i].decimals)],
-      }) as Promise<bigint>,
-    ),
-  ) : allocations.map(() => 0n);
+  const values = includeValuation
+    ? await Promise.all(
+        allocations.map(
+          (a, i) =>
+            client.readContract({
+              address: registryAddr,
+              abi: AssetRegistryAbi,
+              functionName: "value",
+              args: [a.token, balances[i]],
+            }) as Promise<bigint>,
+        ),
+      )
+    : allocations.map(() => 0n);
+  const prices = includeValuation
+    ? await Promise.all(
+        allocations.map(
+          (a, i) =>
+            client.readContract({
+              address: registryAddr,
+              abi: AssetRegistryAbi,
+              functionName: "value",
+              args: [a.token, 10n ** BigInt(assets[i].decimals)],
+            }) as Promise<bigint>,
+        ),
+      )
+    : allocations.map(() => 0n);
 
   const totalValueE18 = values.reduce((acc, v) => acc + v, 0n);
 
@@ -189,7 +274,10 @@ async function readState(
     };
   });
 
-  const liquidValue = positions.reduce((acc, p) => (p.isLiquid ? acc + p.valueE18 : acc), 0n);
+  const liquidValue = positions.reduce(
+    (acc, p) => (p.isLiquid ? acc + p.valueE18 : acc),
+    0n,
+  );
 
   return {
     owner,
@@ -210,7 +298,11 @@ export async function readExecutorPortfolioState(
   client: PublicClient,
   deployment: Deployment,
   owner: Address,
-): Promise<{ tokens: readonly Address[]; values: readonly bigint[]; total: bigint }> {
+): Promise<{
+  tokens: readonly Address[];
+  values: readonly bigint[];
+  total: bigint;
+}> {
   const [tokens, values, total] = (await client.readContract({
     address: requireContract(deployment, "rebalanceExecutor"),
     abi: RebalanceExecutorAbi,
@@ -260,7 +352,12 @@ type OnchainMandateRaw = {
   version: number;
 };
 
-type AllocationRaw = { token: Address; targetBps: number; minBps: number; maxBps: number };
+type AllocationRaw = {
+  token: Address;
+  targetBps: number;
+  minBps: number;
+  maxBps: number;
+};
 
 type AssetRaw = {
   token: Address;

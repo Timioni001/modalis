@@ -42,15 +42,12 @@ test("expired demo prices recover from the browser without changing quote values
     });
     expect((await result.json()).error).toBeUndefined();
   }
-  expect((await (await request.get("/api/status")).json()).prices.ready).toBe(
-    false,
-  );
+  expect(
+    (await (await request.get("/api/status?fresh=1")).json()).prices.ready,
+  ).toBe(false);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/app/plan");
-  await page
-    .getByRole("button", { name: "Refresh demo prices", exact: true })
-    .click();
   await expect
     .poll(
       async () =>

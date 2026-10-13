@@ -9,28 +9,30 @@
  *
  * Nothing here changes a plan. Changing one needs their approval and their signature.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Scenario, ScenarioResult } from "@modalis/domain";
 import {
   Button,
   Card,
-  Failure,
   Loading,
   Notice,
   PageHeader,
   Rows,
   Row,
   SectionTitle,
+  MoneyField,
 } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { StressTest } from "@/components/stress-test";
 import { AffordCheck } from "@/components/afford-check";
 import { apiPost, ApiError } from "@/lib/client-api";
+import { usePortfolio } from "@/components/portfolio-provider";
 
 type ScenarioSet = {
   available: Scenario[];
   result: ScenarioResult | null;
   assumption: string;
+  source?: "live" | "manual";
 };
 
 export default function ScenariosPage() {
@@ -42,43 +44,75 @@ export default function ScenariosPage() {
 }
 
 function Scenarios() {
+  const { plan, money, address } = usePortfolio();
+  const manual = !money;
+  const [base, setBase] = useState(() =>
+    Number(plan?.goal.startingAmount.amount ?? 0),
+  );
   const [set, setSet] = useState<ScenarioSet | null>(null);
   const [asked, setAsked] = useState<Scenario | null>(null);
   const [result, setResult] = useState<ScenarioResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const generation = useRef(0);
 
   useEffect(() => {
     let alive = true;
-    apiPost<ScenarioSet>("/api/goal/scenarios", {})
-      .then((d) => alive && setSet(d))
-      .catch((err: unknown) => {
-        if (!alive) return;
-        setError(err instanceof ApiError ? err.message : "We couldn't load your goal.");
-      });
+    generation.current += 1;
+    setBusy(false);
+    setError(null);
+    setResult(null);
+    const timer = setTimeout(() => {
+      void apiPost<ScenarioSet>(
+        "/api/goal/scenarios",
+        manual ? { baseAmount: String(base) } : {},
+      )
+        .then((d) => alive && setSet(d))
+        .catch((err: unknown) => {
+          if (!alive) return;
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : "We couldn't load your goal.",
+          );
+        });
+    }, 180);
     return () => {
       alive = false;
+      generation.current += 1;
+      clearTimeout(timer);
     };
-  }, []);
+  }, [manual, base, address]);
 
-  const ask = useCallback(async (scenario: Scenario) => {
-    setBusy(true);
-    setError(null);
-    setAsked(scenario);
-    try {
-      const answered = await apiPost<ScenarioSet>("/api/goal/scenarios", {
-        kind: scenario.kind,
-        ...(scenario.amount !== undefined ? { amount: String(scenario.amount) } : {}),
-        ...(scenario.months !== undefined ? { months: scenario.months } : {}),
-      });
-      setResult(answered.result);
-    } catch (err) {
-      setResult(null);
-      setError(err instanceof ApiError ? err.message : "We couldn't work that out.");
-    } finally {
-      setBusy(false);
-    }
-  }, []);
+  const ask = useCallback(
+    async (scenario: Scenario) => {
+      const requestGeneration = generation.current;
+      setBusy(true);
+      setError(null);
+      setAsked(scenario);
+      try {
+        const answered = await apiPost<ScenarioSet>("/api/goal/scenarios", {
+          kind: scenario.kind,
+          ...(manual ? { baseAmount: String(base) } : {}),
+          ...(scenario.amount !== undefined
+            ? { amount: String(scenario.amount) }
+            : {}),
+          ...(scenario.months !== undefined ? { months: scenario.months } : {}),
+        });
+        if (generation.current === requestGeneration)
+          setResult(answered.result);
+      } catch (err) {
+        if (generation.current !== requestGeneration) return;
+        setResult(null);
+        setError(
+          err instanceof ApiError ? err.message : "We couldn't work that out.",
+        );
+      } finally {
+        if (generation.current === requestGeneration) setBusy(false);
+      }
+    },
+    [manual, base],
+  );
 
   if (!set && !error) return <Loading label="Loading your goal" />;
 
@@ -88,13 +122,49 @@ function Scenarios() {
         title="What if?"
         lede="Change one thing and see what it would do to your goal. Nothing here touches your real plan."
       />
+      {manual ? (
+        <Card className="border border-line shadow-none">
+          <SectionTitle hint="Use an amount you choose while portfolio pricing is unavailable. This is a calculator, not your current balance.">
+            Start with your own amount
+          </SectionTitle>
+          <MoneyField
+            id="scenario-base"
+            value={base}
+            max={100_000_000}
+            onChange={setBase}
+          />
+        </Card>
+      ) : null}
 
       {error ? (
-        <Failure
-          title="We couldn't answer that"
-          meaning="Your plan and your money are unchanged — this screen only does arithmetic."
-          next="Try again, or pick a different question."
-        />
+        <Notice
+          tone="warn"
+          title="The calculation couldn't be loaded"
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void apiPost<ScenarioSet>(
+                  "/api/goal/scenarios",
+                  manual ? { baseAmount: String(base) } : {},
+                )
+                  .then((data) => {
+                    setSet(data);
+                    setError(null);
+                  })
+                  .catch(() =>
+                    setError(
+                      "The calculation is still unavailable. Try again shortly.",
+                    ),
+                  );
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {error}
+        </Notice>
       ) : null}
 
       {set ? (
@@ -156,10 +226,15 @@ function Scenarios() {
               <SectionTitle>What moves</SectionTitle>
               <Rows>
                 {result.differences.map((d) => (
-                  <Row key={d.label} className="flex items-baseline justify-between gap-4">
+                  <Row
+                    key={d.label}
+                    className="flex items-baseline justify-between gap-4"
+                  >
                     <span className="text-sm text-ink-muted">{d.label}</span>
                     <span className="numeric text-sm">
-                      <span className="text-ink-muted line-through">{d.before}</span>
+                      <span className="text-ink-muted line-through">
+                        {d.before}
+                      </span>
                       <span aria-hidden className="mx-2 text-ink-muted">
                         &rarr;
                       </span>

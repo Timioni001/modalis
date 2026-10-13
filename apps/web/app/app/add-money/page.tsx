@@ -46,6 +46,8 @@ import { useWallet, useWalletConfig } from "@/components/wallet-context";
 import { apiPostOnce } from "@/lib/client-api";
 import { moneyLabel } from "@/lib/format";
 import { meetsMinimumContribution } from "@modalis/domain/client";
+import { DemoPriceRecovery } from "@/components/demo-price-recovery";
+import { DirectSaving } from "@/components/direct-saving";
 
 export default function AddMoneyPage() {
   return (
@@ -60,10 +62,11 @@ const QUICK_AMOUNTS = ["250", "500", "1000", "5000"];
 function AddMoney() {
   const router = useRouter();
   const { chainId, rpcUrl } = useWalletConfig();
-  const { loggedIn, getWalletClient } = useWallet();
+  const { loggedIn, getWalletClient, address } = useWallet();
   const { plan, money, status, refresh } = usePortfolio();
 
   const [amount, setAmount] = useState("500");
+  const [cashMode, setCashMode] = useState(false);
   const [funding, setFunding] = useState<FundingPlan | null>(null);
   const [steps, setSteps] = useState<FundingStep[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -259,6 +262,24 @@ function AddMoney() {
 
   const where = useMemo(() => plan?.howMoneyIsSpread ?? [], [plan]);
 
+  if (status?.prices?.ready === false || cashMode)
+    return (
+      <div className="mx-auto max-w-2xl space-y-4">
+        <PageHeader
+          title="Add money"
+          lede="Save demo dollars to your own plan, even while portfolio pricing is paused."
+        />
+        <DemoPriceRecovery />
+        <TestMoney onFunded={refresh} />
+        <DirectSaving key={address} onStart={() => setCashMode(true)} />
+        {status?.prices?.ready ? (
+          <Button variant="secondary" onClick={() => setCashMode(false)}>
+            Use allocation funding instead
+          </Button>
+        ) : null}
+      </div>
+    );
+
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <PageHeader
@@ -271,6 +292,8 @@ function AddMoney() {
           You have {moneyLabel(money.total)} in your plan today.
         </p>
       ) : null}
+
+      <DemoPriceRecovery />
 
       <TestMoney
         onFunded={async () => {

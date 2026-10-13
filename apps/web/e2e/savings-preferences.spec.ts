@@ -18,6 +18,10 @@ test("custom contribution and retrieval settings save, reload and work on a narr
     !status.poweredBy?.savedData,
     "Run with the local integration database configured; never use a hosted service.",
   );
+  test.skip(
+    !status.prices.ready && !status.prices.recovery?.canRefresh,
+    "The stale-consumer case tests preferences and minimums when quote recovery is unavailable.",
+  );
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 320, height: 700 });

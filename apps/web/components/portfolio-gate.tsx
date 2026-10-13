@@ -90,23 +90,6 @@ export function PortfolioGate({ children }: { children: ReactNode }) {
   }
   if (!plan) return null;
 
-  if (error && plan && !loading) {
-    return (
-      <>
-        <Notice
-          tone="warn"
-          title="Some live information is unavailable"
-          action={
-            <Button variant="secondary" onClick={() => void refresh()}>
-              Refresh
-            </Button>
-          }
-        >
-          {error}
-        </Notice>
-        <div className="mt-5">{children}</div>
-      </>
-    );
-  }
+  // Each page owns its data requirement and recovery state; do not repeat its error above it.
   return <>{children}</>;
 }

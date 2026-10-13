@@ -6,7 +6,14 @@ import {
   type SavingsPreferences,
 } from "@modalis/domain";
 import { emit } from "@modalis/domain";
-import { activeMandate, findUserByWallet, updateGoal } from "@modalis/db";
+import {
+  activeMandate,
+  findUserByWallet,
+  updateGoal,
+  latestInterview,
+  saveInterview,
+  type Json,
+} from "@modalis/db";
 import {
   domainContext,
   jsonResponse,
@@ -59,6 +66,26 @@ export async function PATCH(request: Request): Promise<Response> {
     if (!goal)
       return errorResponse(
         "We couldn't save those preferences. Try again after checking the database migration.",
+        503,
+      );
+    const previous = await latestInterview(ctx.db, user.id, goal.id);
+    const original =
+      previous?.answers &&
+      typeof previous.answers === "object" &&
+      !Array.isArray(previous.answers)
+        ? previous.answers
+        : {};
+    const snapshot = await saveInterview(ctx.db, {
+      userId: user.id,
+      goalId: goal.id,
+      answers: {
+        ...original,
+        savings: { ...preferences, ...(startedAt ? { startedAt } : {}) },
+      } as Json,
+    });
+    if (!snapshot)
+      return errorResponse(
+        "We couldn't save your personal preferences. Your signed plan is unchanged.",
         503,
       );
     await emit(ctx.db, {

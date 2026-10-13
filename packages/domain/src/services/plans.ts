@@ -17,8 +17,15 @@ import {
 import { getAddress, type Address } from "viem";
 import { monthlyFrom } from "./goal.ts";
 import { DomainError, type DomainContext } from "../context.ts";
-import { monthsUntil, planFromChain, planFromDraft, toGoal, toRiskLevel } from "../translate.ts";
+import {
+  monthsUntil,
+  planFromChain,
+  planFromDraft,
+  toGoal,
+  toRiskLevel,
+} from "../translate.ts";
 import type { Goal, Plan } from "../models.ts";
+import { savedSavings } from "./savings.ts";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
@@ -39,7 +46,11 @@ export type GoalAnswers = {
   /** How long until they need it. */
   monthsUntilNeeded: number;
   /** What they'd do if their money fell 12%. */
-  ifItFellResponse: "sell_everything" | "sell_some" | "do_nothing" | "invest_more";
+  ifItFellResponse:
+    | "sell_everything"
+    | "sell_some"
+    | "do_nothing"
+    | "invest_more";
   /** The largest drop they'd accept, as a percentage. */
   comfortableLosingPercent: number;
   /** How much needs to stay reachable. */
@@ -84,7 +95,12 @@ export type DraftedPlan = {
    */
   approval: {
     params: MandateDraft["params"];
-    allocations: { token: string; targetBps: number; minBps: number; maxBps: number }[];
+    allocations: {
+      token: string;
+      targetBps: number;
+      minBps: number;
+      maxBps: number;
+    }[];
   };
   /** Set when the AI read a free-text goal: what it understood, for confirmation. */
   understoodAs?: string;
@@ -127,7 +143,9 @@ export async function createPlan(
     // buildMandateDraft throws rather than return a plan the chain would reject.
     throw new DomainError(
       "plan_not_possible",
-      err instanceof Error ? err.message : "We couldn't build a plan from those answers.",
+      err instanceof Error
+        ? err.message
+        : "We couldn't build a plan from those answers.",
       422,
     );
   }
@@ -170,7 +188,15 @@ export async function createPlan(
 export async function getPlan(
   ctx: DomainContext,
   owner: Address,
-  goalContext?: { id?: string | null; kind?: Goal["kind"]; name?: string; description?: string; startingAmountE18?: bigint; contributionE18?: bigint; savings?: Goal["savings"] },
+  goalContext?: {
+    id?: string | null;
+    kind?: Goal["kind"];
+    name?: string;
+    description?: string;
+    startingAmountE18?: bigint;
+    contributionE18?: bigint;
+    savings?: Goal["savings"];
+  },
   now = new Date(),
 ): Promise<Plan> {
   const who = getAddress(owner);
@@ -181,18 +207,33 @@ export async function getPlan(
 
   const manager = await readManager(ctx.client, ctx.deployment, who);
   if (!goalContext && ctx.db) {
-    const { findUserByWallet, activeMandate, listGoals, latestGoal } = await import("@modalis/db");
+    const { findUserByWallet, activeMandate, listGoals, latestGoal } =
+      await import("@modalis/db");
     const user = await findUserByWallet(ctx.db, who);
     if (user) {
-      const [mandate, goals] = await Promise.all([activeMandate(ctx.db, user.id), listGoals(ctx.db, user.id)]);
-      const stored = goals.find((goal) => goal.id === mandate?.goal_id) ?? await latestGoal(ctx.db, user.id);
-      const cadence = stored?.contribution_cadence === "weekly" || stored?.contribution_cadence === "quarterly" ? stored.contribution_cadence : "monthly";
-      if (stored) goalContext = {
-        id: stored.id, kind: stored.type, name: stored.name,
-        startingAmountE18: usdToE18(Number(stored.initial_amount)),
-        contributionE18: usdToE18(monthlyFrom(Number(stored.contribution_amount), cadence)),
-        savings: stored.savings_preferences ?? undefined,
-      };
+      const [mandate, goals] = await Promise.all([
+        activeMandate(ctx.db, user.id),
+        listGoals(ctx.db, user.id),
+      ]);
+      const stored =
+        goals.find((goal) => goal.id === mandate?.goal_id) ??
+        (await latestGoal(ctx.db, user.id));
+      const cadence =
+        stored?.contribution_cadence === "weekly" ||
+        stored?.contribution_cadence === "quarterly"
+          ? stored.contribution_cadence
+          : "monthly";
+      if (stored)
+        goalContext = {
+          id: stored.id,
+          kind: stored.type,
+          name: stored.name,
+          startingAmountE18: usdToE18(Number(stored.initial_amount)),
+          contributionE18: usdToE18(
+            monthlyFrom(Number(stored.contribution_amount), cadence),
+          ),
+          savings: await savedSavings(ctx.db, user.id, stored),
+        };
     }
   }
   const kind = goalContext?.kind ?? "custom";
@@ -229,7 +270,9 @@ export async function getPlan(
 }
 
 /** The concentration cap is the clearest signal of how adventurous a plan is. */
-function inferRiskLevel(maxSingleAssetBps: number): "cautious" | "balanced" | "adventurous" {
+function inferRiskLevel(
+  maxSingleAssetBps: number,
+): "cautious" | "balanced" | "adventurous" {
   if (maxSingleAssetBps <= 2000) return "cautious";
   if (maxSingleAssetBps <= 3000) return "balanced";
   return "adventurous";
@@ -242,8 +285,15 @@ function inferRiskScore(maxSingleAssetBps: number): number {
   return 75;
 }
 
-export async function hasPlan(ctx: DomainContext, owner: Address): Promise<boolean> {
-  const state = await readPlanState(ctx.client, ctx.deployment, getAddress(owner));
+export async function hasPlan(
+  ctx: DomainContext,
+  owner: Address,
+): Promise<boolean> {
+  const state = await readPlanState(
+    ctx.client,
+    ctx.deployment,
+    getAddress(owner),
+  );
   return state.hasMandate;
 }
 

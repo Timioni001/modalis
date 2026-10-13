@@ -5,6 +5,7 @@
   "buildCommand": "pnpm run build",
   "outputDirectory": ".next",
   "regions": ["iad1"],
+  "crons": [{ "path": "/api/cron/prices", "schedule": "0 3 * * *" }],
   "headers": [
     {
       "source": "/api/(.*)",

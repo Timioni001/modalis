@@ -1,5 +1,11 @@
 import type { Address } from "viem";
 import { test, expect } from "@playwright/test";
+import {
+  createMonadPublicClient,
+  readTokenBalance,
+  readCirclesOf,
+  payIntoCircle,
+} from "@modalis/chain";
 const OWNER = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 const headers = { "x-modalis-dev-wallet": OWNER };
 
@@ -164,12 +170,6 @@ test("gifting and a savings-circle payment settle into the correct consumer wall
   expect(status.developmentLocal).toBe(true);
   const { createWalletClient, http } = await import("viem");
   const { monadTestnet } = await import("viem/chains");
-  const {
-    createMonadPublicClient,
-    readTokenBalance,
-    readCirclesOf,
-    payIntoCircle,
-  } = await import("@modalis/chain");
   const rpcUrl = "http://127.0.0.1:8545";
   const second = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as Address;
   const deployment = {

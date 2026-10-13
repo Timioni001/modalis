@@ -19,12 +19,15 @@ import {
   Corridor,
   Loading,
   Notice,
+  PageHeader,
   SectionTitle,
 } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
 import { usePortfolio } from "@/components/portfolio-provider";
 import { PendingAction } from "@/components/pending-action";
 import { DemoControls } from "@/components/demo-controls";
+import { DemoPriceRecovery } from "@/components/demo-price-recovery";
+import { AssetQuantities } from "@/components/asset-quantities";
 import { DriftMeter } from "@/components/drift-meter";
 import { LocalAmount } from "@/components/local-amount";
 import { GoalReached } from "@/components/goal-reached";
@@ -50,7 +53,24 @@ const HEALTH_TONE: Record<string, Tone> = {
 function Overview() {
   const { goal, money, plan, loading } = usePortfolio();
 
-  if (!money || !plan) return loading ? <Loading label="Loading your money" /> : <div className="mt-5"><Button href="/app/plan" variant="secondary">View your saved plan</Button></div>;
+  if (!plan) return <Loading label="Loading your plan" />;
+  if (!money)
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title={plan.goal.name}
+          lede="Your plan is saved. Payments, asset quantities and your saving goals remain accessible."
+        />
+        <DemoPriceRecovery />
+        <AssetQuantities />
+        <div className="flex flex-wrap gap-3">
+          <Button href="/app/payments">Open payments</Button>
+          <Button variant="secondary" href="/app/plan">
+            View your saved plan
+          </Button>
+        </div>
+      </div>
+    );
 
   const empty = money.isEmpty;
   const tone = goal ? (HEALTH_TONE[goal.health] ?? "default") : "default";
@@ -65,7 +85,9 @@ function Overview() {
       {goal ? (
         <h1 className="display px-1 text-[30px] font-semibold text-ink sm:text-[38px]">
           Saving for{" "}
-          <span className="accent-serif text-[1.08em]">{goal.goal.name.toLowerCase()}</span>
+          <span className="accent-serif text-[1.08em]">
+            {goal.goal.name.toLowerCase()}
+          </span>
         </h1>
       ) : null}
 
@@ -94,7 +116,10 @@ function Overview() {
           <div className="numeric mt-5 text-[48px] font-semibold leading-none tracking-[-0.03em] sm:text-[64px]">
             {moneyLabel(money.total)}
           </div>
-          <LocalAmount usd={money.total.amount} className="mt-2 block text-panel-soft" />
+          <LocalAmount
+            usd={money.total.amount}
+            className="mt-2 block text-panel-soft"
+          />
 
           {goal ? (
             <>
@@ -102,10 +127,16 @@ function Overview() {
                 <div className="h-2.5 w-full overflow-hidden rounded-full bg-panel-line">
                   <motion.div
                     className={`h-full rounded-full ${
-                      tone === "breach" ? "bg-breach" : tone === "warn" ? "bg-warn" : "bg-accent"
+                      tone === "breach"
+                        ? "bg-breach"
+                        : tone === "warn"
+                          ? "bg-warn"
+                          : "bg-accent"
                     }`}
                     initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(100, goal.projection.percentComplete)}%` }}
+                    animate={{
+                      width: `${Math.min(100, goal.projection.percentComplete)}%`,
+                    }}
                     transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
                   />
                 </div>
@@ -157,11 +188,21 @@ function Overview() {
                   : `${goal.goal.monthsRemaining} mo`
               }
             />
-            <Tile label="Gap at goal date" value={moneyLabel(goal.projection.shortfall, 0)} />
-            <Tile label="Per month" value={moneyLabel(goal.projection.requiredMonthly, 0)} />
+            <Tile
+              label="Gap at goal date"
+              value={moneyLabel(goal.projection.shortfall, 0)}
+            />
+            <Tile
+              label="Per month"
+              value={moneyLabel(goal.projection.requiredMonthly, 0)}
+            />
           </dl>
         ) : null}
-        {goal ? <p className="px-6 pb-5 text-xs text-panel-soft sm:px-8">Based on your planned contributions, assuming no investment growth.</p> : null}
+        {goal ? (
+          <p className="px-6 pb-5 text-xs text-panel-soft sm:px-8">
+            Based on your planned contributions, assuming no investment growth.
+          </p>
+        ) : null}
       </section>
 
       {/* ============================================= is there anything to do */}
@@ -174,8 +215,9 @@ function Overview() {
           title="Your plan is ready and waiting"
           action={<Button href="/app/add-money">Add money</Button>}
         >
-          Nothing is invested yet. Add money and Modalis will spread it the way your plan says, so
-          it starts on target rather than needing an adjustment straight away.
+          Nothing is invested yet. Add money and Modalis will spread it the way
+          your plan says, so it starts on target rather than needing an
+          adjustment straight away.
         </Notice>
       ) : null}
 
@@ -197,14 +239,19 @@ function Overview() {
             </SectionTitle>
             <ul className="space-y-4">
               {money.holdings.slice(0, 4).map((h) => {
-                const band = plan.howMoneyIsSpread.find((p) => p.id === h.id)?.allowedRange;
+                const band = plan.howMoneyIsSpread.find(
+                  (p) => p.id === h.id,
+                )?.allowedRange;
                 const outside =
                   band !== undefined &&
-                  (h.sharePercent > band.maxPercent || h.sharePercent < band.minPercent);
+                  (h.sharePercent > band.maxPercent ||
+                    h.sharePercent < band.minPercent);
                 return (
                   <li key={h.id}>
                     <div className="flex items-baseline justify-between gap-3">
-                      <span className="text-[14.5px] font-medium text-ink">{h.name}</span>
+                      <span className="text-[14.5px] font-medium text-ink">
+                        {h.name}
+                      </span>
                       <span className="numeric flex-none text-[14.5px] font-semibold text-ink">
                         {moneyLabel(h.value, 0)}
                         <span className="ml-2 font-normal text-ink-muted">
@@ -246,7 +293,10 @@ function Overview() {
                 label="Most you'd lose"
                 value={percent(plan.rules.comfortableLosingPercent)}
               />
-              <Limit label="Kept available" value={percent(plan.rules.moneyKeptAvailablePercent)} />
+              <Limit
+                label="Kept available"
+                value={percent(plan.rules.moneyKeptAvailablePercent)}
+              />
               <Limit
                 label="Max in one thing"
                 value={percent(plan.rules.maxInOneInvestmentPercent)}
@@ -258,7 +308,9 @@ function Overview() {
             </dl>
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <Badge tone={plan.adjustmentsEnabled ? "ok" : "default"} dot>
-                {plan.adjustmentsEnabled ? "Adjustments on" : "Adjustments paused"}
+                {plan.adjustmentsEnabled
+                  ? "Adjustments on"
+                  : "Adjustments paused"}
               </Badge>
               <Link
                 href="/app/settings"
@@ -278,12 +330,19 @@ function Overview() {
           className="flex items-center justify-between gap-4 rounded-[28px] bg-surface p-6 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
         >
           <div>
-            <div className="text-[16px] font-semibold text-ink">What if something changed?</div>
+            <div className="text-[16px] font-semibold text-ink">
+              What if something changed?
+            </div>
             <p className="mt-1 text-[14px] text-ink-muted">
               Add more, retire earlier, markets fall 20%. Nothing is saved.
             </p>
           </div>
-          <svg aria-hidden viewBox="0 0 20 20" className="h-5 w-5 flex-none text-ink-muted" fill="none">
+          <svg
+            aria-hidden
+            viewBox="0 0 20 20"
+            className="h-5 w-5 flex-none text-ink-muted"
+            fill="none"
+          >
             <path
               d="M7.5 4.5L13 10l-5.5 5.5"
               stroke="currentColor"

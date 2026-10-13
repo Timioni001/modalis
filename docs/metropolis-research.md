@@ -37,13 +37,13 @@ A deployed Kuru adapter is not evidence of a Kuru trade. A receiver contract is 
 
 The public `/api/status` of `modalis-six.vercel.app` was reachable. It reported the core contracts and a healthy RPC, but no Kuru execution, CRE monitoring or Dynamic server wallet. A direct public call to the configured demo oracle confirmed that its price read reverts as stale. Its `maxAge` is 86,400 seconds.
 
-This explains the generic plan-load failure: the original plan reader unnecessarily requested valuations. The rebuilt reader loads approved rules independently, while balances and price-dependent actions fail clearly until the oracle owner refreshes quotes. Run `pnpm prices --refresh --once` with the correct oracle-owner credentials, then keep a controlled refresher running below the expiry interval. This preserves quote values and does not disable the staleness protection.
+This explains the generic plan-load failure: the original plan reader unnecessarily requested valuations. The rebuilt reader loads approved rules independently, while balances and price-dependent actions fail clearly until the oracle owner refreshes quotes. The browser now requests authenticated testnet recovery when an existing configured signer matches the oracle owner, with a daily Vercel cron and a wallet-owner fallback. Public status only reads. Exact mUSD saving/retrieval, payments, goal metadata and manual calculations remain useful when the pricing signer is unavailable. This preserves quote values and does not disable the staleness protection.
 
 ## Submission checklist to confirm in the portal
 
 Check the exact rules in the owner's account: selected track/bounties, deadline timezone, team eligibility, repository visibility and licence, allowed pre-existing work, AI assistance disclosure, video duration/accessibility, testnet/mainnet requirements, and required sponsor-specific proof.
 
-The repository already has MIT licensing and an AI disclosure; the disclosure now also includes OpenAI Codex assistance for this repair. Prepare a public working demo with actual Monad receipts. This environment has not submitted an entry, changed the selected track, or published a deployment.
+The repository already has MIT licensing and an AI disclosure; the disclosure now also includes OpenAI Codex assistance for this repair. Prepare a public working demo with actual Monad receipts. This environment has not submitted an entry or changed the selected track. The user authorized Git pushes to the existing Vercel-connected repository; deployment evidence is recorded in `rebuild-verification.md`.
 
 ## Consumer and payments update
 

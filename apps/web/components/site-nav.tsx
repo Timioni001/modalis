@@ -96,7 +96,7 @@ export function SiteNav() {
   }, [open, mobile]);
 
   return (
-    <header className="sticky top-0 z-40 px-4 pt-4 sm:px-5 sm:pt-5">
+    <header className="relative z-40 shrink-0 px-4 pt-4 sm:px-5 sm:pt-5">
       <div ref={shell} className="relative mx-auto max-w-6xl">
         {/* Links left, mark centred, actions right — the mark is the anchor, not a corner. */}
         <nav

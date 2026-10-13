@@ -6,9 +6,38 @@
  * which is an API concern rather than a domain concept, lives here.
  */
 export type SystemStatus = {
-  network: { name: string; chainId: number; reachable: boolean; blockNumber: string | null };
+  network: {
+    name: string;
+    chainId: number;
+    reachable: boolean;
+    blockNumber: string | null;
+  };
   ready: boolean;
-  prices?: { ready: boolean };
+  prices?: {
+    ready: boolean;
+    recovery?: {
+      enabled: boolean;
+      canRefresh: boolean;
+      owner?: string;
+      reason: string;
+    };
+  };
+  readiness?: "ready" | "limited" | "offline";
+  checkedAt?: string;
+  integrations?: Record<
+    string,
+    {
+      state: "healthy" | "attention" | "configured" | "not_configured" | "demo";
+      label: string;
+      detail: string;
+    }
+  >;
+  features?: {
+    payments: boolean;
+    directSaving?: boolean;
+    circles: boolean;
+    savedGoals: boolean;
+  };
   developmentLocal?: boolean;
   capabilities: {
     canCreatePlan: boolean;
@@ -52,5 +81,13 @@ export const planHealthLabel = (health?: string): string =>
         ? "Off plan"
         : "Unknown";
 
-export const planHealthTone = (health?: string): "ok" | "warn" | "breach" | "default" =>
-  health === "on_plan" ? "ok" : health === "drifting" ? "warn" : health === "off_plan" ? "breach" : "default";
+export const planHealthTone = (
+  health?: string,
+): "ok" | "warn" | "breach" | "default" =>
+  health === "on_plan"
+    ? "ok"
+    : health === "drifting"
+      ? "warn"
+      : health === "off_plan"
+        ? "breach"
+        : "default";

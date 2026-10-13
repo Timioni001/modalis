@@ -10,7 +10,7 @@
  * Deciding here rather than in each page keeps a route from accidentally shipping the wrong one.
  */
 import { usePathname } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useLayoutEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { MotionConfig } from "motion/react";
 import { Toaster } from "sonner";
@@ -41,8 +41,13 @@ export function SiteChrome({ children }: { children: ReactNode }) {
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    document.body.dataset.appShell = inApp && !focused ? "true" : "false";
+    window.scrollTo(0, 0);
     if (inApp && !focused) document.getElementById("main")?.scrollTo(0, 0);
+    return () => {
+      delete document.body.dataset.appShell;
+    };
   }, [pathname, inApp, focused]);
 
   return (

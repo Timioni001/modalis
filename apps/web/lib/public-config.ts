@@ -6,6 +6,7 @@
  * key placed here would be published to every visitor.
  */
 import { chainById } from "@modalis/chain";
+import { demoEnabled } from "./demo-price-policy";
 
 export type PublicConfig = {
   chainId: number;
@@ -17,7 +18,10 @@ export type PublicConfig = {
 };
 
 export function publicConfig(): PublicConfig {
-  const chainId = Number(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID?.trim() || (process.env.MODALIS_NETWORK === "mainnet" ? 143 : 10143));
+  const chainId = Number(
+    process.env.NEXT_PUBLIC_MONAD_CHAIN_ID?.trim() ||
+      (process.env.MODALIS_NETWORK === "mainnet" ? 143 : 10143),
+  );
   // viem already carries Monad's explorer, so requiring the variable only to get a correct URL we
   // already hold would turn every receipt into plain text for no reason. The variable still wins,
   // for a deployment pointed at a private or alternative explorer.
@@ -32,12 +36,15 @@ export function publicConfig(): PublicConfig {
   return {
     chainId,
     networkName:
-      process.env.NEXT_PUBLIC_MONAD_NETWORK_NAME ?? chain?.name ?? "Monad Testnet",
+      process.env.NEXT_PUBLIC_MONAD_NETWORK_NAME ??
+      chain?.name ??
+      "Monad Testnet",
     explorerUrl:
       process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL ||
       chain?.blockExplorers?.default.url ||
       undefined,
-    dynamicEnvironmentId: process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || undefined,
+    dynamicEnvironmentId:
+      process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || undefined,
     // Same reasoning as the explorer: fall back to the chain's own endpoint rather than leaving
     // this empty. It is not cosmetic — the wallet connector is handed this list verbatim, and an
     // empty one leaves it with no endpoint to send a signed transaction to, which surfaced as
@@ -46,6 +53,10 @@ export function publicConfig(): PublicConfig {
       process.env.NEXT_PUBLIC_MONAD_RPC_URL?.trim() ||
       chain?.rpcUrls.default.http[0] ||
       undefined,
-    demoMode: (process.env.NEXT_PUBLIC_DEMO_MODE ?? "false").toLowerCase() === "true",
+    demoMode: demoEnabled({
+      flag: process.env.NEXT_PUBLIC_DEMO_MODE ?? process.env.DEMO_MODE,
+      chainId,
+      oracle: process.env.NEXT_PUBLIC_PRICE_ORACLE_ADDRESS,
+    }),
   };
 }

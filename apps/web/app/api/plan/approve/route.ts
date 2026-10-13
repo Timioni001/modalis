@@ -20,7 +20,14 @@ import {
   upsertUser,
   type Json,
 } from "@modalis/db";
-import { domainContext, jsonResponse, readBody, requireOwner, rateLimit, route } from "@/lib/api";
+import {
+  domainContext,
+  jsonResponse,
+  readBody,
+  requireOwner,
+  rateLimit,
+  route,
+} from "@/lib/api";
 import { errorResponse } from "@/lib/serialize";
 import { receiptReference, text } from "@/lib/validate";
 
@@ -33,10 +40,14 @@ export async function POST(request: Request): Promise<Response> {
     const raw = await readBody(request);
     // Every field validated: these strings end up in the database and in notifications.
     const body = {
-      answers: raw.answers === undefined ? undefined : parseGoalAnswers(raw.answers),
+      answers:
+        raw.answers === undefined ? undefined : parseGoalAnswers(raw.answers),
       goalName: text(raw.goalName, "a goal name", { max: 80 }),
       reason: text(raw.reason, "a reason", { max: 300 }),
-      setTxHash: raw.setTxHash === undefined ? undefined : receiptReference(raw.setTxHash, "the plan receipt"),
+      setTxHash:
+        raw.setTxHash === undefined
+          ? undefined
+          : receiptReference(raw.setTxHash, "the plan receipt"),
     };
 
     const ctx = await domainContext();
@@ -48,11 +59,24 @@ export async function POST(request: Request): Promise<Response> {
         ctx.client.getTransaction({ hash: body.setTxHash as Hex }),
       ]);
       let isPlanAction = false;
-      try { isPlanAction = decodeFunctionData({ abi: PortfolioMandateAbi, data: transaction.input }).functionName === "setMandate"; } catch {}
-      if (receipt.status !== "success" || transaction.from.toLowerCase() !== owner.toLowerCase() ||
-          transaction.to?.toLowerCase() !== ctx.deployment.contracts.portfolioMandate?.toLowerCase() ||
-          !isPlanAction) {
-        return errorResponse("That receipt does not show a successful plan action from your account.", 400);
+      try {
+        isPlanAction =
+          decodeFunctionData({
+            abi: PortfolioMandateAbi,
+            data: transaction.input,
+          }).functionName === "setMandate";
+      } catch {}
+      if (
+        receipt.status !== "success" ||
+        transaction.from.toLowerCase() !== owner.toLowerCase() ||
+        transaction.to?.toLowerCase() !==
+          ctx.deployment.contracts.portfolioMandate?.toLowerCase() ||
+        !isPlanAction
+      ) {
+        return errorResponse(
+          "That receipt does not show a successful plan action from your account.",
+          400,
+        );
       }
       const block = await ctx.client.getBlock({ blockHash: receipt.blockHash });
       approvedAt = new Date(Number(block.timestamp) * 1000).toISOString();
@@ -70,28 +94,42 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
 
-    const user = await upsertUser(db, { walletAddress: owner, chainId: ctx.deployment.chainId });
-    if (!user) return errorResponse("Your plan is live, but we couldn't save your goal.", 207);
+    const user = await upsertUser(db, {
+      walletAddress: owner,
+      chainId: ctx.deployment.chainId,
+    });
+    if (!user)
+      return errorResponse(
+        "Your plan is live, but we couldn't save your goal.",
+        207,
+      );
 
     // A re-approval is a NEW VERSION of the same plan, so it updates the goal that plan was built
     // for. Creating a fresh goal each time would duplicate it in the goal list and split the
     // portfolio between two copies of the same goal.
     const previous = await activeMandate(db, user.id);
+    const preferences = body.answers?.savings ?? plan.goal.savings;
     const fields = {
       type: body.answers?.goalKind ?? plan.goal.kind,
-      initialAmount: body.answers?.startingAmount ?? Number(plan.goal.startingAmount.amount),
+      initialAmount:
+        body.answers?.startingAmount ?? Number(plan.goal.startingAmount.amount),
       name: body.goalName ?? plan.goal.name,
       targetValue: Number(plan.goal.target.amount),
       targetDate: plan.goal.targetDate.slice(0, 10),
-      contributionAmount: body.answers?.contributionAmount ?? Number(plan.goal.contribution.amount.amount),
-      contributionCadence: body.answers?.contributionCadence ?? plan.goal.contribution.cadence,
+      contributionAmount:
+        body.answers?.contributionAmount ??
+        Number(plan.goal.contribution.amount.amount),
+      contributionCadence:
+        body.answers?.contributionCadence ?? plan.goal.contribution.cadence,
       liquidityNeed: body.answers?.moneyKeptAvailable,
-      ...(body.answers?.savings ? {
-        savingsPreferences: {
-          ...body.answers.savings,
-          ...(approvedAt ? { startedAt: approvedAt } : {}),
-        },
-      } : {}),
+      ...(preferences
+        ? {
+            savingsPreferences: {
+              ...preferences,
+              ...(approvedAt ? { startedAt: approvedAt } : {}),
+            },
+          }
+        : {}),
     };
     const goal = previous?.goal_id
       ? ((await updateGoal(db, user.id, previous.goal_id, fields)) ??
@@ -101,13 +139,42 @@ export async function POST(request: Request): Promise<Response> {
           ...fields,
           priority: 1,
         });
-    if (!goal) return jsonResponse({ plan, saved: false, note: "Your plan is live, but your goal details could not be saved. Try again." }, { status: 207 });
+    if (!goal)
+      return jsonResponse(
+        {
+          plan,
+          saved: false,
+          note: "Your plan is live, but your goal details could not be saved. Try again.",
+        },
+        { status: 207 },
+      );
     const rules = await readPlanState(ctx.client, ctx.deployment, owner);
     const reason =
-      body.reason ?? (previous ? `You changed your plan (version ${plan.version}).` : "You approved your first plan.");
+      body.reason ??
+      (previous
+        ? `You changed your plan (version ${plan.version}).`
+        : "You approved your first plan.");
 
     if (body.answers) {
-      await saveInterview(db, { userId: user.id, goalId: goal?.id, answers: body.answers as unknown as Json });
+      const saved = await saveInterview(db, {
+        userId: user.id,
+        goalId: goal?.id,
+        answers: {
+          ...body.answers,
+          ...(fields.savingsPreferences
+            ? { savings: fields.savingsPreferences }
+            : {}),
+        } as unknown as Json,
+      });
+      if (!saved)
+        return jsonResponse(
+          {
+            plan,
+            saved: false,
+            note: "Your plan is live, but your personal details could not be saved. Try saving them again.",
+          },
+          { status: 207 },
+        );
     }
 
     await recordMandate(db, {

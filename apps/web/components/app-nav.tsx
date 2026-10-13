@@ -120,7 +120,7 @@ export function AppNav() {
       </aside>
 
       <header
-        className="sticky top-0 z-40 px-4 pt-4 lg:hidden"
+        className="relative z-40 shrink-0 px-4 pt-4 pb-2 lg:hidden"
         data-testid="app-header"
       >
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 rounded-full bg-surface/95 px-4 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">

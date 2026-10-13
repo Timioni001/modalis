@@ -20,22 +20,36 @@ const usd = (e18: bigint) =>
 const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 1)}%`;
 
 export function StressTest() {
-  const { address, status } = usePortfolio();
+  const { address, status, money } = usePortfolio();
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const { chainId, rpcUrl } = useWalletConfig();
   const [state, setState] = useState<PortfolioState | null>(null);
   const [drop, setDrop] = useState(3_000);
 
   const contracts = status?.technical?.contracts;
   useEffect(() => {
-    if (!address || !contracts?.portfolioMandate) return;
+    let alive = true;
+    setState(null);
+    setLoadedFor(null);
+    if (!money || !address || !contracts?.portfolioMandate) return;
     readPortfolio(
       browserClient(chainId, rpcUrl),
       { chainId, contracts: contracts as Record<string, Address>, tokens: {} },
       address as Address,
     )
-      .then(setState)
-      .catch(() => setState(null));
-  }, [address, contracts, chainId, rpcUrl]);
+      .then((next) => {
+        if (alive) {
+          setState(next);
+          setLoadedFor(address);
+        }
+      })
+      .catch(() => {
+        if (alive) setState(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [address, contracts, chainId, rpcUrl, money]);
 
   const result = useMemo(
     () =>
@@ -45,7 +59,7 @@ export function StressTest() {
     [state, drop],
   );
 
-  if (!result || !state) return null;
+  if (!money || loadedFor !== address || !result || !state) return null;
 
   return (
     <Card>
@@ -60,7 +74,9 @@ export function StressTest() {
             aria-pressed={drop === d}
             onClick={() => setDrop(d)}
             className={`min-h-[42px] rounded-full px-4 text-[14px] font-semibold transition-colors ${
-              drop === d ? "bg-panel text-panel-ink" : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
+              drop === d
+                ? "bg-panel text-panel-ink"
+                : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
             }`}
           >
             {pct(d)} drop
@@ -68,9 +84,14 @@ export function StressTest() {
         ))}
       </div>
 
-      <p className="mt-5 text-[17px] leading-relaxed text-ink" aria-live="polite">
-        Your plan would fall from <strong className="numeric">{usd(result.beforeE18)}</strong> to{" "}
-        <strong className="numeric">{usd(result.afterE18)}</strong>, a fall of {pct(result.planFallBps)}.{" "}
+      <p
+        className="mt-5 text-[17px] leading-relaxed text-ink"
+        aria-live="polite"
+      >
+        Your plan would fall from{" "}
+        <strong className="numeric">{usd(result.beforeE18)}</strong> to{" "}
+        <strong className="numeric">{usd(result.afterE18)}</strong>, a fall of{" "}
+        {pct(result.planFallBps)}.{" "}
         {result.pastDrawdownLimit
           ? `That's more than the ${pct(state.mandate.maxDrawdownBps)} you said you could live with.`
           : `That's within the ${pct(state.mandate.maxDrawdownBps)} you said you could live with.`}
@@ -82,27 +103,33 @@ export function StressTest() {
           <Notice tone="warn" title="Modalis would suggest an adjustment">
             {result.outsideRange.map((p) => (
               <p key={p.symbol}>
-                {p.symbol} would be {pct(p.afterBps)} of your plan; its range is {pct(p.minBps)} to {pct(p.maxBps)}.
+                {p.symbol} would be {pct(p.afterBps)} of your plan; its range is{" "}
+                {pct(p.minBps)} to {pct(p.maxBps)}.
               </p>
             ))}
             {result.belowLiquidityFloor ? (
-              <p>Money kept available would drop below your {pct(state.mandate.minLiquidityBps)} floor.</p>
+              <p>
+                Money kept available would drop below your{" "}
+                {pct(state.mandate.minLiquidityBps)} floor.
+              </p>
             ) : null}
             <p className="mt-1">
-              Any adjustment still has to pass your plan&rsquo;s limits in the contract.
+              Any adjustment still has to pass your plan&rsquo;s limits in the
+              contract.
               <Explain term="adjustment" />
             </p>
           </Notice>
         ) : (
           <Notice tone="ok" title="Everything stays inside its range">
-            Your plan would hold its shape; Modalis wouldn&rsquo;t need to change anything.
+            Your plan would hold its shape; Modalis wouldn&rsquo;t need to
+            change anything.
           </Notice>
         )}
       </div>
 
       <p className="mt-4 text-xs text-ink-muted">
-        Assumes everything except money kept available falls by {pct(drop)} at once, and nothing
-        recovers. A blunt test, not a forecast.
+        Assumes everything except money kept available falls by {pct(drop)} at
+        once, and nothing recovers. A blunt test, not a forecast.
       </p>
     </Card>
   );

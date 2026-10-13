@@ -62,27 +62,37 @@ const DOT: Record<string, string> = {
 };
 
 function Goals() {
-  const { refresh } = usePortfolio();
+  const { refresh, address, status } = usePortfolio();
   const [view, setView] = useState<GoalsView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setError(null);
     try {
-      setView(await apiGet<GoalsView>("/api/goals"));
+      const next = await apiGet<GoalsView>("/api/goals", signal);
+      if (!signal?.aborted) setView(next);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "We couldn't load your goals.");
+      if (signal?.aborted) return;
+      setError(
+        err instanceof ApiError ? err.message : "We couldn't load your goals.",
+      );
     }
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    const controller = new AbortController();
+    setView(null);
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load, address, status?.prices?.ready]);
 
   async function move(index: number, by: -1 | 1) {
     if (!view) return;
-    const ids = view.goals.map((g) => g.id);
+    const ids = (
+      view.valuationAvailable === false ? (view.definitions ?? []) : view.goals
+    ).map((g) => g.id);
     const to = index + by;
     if (to < 0 || to >= ids.length) return;
     [ids[index], ids[to]] = [ids[to], ids[index]];
@@ -91,13 +101,28 @@ function Goals() {
       setView(await apiPost<GoalsView>("/api/goals/order", { order: ids }));
       await refresh();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "We couldn't change the order.");
+      toast.error(
+        err instanceof ApiError ? err.message : "We couldn't change the order.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  if (error) return <Notice tone="warn">{error}</Notice>;
+  if (error)
+    return (
+      <Notice
+        tone="warn"
+        title="Saved goals are temporarily unavailable"
+        action={
+          <Button variant="secondary" onClick={() => void load()}>
+            Try again
+          </Button>
+        }
+      >
+        {error}
+      </Notice>
+    );
   if (!view) return <Skeleton className="h-72" />;
 
   return (
@@ -107,7 +132,10 @@ function Goals() {
         lede="Your money fills them in this order: the first is funded to its target before the next receives anything."
         action={
           view.canManage ? (
-            <Button onClick={() => setAdding((v) => !v)} variant={adding ? "secondary" : "primary"}>
+            <Button
+              onClick={() => setAdding((v) => !v)}
+              variant={adding ? "secondary" : "primary"}
+            >
               {adding ? "Close" : "Add a goal"}
             </Button>
           ) : undefined
@@ -116,15 +144,81 @@ function Goals() {
 
       {!view.canManage ? (
         <Notice tone="default" title="Only your plan's goal can be shown here">
-          Extra goals are saved in a database, which isn&rsquo;t set up on this deployment.
+          Extra goals are saved in a database, which isn&rsquo;t set up on this
+          deployment.
         </Notice>
       ) : null}
 
-      <AnimatePresence>{adding ? <AddGoal onDone={async (v) => { setView(v); setAdding(false); await refresh(); }} /> : null}</AnimatePresence>
+      <AnimatePresence>
+        {adding ? (
+          <AddGoal
+            onDone={async (v) => {
+              setView(v);
+              setAdding(false);
+              await refresh();
+            }}
+          />
+        ) : null}
+      </AnimatePresence>
+      {view.valuationAvailable === false ? (
+        <Card className="border border-line shadow-none">
+          <SectionTitle>Saved goals, ready to manage</SectionTitle>
+          <p className="text-sm text-ink-soft">
+            Your goals and funding order are available. Current values and
+            progress return when portfolio prices are refreshed.
+          </p>
+        </Card>
+      ) : null}
+      {view.definitions?.length ? (
+        <ol className="space-y-3">
+          {view.definitions.map((goal, index, all) => (
+            <motion.li
+              key={goal.id}
+              layout
+              className="rounded-3xl bg-surface p-5 shadow-[var(--shadow-card)]"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-panel text-sm font-semibold text-panel-ink">
+                  {goal.priority}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-semibold">{goal.name}</h2>
+                  <p className="mt-2 text-sm text-ink-soft">
+                    Target {moneyLabel(goal.target, 0)} ·{" "}
+                    {monthYear(goal.targetDate)}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    Planned monthly contribution {moneyLabel(goal.monthly)}
+                  </p>
+                </div>
+                {view.canManage && all.length > 1 ? (
+                  <div className="flex shrink-0 flex-col">
+                    <MoveButton
+                      label={`Fund ${goal.name} sooner`}
+                      up
+                      disabled={busy || index === 0}
+                      onClick={() => void move(index, -1)}
+                    />
+                    <MoveButton
+                      label={`Fund ${goal.name} later`}
+                      disabled={busy || index === all.length - 1}
+                      onClick={() => void move(index, 1)}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </motion.li>
+          ))}
+        </ol>
+      ) : null}
 
       <ol className="space-y-3">
         {view.goals.map((g, i) => (
-          <motion.li key={g.id} layout transition={{ type: "spring", stiffness: 380, damping: 34 }}>
+          <motion.li
+            key={g.id}
+            layout
+            transition={{ type: "spring", stiffness: 380, damping: 34 }}
+          >
             <GoalRowCard
               goal={g}
               isPlanGoal={g.id === view.planGoalId}
@@ -138,17 +232,23 @@ function Goals() {
         ))}
       </ol>
 
-      {Number(view.surplus.amount) > 0 ? (
+      {view.surplus && Number(view.surplus.amount) > 0 ? (
         <Card className="flex items-center justify-between gap-4">
           <div>
-            <div className="text-[15px] font-semibold text-ink">Beyond every goal</div>
-            <p className="mt-0.5 text-[13.5px] text-ink-muted">Yours, not counted toward any goal.</p>
+            <div className="text-[15px] font-semibold text-ink">
+              Beyond every goal
+            </div>
+            <p className="mt-0.5 text-[13.5px] text-ink-muted">
+              Yours, not counted toward any goal.
+            </p>
           </div>
-          <div className="numeric text-[20px] font-semibold text-ink">{moneyLabel(view.surplus)}</div>
+          <div className="numeric text-[20px] font-semibold text-ink">
+            {moneyLabel(view.surplus)}
+          </div>
         </Card>
       ) : null}
 
-      <WhereWouldItGo />
+      {view.valuationAvailable !== false ? <WhereWouldItGo /> : null}
     </div>
   );
 }
@@ -168,7 +268,11 @@ function GiftLink({ name }: { name: string }) {
     }
   }
   return (
-    <button type="button" onClick={copy} className="mt-2 text-[13px] font-semibold text-ink underline underline-offset-4">
+    <button
+      type="button"
+      onClick={copy}
+      className="mt-2 text-[13px] font-semibold text-ink underline underline-offset-4"
+    >
       {copied ? "Gift link copied" : "Copy a gift link for family and friends"}
     </button>
   );
@@ -200,8 +304,17 @@ function GoalRowCard({
         </span>
         {canMove ? (
           <div className="mt-1 flex flex-col">
-            <MoveButton label={`Fund ${goal.name} sooner`} disabled={first} onClick={onUp} up />
-            <MoveButton label={`Fund ${goal.name} later`} disabled={last} onClick={onDown} />
+            <MoveButton
+              label={`Fund ${goal.name} sooner`}
+              disabled={first}
+              onClick={onUp}
+              up
+            />
+            <MoveButton
+              label={`Fund ${goal.name} later`}
+              disabled={last}
+              onClick={onDown}
+            />
           </div>
         ) : null}
       </div>
@@ -210,30 +323,59 @@ function GoalRowCard({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h2 className="text-[17px] font-semibold text-ink">{goal.name}</h2>
           {isPlanGoal ? (
-            <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-ink">Your plan&rsquo;s goal</span>
+            <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-ink">
+              Your plan&rsquo;s goal
+            </span>
           ) : null}
           <span className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-muted">
-            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${DOT[goal.health] ?? "bg-ink-muted"}`} />
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 rounded-full ${DOT[goal.health] ?? "bg-ink-muted"}`}
+            />
             {goal.healthLabel}
           </span>
         </div>
 
         <div className="mt-3 flex items-baseline justify-between gap-3">
-          <span className="numeric text-[22px] font-semibold text-ink">{moneyLabel(goal.saved, 0)}</span>
+          <span className="numeric text-[22px] font-semibold text-ink">
+            {moneyLabel(goal.saved, 0)}
+          </span>
           <span className="numeric text-[13px] text-ink-muted">
             of {moneyLabel(goal.target, 0)} · {monthYear(goal.targetDate)}
           </span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`${goal.name}: ${Math.round(pct)}% funded`}>
-          <motion.div className="h-full rounded-full bg-ink" initial={false} animate={{ width: `${pct}%` }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} />
+        <div
+          className="mt-2 h-2 overflow-hidden rounded-full bg-line"
+          role="progressbar"
+          aria-valuenow={Math.round(pct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${goal.name}: ${Math.round(pct)}% funded`}
+        >
+          <motion.div
+            className="h-full rounded-full bg-ink"
+            initial={false}
+            animate={{ width: `${pct}%` }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          />
         </div>
-        <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">{goal.summary}</p>
+        <p className="mt-3 text-[14px] leading-relaxed text-ink-soft">
+          {goal.summary}
+        </p>
         <GiftLink name={goal.name} />
         {goal.monthsRemaining >= 12 ? (
           <p className="mt-1.5 text-[13px] text-ink-muted">
-            To keep its value at {Math.round(INFLATION * 100)}% yearly inflation, aim for about{" "}
+            To keep its value at {Math.round(INFLATION * 100)}% yearly
+            inflation, aim for about{" "}
             <span className="numeric">
-              ${Math.round(inflatedTarget(Number(goal.target.amount), goal.monthsRemaining, INFLATION)).toLocaleString("en-US")}
+              $
+              {Math.round(
+                inflatedTarget(
+                  Number(goal.target.amount),
+                  goal.monthsRemaining,
+                  INFLATION,
+                ),
+              ).toLocaleString("en-US")}
             </span>{" "}
             by {monthYear(goal.targetDate)}.
           </p>
@@ -243,7 +385,17 @@ function GoalRowCard({
   );
 }
 
-function MoveButton({ label, disabled, onClick, up = false }: { label: string; disabled: boolean; onClick: () => void; up?: boolean }) {
+function MoveButton({
+  label,
+  disabled,
+  onClick,
+  up = false,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  up?: boolean;
+}) {
   return (
     <button
       type="button"
@@ -252,8 +404,19 @@ function MoveButton({ label, disabled, onClick, up = false }: { label: string; d
       onClick={onClick}
       className="flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-sunken hover:text-ink disabled:opacity-25 disabled:hover:bg-transparent"
     >
-      <svg aria-hidden viewBox="0 0 16 16" className={`h-4 w-4 ${up ? "" : "rotate-180"}`} fill="none">
-        <path d="M4 10l4-4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <svg
+        aria-hidden
+        viewBox="0 0 16 16"
+        className={`h-4 w-4 ${up ? "" : "rotate-180"}`}
+        fill="none"
+      >
+        <path
+          d="M4 10l4-4 4 4"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     </button>
   );
@@ -269,7 +432,9 @@ function AddGoal({ onDone }: { onDone: (v: GoalsView) => void }) {
     return d.toISOString().slice(0, 10);
   });
   const [monthly, setMonthly] = useState(150);
-  const [liquidity, setLiquidity] = useState<"none" | "some" | "significant">("some");
+  const [liquidity, setLiquidity] = useState<"none" | "some" | "significant">(
+    "some",
+  );
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -286,17 +451,26 @@ function AddGoal({ onDone }: { onDone: (v: GoalsView) => void }) {
         contributionCadence: "monthly",
         liquidityNeed: liquidity,
       });
-      toast.success(`${name} added. It's funded after your other goals until you move it up.`);
+      toast.success(
+        `${name} added. It's funded after your other goals until you move it up.`,
+      );
       onDone(v);
     } catch (err) {
-      setProblem(err instanceof ApiError ? err.message : "We couldn't add that goal.");
+      setProblem(
+        err instanceof ApiError ? err.message : "We couldn't add that goal.",
+      );
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2 }}
+    >
       <Card>
         <SectionTitle>A new goal</SectionTitle>
         <div className="grid gap-5 sm:grid-cols-2">
@@ -306,26 +480,51 @@ function AddGoal({ onDone }: { onDone: (v: GoalsView) => void }) {
               value={kind}
               onChange={(e) => {
                 setKind(e.target.value);
-                const label = KIND_OPTIONS.find((k) => k.value === e.target.value)?.label;
+                const label = KIND_OPTIONS.find(
+                  (k) => k.value === e.target.value,
+                )?.label;
                 if (label && label !== "Something else") setName(label);
               }}
             >
               {KIND_OPTIONS.map((k) => (
-                <option key={k.value} value={k.value}>{k.label}</option>
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
               ))}
             </SelectField>
           </Field>
           <Field label="Call it" htmlFor="name">
-            <TextField id="name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
+            <TextField
+              id="name"
+              value={name}
+              maxLength={80}
+              onChange={(e) => setName(e.target.value)}
+            />
           </Field>
           <Field label="How much?" htmlFor="target">
-            <MoneyField id="target" value={target} min={100} max={100_000_000} onChange={setTarget} />
+            <MoneyField
+              id="target"
+              value={target}
+              min={100}
+              max={100_000_000}
+              onChange={setTarget}
+            />
           </Field>
           <Field label="By when?" htmlFor="date">
-            <TextField id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <TextField
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
           </Field>
           <Field label="What you'll add each month" htmlFor="monthly">
-            <MoneyField id="monthly" value={monthly} max={1_000_000} onChange={setMonthly} />
+            <MoneyField
+              id="monthly"
+              value={monthly}
+              max={1_000_000}
+              onChange={setMonthly}
+            />
           </Field>
           <Field label="How reachable must it stay?" htmlFor="liq">
             <Choices
@@ -340,9 +539,18 @@ function AddGoal({ onDone }: { onDone: (v: GoalsView) => void }) {
             />
           </Field>
         </div>
-        {problem ? <div className="mt-4"><Notice tone="warn">{problem}</Notice></div> : null}
+        {problem ? (
+          <div className="mt-4">
+            <Notice tone="warn">{problem}</Notice>
+          </div>
+        ) : null}
         <div className="mt-6 flex gap-3">
-          <Button onClick={save} busy={saving} busyLabel="Saving…" disabled={!name.trim() || target <= 0}>
+          <Button
+            onClick={save}
+            busy={saving}
+            busyLabel="Saving…"
+            disabled={!name.trim() || target <= 0}
+          >
             Add this goal
           </Button>
         </div>
@@ -361,7 +569,9 @@ function WhereWouldItGo() {
     let alive = true;
     setLoading(true);
     const t = setTimeout(() => {
-      apiPost<{ destinations: { sentence: string }[] }>("/api/goals/preview", { amount: String(amount) })
+      apiPost<{ destinations: { sentence: string }[] }>("/api/goals/preview", {
+        amount: String(amount),
+      })
         .then((d) => alive && setLines(d.destinations))
         .catch(() => alive && setLines(null))
         .finally(() => alive && setLoading(false));
@@ -374,15 +584,30 @@ function WhereWouldItGo() {
 
   return (
     <Card>
-      <SectionTitle hint="Nothing is added — this only shows where it would go.">If you added</SectionTitle>
+      <SectionTitle hint="Nothing is added — this only shows where it would go.">
+        If you added
+      </SectionTitle>
       <div className="max-w-xs">
-        <MoneyField id="preview" value={amount} max={100_000_000} onChange={setAmount} />
+        <MoneyField
+          id="preview"
+          value={amount}
+          max={100_000_000}
+          onChange={setAmount}
+        />
       </div>
       <ul className="mt-4 space-y-2" aria-live="polite">
-        {loading && !lines ? <li className="text-[14px] text-ink-muted">Working it out…</li> : null}
+        {loading && !lines ? (
+          <li className="text-[14px] text-ink-muted">Working it out…</li>
+        ) : null}
         {lines?.map((l) => (
-          <li key={l.sentence} className="flex items-center gap-2.5 text-[15px] text-ink">
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-ink" />
+          <li
+            key={l.sentence}
+            className="flex items-center gap-2.5 text-[15px] text-ink"
+          >
+            <span
+              aria-hidden
+              className="h-1.5 w-1.5 rounded-full bg-accent-ink"
+            />
             {l.sentence}
           </li>
         ))}

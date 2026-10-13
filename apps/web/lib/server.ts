@@ -25,6 +25,7 @@ import {
 } from "@modalis/chain";
 import { getAgentWallet } from "@modalis/chain/agent";
 import type { PublicClient, WalletClient } from "viem";
+import { demoEnabled } from "./demo-price-policy";
 
 export type ServerContext = {
   rpc: RpcConfig;
@@ -45,7 +46,11 @@ function loadDeployment(chainId: number): Deployment {
   if (isFullyDeployed(fromEnv)) return fromEnv;
 
   try {
-    const path = resolve(process.cwd(), "../../contracts/deployments", `${chainId}.json`);
+    const path = resolve(
+      process.cwd(),
+      "../../contracts/deployments",
+      `${chainId}.json`,
+    );
     const fromFile = deploymentFromJson(JSON.parse(readFileSync(path, "utf8")));
     // Env still wins for anything it specifies.
     return {
@@ -72,16 +77,35 @@ export async function getServerContext(): Promise<ServerContext> {
   // Multicall3 returns empty data rather than an error. Probe once.
   const probe = createMonadPublicClient({ ...rpc, multicall: false });
   const multicall = await hasMulticall3(probe).catch(() => false);
-  const client = multicall ? createMonadPublicClient({ ...rpc, multicall: true }) : probe;
+  const client = multicall
+    ? createMonadPublicClient({ ...rpc, multicall: true })
+    : probe;
 
   const deployment = loadDeployment(rpc.chainId);
   const actualChainId = await client.getChainId();
-  if (actualChainId !== rpc.chainId) throw new Error("The configured RPC points to a different network.");
-  const core = ["assetRegistry", "portfolioMandate", "portfolioVault", "rebalanceExecutor"] as const;
+  if (actualChainId !== rpc.chainId)
+    throw new Error("The configured RPC points to a different network.");
+  const core = [
+    "assetRegistry",
+    "portfolioMandate",
+    "portfolioVault",
+    "rebalanceExecutor",
+  ] as const;
   const codes = isFullyDeployed(deployment)
-    ? await Promise.all(core.map((key) => client.getCode({ address: deployment.contracts[key]! })))
+    ? await Promise.all(
+        core.map((key) =>
+          client.getCode({ address: deployment.contracts[key]! }),
+        ),
+      )
     : [];
-  cached = { rpc, deployment, client, deployed: codes.length === core.length && codes.every((code) => code && code !== "0x") };
+  cached = {
+    rpc,
+    deployment,
+    client,
+    deployed:
+      codes.length === core.length &&
+      codes.every((code) => code && code !== "0x"),
+  };
   return cached;
 }
 
@@ -90,22 +114,39 @@ export async function getServerContext(): Promise<ServerContext> {
  * wallet when DYNAMIC_AGENT_WALLET is set, the MANAGER_PRIVATE_KEY otherwise. The risk monitor
  * builds the same one, so both sign as the single manager each mandate allows.
  */
-export async function getManagerWallet(rpc: RpcConfig): Promise<WalletClient | null> {
+export async function getManagerWallet(
+  rpc: RpcConfig,
+): Promise<WalletClient | null> {
   return (await getAgentWallet(rpc))?.wallet ?? null;
 }
 
 /** The demo oracle updater, used only by the scenario engine. Never present on mainnet. */
 export function getOracleWallet(rpc: RpcConfig): WalletClient | null {
-  const key = process.env.ORACLE_UPDATER_PRIVATE_KEY ?? process.env.DEPLOYER_PRIVATE_KEY;
+  const key =
+    process.env.ORACLE_UPDATER_PRIVATE_KEY ?? process.env.DEPLOYER_PRIVATE_KEY;
   if (!key) return null;
   if (rpc.chainId === 143) return null; // the scenario engine is never available on mainnet
   return createManagerWalletClient(rpc, key);
 }
 
 export function isDemoMode(): boolean {
-  return (process.env.DEMO_MODE ?? "false").toLowerCase() === "true";
+  return demoEnabled({
+    flag: process.env.DEMO_MODE,
+    chainId: cached?.deployment.chainId ?? rpcConfigFromEnv().chainId,
+    oracle:
+      cached?.deployment.contracts.priceOracle ??
+      process.env.NEXT_PUBLIC_PRICE_ORACLE_ADDRESS,
+  });
 }
 
-export function aiConfig(): { apiKey?: string; model?: string; baseUrl?: string } {
-  return { apiKey: process.env.AI_API_KEY, model: process.env.AI_MODEL, baseUrl: process.env.AI_BASE_URL || undefined };
+export function aiConfig(): {
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
+} {
+  return {
+    apiKey: process.env.AI_API_KEY,
+    model: process.env.AI_MODEL,
+    baseUrl: process.env.AI_BASE_URL || undefined,
+  };
 }

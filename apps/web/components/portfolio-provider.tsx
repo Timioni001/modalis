@@ -9,10 +9,24 @@
  * Everything is read live on each refresh. A stale balance in a money product is worse than a
  * spinner, so nothing here is cached as truth.
  */
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useWallet } from "./wallet-context";
-import { ApiError, apiGet } from "@/lib/client-api";
-import type { Adjustment, GoalView, MoneyView, Plan, Progress } from "@modalis/domain";
+import { ApiError, apiGet, apiPost } from "@/lib/client-api";
+import type {
+  Adjustment,
+  GoalView,
+  MoneyView,
+  Plan,
+  Progress,
+} from "@modalis/domain";
 import type { SystemStatus } from "@/lib/api-types";
 
 type PlanStatusView = {
@@ -74,9 +88,15 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const activeRequest = useRef<AbortController | null>(null);
+  const recoveryAttempts = useRef(new Set<string>());
   const clearPlan = useCallback(() => {
-    setPlan(null); setGoal(null); setMoney(null); setProgress(null);
-    setPlanStatus(null); setAdjustment(null); setNeedsPlan(false);
+    setPlan(null);
+    setGoal(null);
+    setMoney(null);
+    setProgress(null);
+    setPlanStatus(null);
+    setAdjustment(null);
+    setNeedsPlan(false);
   }, []);
   const refresh = useCallback(async () => {
     activeRequest.current?.abort();
@@ -86,8 +106,9 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setLoadedFor(address);
     setError(null);
+    let currentStatus: SystemStatus;
     try {
-      const currentStatus = await apiGet<SystemStatus>("/api/status", signal);
+      currentStatus = await apiGet<SystemStatus>("/api/status?fresh=1", signal);
       if (signal.aborted) return;
       setStatus(currentStatus);
     } catch {
@@ -116,6 +137,18 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       setLoadedFor(address);
       setPlan(live);
       setNeedsPlan(false);
+      const key = `${address}:${Math.floor(Date.now() / 60_000)}`;
+      if (
+        currentStatus.prices?.ready === false &&
+        currentStatus.prices.recovery?.canRefresh &&
+        !recoveryAttempts.current.has(key)
+      ) {
+        recoveryAttempts.current.clear();
+        recoveryAttempts.current.add(key);
+        await apiPost("/api/demo/prices", {}).catch(() => undefined);
+        if (signal.aborted) return;
+        setStatus(await apiGet<SystemStatus>("/api/status?fresh=1", signal));
+      }
     } catch (err) {
       if (signal.aborted) return;
       setLoadedFor(address);
@@ -151,10 +184,19 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     setPlanStatus(s.status === "fulfilled" ? s.value : null);
     setAdjustment(a.status === "fulfilled" ? a.value.adjustment : null);
     setGoal(g.status === "fulfilled" ? g.value : null);
-    const failed = [m, p, s, a, g].filter((result) => result.status === "rejected");
+    const failed = [m, p, s, a, g].filter(
+      (result) => result.status === "rejected",
+    );
     if (failed.length) {
-      const first = failed.find((result) => result.status === "rejected" && result.reason instanceof ApiError);
-      setError(first?.status === "rejected" ? first.reason.message : "Some current figures couldn't be loaded. Try refreshing before taking action.");
+      const first = failed.find(
+        (result) =>
+          result.status === "rejected" && result.reason instanceof ApiError,
+      );
+      setError(
+        first?.status === "rejected"
+          ? first.reason.message
+          : "Some current figures couldn't be loaded. Try refreshing before taking action.",
+      );
     }
 
     setLoading(false);
