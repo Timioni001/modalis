@@ -48,6 +48,8 @@ them, and the only place where one becomes the other — see
 bash scripts/setup.sh        # Node 22+, pnpm, Foundry, deps, ABIs  (Ubuntu / WSL2)
 bash scripts/verify.sh       # everything verifiable offline
 bash scripts/demo-local.sh   # the complete loop on a real local chain
+# In a second terminal, leave the chain running:
+bash scripts/dev-local.sh    # functional browser app, no hosted keys required
 ```
 
 `scripts/demo-local.sh` runs eleven steps end to end and writes a report with real transaction
@@ -65,6 +67,14 @@ To deploy to Monad testnet, fill in `.env` and:
 pnpm contracts:deploy:testnet
 ```
 
+## Demo and payments
+
+The primary track is **Consumer Products & Payments**, with policy-checked finance as a secondary fit. “Try the demo” opens `/demo`: an account-free interactive preview with clearly labelled sample data. Wallet sign-in loads only when entering the actual testnet flow.
+
+`/app/payments` supports sending demo dollars, generating and sharing payment-request links, and opening contract-backed savings circles. Requests specify the recipient, mUSD amount and Monad testnet network, then open a review screen. A link confers no authorization: only the sender's approved transaction transfers tokens. mUSD is valueless test money.
+
+The phone header and dock collapse into labelled, keyboard-accessible sheets. The app reserves viewport space for its dock, so form fields and legal links remain above it. Optional destinations follow deployment capabilities. Motion honours reduced-motion preferences.
+
 ## Verification status
 
 Stated precisely, because a hackathon README is exactly where overclaiming happens. **Verified by
@@ -74,8 +84,8 @@ execution** means a command in this repository runs it and it passes.
 
 | | |
 |---|---|
-| **47 contract tests pass** | mandate enforcement, access control, replay, slippage, pause, emergency exit, Kuru adapter, CRE report decoding |
-| **124 TypeScript tests pass** | portfolio engine (9), venue selection (6), intelligence layer (23), chain clients (10), persistence degradation (7), authentication (22), domain and funding (38), API ownership audit (9) |
+| **54 contract tests pass** | mandate enforcement, access control, replay, slippage, pause, emergency exit, Kuru adapter, CRE report decoding |
+| **291 package and web tests pass** | portfolio (9), execution (6), intelligence (32), chain (26), persistence (7), authentication (28), domain (124), web (59); plus 5 monitor tests, 3 CRE tests, 3 database integration tests and 6 browser flows |
 | **Sign-in is verified against real signatures** | tokens signed with a real key pair and verified through the real JWKS path; a token signed by the wrong key, expired, unsigned or issued for another deployment is refused |
 | **No route can act on an account the caller does not own** | a static audit over every route in the app: the acting account comes from a verified session, never from a body, path or query string |
 | **No protocol vocabulary reaches a person** | every user-facing sentence in the domain layer is swept for it, and the guard is tested against a planted leak |
@@ -93,15 +103,13 @@ execution** means a command in this repository runs it and it passes.
 Each needs a credential or network access the build environment did not have. None is claimed as
 working in the UI — `/api/status` reports the real state and the landing page renders it.
 
-- **Monad testnet/mainnet deployment.** The deploy script is verified against a real EVM node, and
-  Monad testnet's public RPC is reachable from this environment (`eth_chainId` → `0x279f`), so the
-  only thing missing is a funded key. One command once you have one.
+- **Hosted Monad operation.** An existing testnet deployment and RPC were checked publicly during this repair. Its demo oracle quotes were expired; live balances and trading need the oracle owner to refresh them. This session has not deployed or verified a mainnet system.
 - **Dynamic server wallet.** Needs `DYNAMIC_API_TOKEN` and `pnpm agent:create`
   ([docs/dynamic.md](docs/dynamic.md)). Without them the manager key signs adjustments instead.
 - **Kuru.** The adapter is tested through the full execution path against a mock router built from
   the real ABI, but not against live markets.
 - **Chainlink CRE.** Needs the CRE CLI and `cre login` to simulate or deploy.
-- **Envio.** `envio codegen` needs Docker and Postgres.
+- **Envio hosting.** CLI codegen, generated handler types and config validation pass. Hosted syncing and a live GraphQL endpoint still require service configuration.
 - **Alchemy.** Needs an API key; falls back to the chain's public RPC.
 - **The AI layer.** Needs `AI_API_KEY`. Without it the deterministic pipeline runs and the product
   works end to end — the LLM only reads free-text goals and writes prose.
@@ -141,7 +149,7 @@ Details, setup and the code paths: [docs/dynamic.md](docs/dynamic.md). A two-min
 
 ## How Modalis uses Envio
 
-A hosted Envio indexer reads every Modalis event from Monad: plans and their versions, deposits,
+A hosted Envio indexer reads Modalis portfolio and plan events from Monad: plans and their versions, deposits,
 withdrawals, settled adjustments and risk signals. When `ENVIO_GRAPHQL_URL` is set, the Activity
 page and `/stats` read from it and say "Indexed by Envio"; if it doesn't answer, both fall back to
 reading the chain directly.
@@ -185,7 +193,7 @@ shapes, so no user interface ever has to know what a mandate or a basis point is
 keeps its own precise names — `PortfolioMandate`, `PortfolioVault`, `RebalanceExecutor` — because
 down there they are correct.
 
-Full detail in [`docs/architecture.md`](docs/architecture.md).
+Full detail in [`docs/architecture.md`](docs/architecture.md). The repair architecture, consumer-track fit and verification notes are in [`docs/rebuild-architecture.md`](docs/rebuild-architecture.md), [`docs/metropolis-research.md`](docs/metropolis-research.md) and [`docs/rebuild-verification.md`](docs/rebuild-verification.md).
 
 ## Security model
 
@@ -261,7 +269,7 @@ verifies them and regenerates that list.
 
 ## How this was built
 
-Written with AI assistance (Anthropic's Claude, through Claude Code), disclosed here because the
+Written with AI assistance (Anthropic's Claude, through Claude Code, and OpenAI Codex for this functional repair), disclosed here because the
 hackathon rules ask for it. Every design decision, every security boundary and every line was
 reviewed before it landed. The guarantees the product claims are not taken on trust: they are
 enforced by the Solidity contracts and proved by the test suites listed under
@@ -278,3 +286,10 @@ pooled investment vehicle. Nothing here is financial advice, no return is promis
 no figure shown is a projection of future performance. Demo tokens exist only on test networks and
 are not real investment assets. There has been no security audit — do not put meaningful funds
 behind this.
+
+
+### Custom contribution and retrieval details
+
+Open **Your limits → Custom savings details** during onboarding, or **Your plan → Edit savings preferences** after saving the approved goal. Choose a minimum per complete contribution ($0–$100,000, including cents), a personal retrieval waiting period (0–3,650 days after plan approval), and optional notes. An undersized contribution is refused by the funding planner before any signature. Withdrawal review shows an early-retrieval reminder while preserving the owner's ability to withdraw. Direct owner contract calls retain the vault's existing rules.
+
+Apply `supabase/migrations/0004_savings_preferences.sql` to the configured demo database before deploying this update. Saved settings use the existing owner-scoped goals policies. Without a database, approval explicitly reports that these details were not saved. `/demo` lets visitors try the controls using sample data. See the [research and distinction between saving periods, notice and enforced locks](docs/metropolis-research.md#savings-minimums-and-retrieval-timing-research).

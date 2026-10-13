@@ -50,7 +50,7 @@ const HEALTH_TONE: Record<string, Tone> = {
 function Overview() {
   const { goal, money, plan, loading } = usePortfolio();
 
-  if (!money || !plan) return <Loading label="Loading your money" />;
+  if (!money || !plan) return loading ? <Loading label="Loading your money" /> : <div className="mt-5"><Button href="/app/plan" variant="secondary">View your saved plan</Button></div>;
 
   const empty = money.isEmpty;
   const tone = goal ? (HEALTH_TONE[goal.health] ?? "default") : "default";
@@ -157,10 +157,11 @@ function Overview() {
                   : `${goal.goal.monthsRemaining} mo`
               }
             />
-            <Tile label="Still to find" value={moneyLabel(goal.projection.shortfall, 0)} />
+            <Tile label="Gap at goal date" value={moneyLabel(goal.projection.shortfall, 0)} />
             <Tile label="Per month" value={moneyLabel(goal.projection.requiredMonthly, 0)} />
           </dl>
         ) : null}
+        {goal ? <p className="px-6 pb-5 text-xs text-panel-soft sm:px-8">Based on your planned contributions, assuming no investment growth.</p> : null}
       </section>
 
       {/* ============================================= is there anything to do */}

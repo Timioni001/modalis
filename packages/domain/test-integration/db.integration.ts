@@ -11,7 +11,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createGoal, recentEvents, recordMandate, serverClient, upsertUser, resetClientCache } from "@modalis/db";
+import { createGoal, recentEvents, recordMandate, serverClient, upsertUser, updateGoal, resetClientCache } from "@modalis/db";
 import { addGoal, editGoal, getGoals, reorderGoals } from "../src/services/goals.ts";
 import { emit, checkMilestones } from "../src/services/events.ts";
 import { getNotifications, readNotifications } from "../src/services/notifications.ts";
@@ -141,4 +141,52 @@ test("goals, the waterfall, ownership, events, notifications, automation and his
   assert.deepEqual(history.versions.map((v) => v.version), [2, 1]);
   assert.equal(history.versions[0].reason, "You changed your plan.");
   assert.deepEqual(history.versions[0].changes, [{ label: "Kept available", from: "30%", to: "40%" }]);
+});
+
+test("saved plan metadata preserves weekly contributions without changing chain targets", { skip }, async () => {
+  const ctx = ctxWithDb();
+  const user = (await upsertUser(ctx.db!, { walletAddress: OWNER, chainId: 10143 }))!;
+  const goal = (await createGoal(ctx.db!, { userId: user.id, type: "house", name: "My first home", targetValue: 99999,
+    targetDate: "2031-01-01", initialAmount: 10, contributionAmount: 300, contributionCadence: "weekly", priority: 1 }))!;
+  await recordMandate(ctx.db!, { userId: user.id, goalId: goal.id, contractAddress: "0x00000000000000000000000000000000000000c1",
+    version: 3, targetValue: "20000", targetDate: "2031-01-01T00:00:00Z", maxDrawdownBps: 1500,
+    minLiquidityBps: 3000, maxAssetBps: 4000, rebalanceThresholdBps: 500, maxSlippageBps: 150, allocations: [] });
+  const { getPlan } = await import("../src/services/plans.ts");
+  const plan = await getPlan(ctx, OWNER);
+  assert.equal(plan.goal.name, "My first home");
+  assert.equal(plan.goal.startingAmount.amount, "10");
+  assert.equal(plan.goal.contribution.amount.amount, "1300");
+  assert.equal(plan.goal.target.amount, "20000");
+});
+
+test("custom savings survive reload, enforce the whole-contribution minimum, warn on early retrieval, and remain owner-scoped", { skip }, async () => {
+  const ctx = ctxWithDb();
+  const { user, goalId } = await approvePlan(ctx, 4, 3000);
+  const startedAt = NOW.toISOString();
+  const savings = { minimumContribution: "10.10", minimumRetrievalDays: 30, customDetails: "Tuition first.", startedAt };
+  assert.ok(await updateGoal(ctx.db!, user.id, goalId, { savingsPreferences: savings }));
+  const { getPlan } = await import("../src/services/plans.ts");
+  const { buildFundingPlan } = await import("../src/services/money.ts");
+  const { buildWithdrawalPlan } = await import("../src/services/withdraw.ts");
+  assert.deepEqual((await getPlan(ctx, OWNER)).goal.savings, savings);
+  assert.deepEqual((await getGoal(ctx, OWNER)).goal.savings, savings);
+  await assert.rejects(buildFundingPlan(ctx, OWNER, { amount: "10.09" }), (e: unknown) => e instanceof DomainError && e.code === "below_minimum_contribution");
+  const funding = await buildFundingPlan(ctx, OWNER, { amount: "10.10" });
+  assert.equal(funding.total.amount, "10.10");
+  assert.ok(funding.steps.some((step) => Number(step.value.amount) < 10.1), "per-asset transfers may be below the complete-contribution minimum");
+  const early = await buildWithdrawalPlan(ctx, OWNER, { amount: "5" }, NOW);
+  assert.ok(early.steps.length > 0, "the personal reminder does not lock the owner out");
+  assert.ok(early.consequences.some((line) => line.includes("personal reminder")));
+  const onTime = await buildWithdrawalPlan(ctx, OWNER, { amount: "5" }, new Date(NOW.getTime() + 30 * 86400000));
+  assert.ok(!onTime.consequences.some((line) => line.includes("personal reminder")), "the boundary is inclusive");
+  const other = (await upsertUser(ctx.db!, { walletAddress: SOMEONE_ELSE, chainId: 10143 }))!;
+  assert.equal(await updateGoal(ctx.db!, other.id, goalId, { savingsPreferences: { ...savings, minimumContribution: "0.00" } }), null);
+  assert.deepEqual((await getPlan(ctx, OWNER)).goal.savings, savings);
+  for (const malformed of [
+    {}, { ...savings, minimumContribution: "100000.01" }, { ...savings, minimumRetrievalDays: 0.5 },
+    { ...savings, minimumRetrievalDays: 3651 }, { ...savings, customDetails: "a".repeat(501) },
+  ]) {
+    const result = await ctx.db!.from("goals").update({ savings_preferences: malformed as typeof savings }).eq("id", goalId);
+    assert.ok(result.error, "the database also refuses invalid settings");
+  }
 });

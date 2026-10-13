@@ -43,7 +43,7 @@ someone else's gas. Authentication was the missing layer, not a replacement for 
 | `packages/auth/test/session.test.ts` | 22 tests against **real** signatures and a real JWKS fetch. A token signed with the wrong key, expired, unsigned, or issued for a different deployment is refused. `peekToken` decodes without verifying and is tested to prove it is never used for an access decision |
 | `apps/web/test/api-ownership.test.ts` | A static audit over **every** route. A route that changes something without a verified account fails the build; so does one that reads an account from a body, path or query string. Verified by planting both regressions |
 | The public-route list | Three routes may be called without signing in, each listed with the reason it discloses nothing and changes nothing: `/api/status`, `/api/plan/draft`, `/api/plan/compare` |
-| The development bypass | A header-named account for local work without a sign-in provider. Refused outright on chain 143 whatever the environment says, and `/api/status` reports loudly when it is on |
+| The development bypass | A header-named account for local work without a sign-in provider. Refused on mainnet and in production whatever the environment says; `/api/status` reports loudly when it is on |
 
 Three independent gates stand between a request and a person's money:
 

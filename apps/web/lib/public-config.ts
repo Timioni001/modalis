@@ -17,7 +17,7 @@ export type PublicConfig = {
 };
 
 export function publicConfig(): PublicConfig {
-  const chainId = Number(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID?.trim() || 10143);
+  const chainId = Number(process.env.NEXT_PUBLIC_MONAD_CHAIN_ID?.trim() || (process.env.MODALIS_NETWORK === "mainnet" ? 143 : 10143));
   // viem already carries Monad's explorer, so requiring the variable only to get a correct URL we
   // already hold would turn every receipt into plain text for no reason. The variable still wins,
   // for a deployment pointed at a private or alternative explorer.

@@ -25,8 +25,8 @@ export default function MoneyPage() {
 }
 
 function Money() {
-  const { money, plan } = usePortfolio();
-  if (!money || !plan) return <Loading label="Loading your money" />;
+  const { money, plan, loading } = usePortfolio();
+  if (!money || !plan) return loading ? <Loading label="Loading your money" /> : <div className="mt-5"><Button href="/app/plan" variant="secondary">View your saved plan</Button></div>;
 
   const total = Number(money.total.amount);
   const availableShare = total > 0 ? (Number(money.available.amount) / total) * 100 : 0;

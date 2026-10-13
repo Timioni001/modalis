@@ -31,7 +31,7 @@ step "Contract tests (mandate enforcement, Kuru adapter, CRE report decoding)"
 
 step "Package tests"
 for p in packages/portfolio packages/execution packages/ai packages/chain packages/db \
-         packages/auth packages/domain apps/web; do
+         packages/auth packages/domain services/risk-monitor integrations/chainlink-cre apps/web; do
   printf '  %-34s' "$p"
   check bash -c "cd $p && node --test --experimental-strip-types test/*.test.ts"
 done
@@ -47,6 +47,9 @@ done
 step "Envio config against Envio's own JSON schema"
 check bash -c 'cd integrations/envio && python3 scripts/validate-config.py'
 
+step "Envio generated handler types"
+check bash -c 'cd integrations/envio && node node_modules/envio/bin.mjs codegen --config config.hosted.yaml && node node_modules/typescript/bin/tsc --noEmit'
+
 step "Database schema and row-level security (needs PostgreSQL; skipped if absent)"
 if ls -d /usr/lib/postgresql/*/bin >/dev/null 2>&1; then
   check bash -c 'bash supabase/scripts/db-local.sh up && bash supabase/scripts/db-local.sh check'
@@ -55,7 +58,7 @@ else
 fi
 
 step "Web app production build"
-check bash -c 'cd apps/web && npx next build'
+check node scripts/web.mjs build
 
 if [ "$FAILED" -eq 0 ]; then
   printf '\n\033[0;32mAll checks passed.\033[0m\n'

@@ -4,7 +4,6 @@ name: CI
 
 on:
   push:
-    branches: [claude/awesome-gates-h1pxk0]
   pull_request:
 
 concurrency:
@@ -25,6 +24,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r typecheck
       - run: pnpm test
+      - name: CRE workflow unit tests
+        run: pnpm --filter @modalis/cre-risk-monitor test
       - name: Service tests
         run: pnpm --filter @modalis/risk-monitor test
       - run: pnpm build

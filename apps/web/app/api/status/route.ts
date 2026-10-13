@@ -7,7 +7,7 @@
  *
  * Public: it exposes no personal data and no secret, only deployment facts and public addresses.
  */
-import { agentIdentity, agentLabel, deployedIntegrations } from "@modalis/chain";
+import { AssetRegistryAbi, agentIdentity, agentLabel, deployedIntegrations } from "@modalis/chain";
 import { authConfigFromEnv, isAuthConfigured } from "@modalis/auth";
 import { isServerDbConfigured } from "@modalis/db";
 import type { Capabilities } from "@modalis/domain";
@@ -22,7 +22,7 @@ export async function GET(): Promise<Response> {
   const auth = authConfigFromEnv();
 
   try {
-    const { deployment, deployed, client } = await getServerContext();
+    const { deployment, deployed, client, rpc } = await getServerContext();
     const integrations = deployedIntegrations(deployment);
 
     let blockNumber: bigint | null = null;
@@ -33,6 +33,14 @@ export async function GET(): Promise<Response> {
       reachable = false;
     }
 
+    let pricesReady = reachable && deployed;
+    if (pricesReady && deployment.tokens.mUSD && deployment.contracts.assetRegistry) {
+      try {
+        await client.readContract({ address: deployment.contracts.assetRegistry, abi: AssetRegistryAbi,
+          functionName: "value", args: [deployment.tokens.mUSD, 1n] });
+      } catch { pricesReady = false; }
+    }
+    const tradingReady = integrations.kuru && Boolean(process.env.KURU_API_URL?.trim() && rpc.httpUrl);
     const signInReady = isAuthConfigured(auth);
     const agent = agentIdentity();
     const managerReady = agent !== null;
@@ -41,19 +49,22 @@ export async function GET(): Promise<Response> {
     if (!deployed) limitations.push("Modalis isn't set up on this network yet.");
     if (!reachable) limitations.push("We can't reach the network right now.");
     if (!signInReady && !auth.allowDevAuth) limitations.push("Signing in isn't configured, so nothing can be saved or changed.");
+    if (!pricesReady && deployed && reachable) limitations.push("Current prices are unavailable. Refresh the demo oracle before funding or adjusting.");
     if (!managerReady) limitations.push("Modalis can't make adjustments on this deployment.");
     if (!isServerDbConfigured()) limitations.push("Your goal and history won't be saved.");
 
     const capabilities: Capabilities = {
       canCreatePlan: deployed && reachable,
-      canFund: deployed && reachable && (signInReady || auth.allowDevAuth),
-      canAdjust: deployed && reachable && managerReady && (signInReady || auth.allowDevAuth),
+      canFund: deployed && reachable && pricesReady && (signInReady || auth.allowDevAuth),
+      canAdjust: deployed && reachable && pricesReady && managerReady && (signInReady || auth.allowDevAuth),
       limitations,
     };
 
     return jsonResponse({
       network: { name: cfg.networkName, chainId: deployment.chainId, reachable, blockNumber },
       ready: deployed,
+      developmentLocal: process.env.NODE_ENV !== "production" && process.env.MODALIS_LOCAL_DEVELOPMENT === "true",
+      prices: { ready: pricesReady },
       capabilities,
       signIn: {
         configured: signInReady,
@@ -66,14 +77,14 @@ export async function GET(): Promise<Response> {
         settlement: deployed,
         signIn: Boolean(cfg.dynamicEnvironmentId),
         agentWallet: agent?.kind === "dynamic",
-        trading: integrations.kuru,
+        trading: tradingReady,
         independentMonitoring: integrations.cre,
         history: Boolean(process.env.ENVIO_GRAPHQL_URL),
         network: Boolean(process.env.NEXT_PUBLIC_ALCHEMY_API_KEY),
         explanations: Boolean(process.env.AI_API_KEY),
         savedData: isServerDbConfigured(),
       },
-      trading: integrations.kuru
+      trading: tradingReady
         ? { live: true }
         : integrations.demoAdapter
           ? { live: false, note: "Trades run through a test fixture on this deployment, not a real venue." }
@@ -93,7 +104,7 @@ export async function GET(): Promise<Response> {
       network: { name: cfg.networkName, chainId: cfg.chainId, reachable: false, blockNumber: null },
       ready: false,
       capabilities: { canCreatePlan: false, canFund: false, canAdjust: false, limitations: ["We can't reach the network right now."] },
-      error: err instanceof Error ? err.message : String(err),
+      error: "Deployment checks failed. Check the server configuration and try again.",
     });
   }
 }

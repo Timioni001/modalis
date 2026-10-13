@@ -77,6 +77,8 @@ export type Goal = {
   name: string;
   /** The person's own words, when they gave them. */
   description?: string;
+  /** Saved personal preferences; separate from the contract-enforced trading rules. */
+  savings?: import("./savings-preferences.ts").SavingsSchedule;
   target: Money;
   /** ISO date. */
   targetDate: string;

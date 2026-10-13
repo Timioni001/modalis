@@ -13,6 +13,8 @@
  */
 export * from "./terms.ts";
 export * from "./models.ts";
+export * from "./goal-input.ts";
+export * from "./savings-preferences.ts";
 export * from "./translate.ts";
 export * from "./context.ts";
 export * from "./projection.ts";

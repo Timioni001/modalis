@@ -329,7 +329,7 @@ export function Field({
 }
 
 const FIELD_BASE =
-  "w-full rounded-2xl bg-surface px-4 text-[15px] text-ink shadow-[var(--shadow-card)] " +
+  "min-w-0 w-full rounded-2xl bg-surface px-4 text-[16px] text-ink shadow-[var(--shadow-card)] " +
   "outline-none transition-shadow placeholder:text-ink-muted " +
   "focus:shadow-[0_0_0_2px_var(--color-ink)]";
 

@@ -40,7 +40,7 @@ export class AuthError extends Error {
 
 export type AuthConfig = {
   jwksUrl?: string;
-  /** Dynamic environment id, checked as the audience when provided. */
+  /** Dynamic environment id; bound by the per-environment signing keys and claims. */
   environmentId?: string;
   /**
    * Development escape hatch. When true, a request may name its own wallet through the
@@ -52,13 +52,13 @@ export type AuthConfig = {
 };
 
 export function authConfigFromEnv(env: Record<string, string | undefined> = process.env): AuthConfig {
-  const chainId = Number(env.NEXT_PUBLIC_MONAD_CHAIN_ID?.trim() || 10143);
+  const chainId = Number(env.NEXT_PUBLIC_MONAD_CHAIN_ID?.trim() || (env.MODALIS_NETWORK === "mainnet" ? 143 : 10143));
   const devRequested = (env.MODALIS_DEV_AUTH ?? "false").toLowerCase() === "true";
   return {
     jwksUrl: env.DYNAMIC_JWKS_URL?.trim() || deriveJwksUrl(env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID),
     environmentId: env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID?.trim() || undefined,
     // Never on mainnet, whatever the environment says.
-    allowDevAuth: devRequested && chainId !== 143,
+    allowDevAuth: devRequested && chainId !== 143 && env.NODE_ENV !== "production",
     chainId,
   };
 }
@@ -92,9 +92,11 @@ function jwks(url: string) {
  * Supports both shapes Dynamic emits: a flat `wallet_address` claim (what this project configures
  * for Supabase row-level security) and the `verified_credentials` array.
  */
-export function walletFromClaims(payload: JWTPayload): `0x${string}` | null {
+export function walletFromClaims(payload: JWTPayload, selected?: string | null): `0x${string}` | null {
+  if (selected && !isAddress(selected)) return null;
+  const matches = (address: string) => !selected || address.toLowerCase() === selected.toLowerCase();
   const flat = payload["wallet_address"];
-  if (typeof flat === "string" && isAddress(flat)) return getAddress(flat);
+  if (typeof flat === "string" && isAddress(flat) && matches(flat)) return getAddress(flat);
 
   const credentials = payload["verified_credentials"];
   if (Array.isArray(credentials)) {
@@ -102,7 +104,7 @@ export function walletFromClaims(payload: JWTPayload): `0x${string}` | null {
       const address = (credential as { address?: unknown })?.address;
       const format = (credential as { format?: unknown })?.format;
       // Only blockchain credentials carry an address; email credentials do not.
-      if (typeof address === "string" && isAddress(address) && format !== "email") {
+      if (typeof address === "string" && isAddress(address) && format !== "email" && matches(address)) {
         return getAddress(address);
       }
     }
@@ -135,7 +137,7 @@ function environmentOf(payload: JWTPayload): string | null {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Verifies a Dynamic JWT and returns the session it proves. Throws AuthError otherwise. */
-export async function verifyToken(token: string, cfg: AuthConfig = authConfigFromEnv()): Promise<Session> {
+export async function verifyToken(token: string, cfg: AuthConfig = authConfigFromEnv(), selected?: string | null): Promise<Session> {
   if (!cfg.jwksUrl) {
     throw new AuthError(
       "auth_not_configured",
@@ -152,11 +154,10 @@ export async function verifyToken(token: string, cfg: AuthConfig = authConfigFro
     // the signature instead: `jwksUrl` is per-environment, so another environment's token is
     // signed by a key that is not in this set and fails here. `environmentOf` below is the
     // belt-and-braces check on top of that.
-    const verified = await jwtVerify(token, jwks(cfg.jwksUrl));
+    const verified = await jwtVerify(token, jwks(cfg.jwksUrl), { requiredClaims: ["exp"] });
     payload = verified.payload;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new AuthError("invalid_token", `Your sign-in could not be verified: ${message}`);
+  } catch {
+    throw new AuthError("invalid_token", "Your sign-in has expired or could not be verified. Sign out and sign in again.");
   }
 
   const tokenEnvironment = environmentOf(payload);
@@ -164,7 +165,7 @@ export async function verifyToken(token: string, cfg: AuthConfig = authConfigFro
     throw new AuthError("invalid_token", "That sign-in belongs to a different deployment.");
   }
 
-  const walletAddress = walletFromClaims(payload);
+  const walletAddress = walletFromClaims(payload, selected);
   if (!walletAddress) {
     throw new AuthError(
       "no_wallet_in_token",
@@ -201,7 +202,7 @@ export async function readSession(
   cfg: AuthConfig = authConfigFromEnv(),
 ): Promise<Session | null> {
   const token = bearerToken(request.headers);
-  if (token) return verifyToken(token, cfg);
+  if (token) return verifyToken(token, cfg, request.headers.get("x-modalis-wallet"));
 
   if (cfg.allowDevAuth) {
     const devWallet = request.headers.get("x-modalis-dev-wallet");

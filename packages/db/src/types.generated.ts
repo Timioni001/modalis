@@ -77,6 +77,13 @@ export type GoalRow = {
   contribution_cadence: string;
   priority: number;
   liquidity_need: LiquidityNeed;
+  /** Migration 0004. Personal savings settings, not permissions on the vault. */
+  savings_preferences?: {
+    minimumContribution: string;
+    minimumRetrievalDays: number;
+    customDetails?: string;
+    startedAt?: string;
+  } | null;
   created_at: string;
   updated_at: string;
 };
@@ -94,6 +101,7 @@ export type GoalInsert = {
   contribution_cadence?: string;
   priority?: number;
   liquidity_need?: LiquidityNeed;
+  savings_preferences?: GoalRow["savings_preferences"];
   created_at?: string;
   updated_at?: string;
 };

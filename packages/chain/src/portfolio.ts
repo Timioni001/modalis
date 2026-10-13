@@ -49,6 +49,11 @@ export type PortfolioState = {
   hasMandate: boolean;
 };
 
+/** Approved rules and targets, with no balance or price fields. */
+export type PlanState = Pick<PortfolioState, "owner" | "mandate" | "blockNumber" | "hasMandate"> & {
+  positions: Pick<OnchainPosition, "token" | "symbol" | "decimals" | "isLiquid" | "assetMaxBps" | "targetBps" | "minBps" | "maxBps">[];
+};
+
 const BPS = 10_000n;
 
 export function bpsOf(value: bigint, total: bigint): number {
@@ -62,13 +67,29 @@ export function formatUsd(valueE18: bigint, fractionDigits = 2): string {
   return n.toLocaleString("en-US", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
 }
 
-/**
- * Single multicall-batched read of everything the dashboard and the risk monitor need.
- */
-export async function readPortfolio(
+/** Rules and target allocations do not depend on prices. Never use this result as a balance. */
+export async function readPlanState(client: PublicClient, deployment: Deployment, owner: Address): Promise<PlanState> {
+  const state = await readState(client, deployment, owner, false);
+  return {
+    owner: state.owner,
+    mandate: state.mandate,
+    blockNumber: state.blockNumber,
+    hasMandate: state.hasMandate,
+    positions: state.positions.map(({ token, symbol, decimals, isLiquid, assetMaxBps, targetBps, minBps, maxBps }) =>
+      ({ token, symbol, decimals, isLiquid, assetMaxBps, targetBps, minBps, maxBps })),
+  };
+}
+
+/** Live, priced balances for the dashboard and monitor. Never substitutes expired quotes. */
+export async function readPortfolio(client: PublicClient, deployment: Deployment, owner: Address): Promise<PortfolioState> {
+  return readState(client, deployment, owner, true);
+}
+
+async function readState(
   client: PublicClient,
   deployment: Deployment,
   owner: Address,
+  includeValuation: boolean,
 ): Promise<PortfolioState> {
   const mandateAddr = requireContract(deployment, "portfolioMandate");
   const registryAddr = requireContract(deployment, "assetRegistry");
@@ -115,7 +136,7 @@ export async function readPortfolio(
       }) as Promise<AssetRaw>,
     ),
   );
-  const balances = await Promise.all(
+  const balances = includeValuation ? await Promise.all(
     allocations.map((a) =>
       client.readContract({
         address: vaultAddr,
@@ -124,9 +145,9 @@ export async function readPortfolio(
         args: [owner, a.token],
       }) as Promise<bigint>,
     ),
-  );
+  ) : allocations.map(() => 0n);
   // Values come from the registry so the app values the portfolio exactly as the contract does.
-  const values = await Promise.all(
+  const values = includeValuation ? await Promise.all(
     allocations.map((a, i) =>
       client.readContract({
         address: registryAddr,
@@ -135,8 +156,8 @@ export async function readPortfolio(
         args: [a.token, balances[i]],
       }) as Promise<bigint>,
     ),
-  );
-  const prices = await Promise.all(
+  ) : allocations.map(() => 0n);
+  const prices = includeValuation ? await Promise.all(
     allocations.map((a, i) =>
       client.readContract({
         address: registryAddr,
@@ -145,7 +166,7 @@ export async function readPortfolio(
         args: [a.token, 10n ** BigInt(assets[i].decimals)],
       }) as Promise<bigint>,
     ),
-  );
+  ) : allocations.map(() => 0n);
 
   const totalValueE18 = values.reduce((acc, v) => acc + v, 0n);
 

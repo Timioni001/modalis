@@ -1,36 +1,33 @@
 "use client";
 
-/**
- * The signed-in navigation.
- *
- * Named for the person's tasks, not the system's modules — my goal, my money, what changed, what
- * happened. There is no "Portfolio", "Risk" or "Mandate" here.
- *
- * DESKTOP: a floating white sidebar with a black pill for the current page. The sidebar holds the
- * one action people come back for (add money) above everything else.
- *
- * PHONE: a black pill near the thumb, the current tab opened out into a white segment with its
- * label, the others reduced to icons. Beside it, a separate circle: Ask Modalis — one tap from
- * anywhere to "why?".
- */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
+import { useEffect, useState } from "react";
+import { NavigationSheet } from "./navigation-sheet";
+import type { SystemStatus } from "@/lib/api-types";
+import { apiGet } from "@/lib/client-api";
 import { ModalisLogo } from "./brand";
 import { WalletButton } from "./wallet-button";
 import { NotificationBell } from "./notification-bell";
 import { ThemeToggle } from "./theme-toggle";
 
-type Tab = { href: string; label: string; icon: (p: IconProps) => React.ReactElement };
+type Tab = {
+  href: string;
+  label: string;
+  icon: (p: IconProps) => React.ReactElement;
+};
 
 const TABS: Tab[] = [
   { href: "/app", label: "Overview", icon: OverviewIcon },
   { href: "/app/money", label: "Money", icon: MoneyIcon },
   { href: "/app/plan", label: "Plan", icon: PlanIcon },
+  { href: "/app/payments", label: "Payments", icon: MoneyIcon },
   { href: "/app/activity", label: "Activity", icon: ActivityIcon },
 ];
 
 const MORE: Tab[] = [
+  { href: "/app/notifications", label: "Notifications", icon: ActivityIcon },
   { href: "/app/goals", label: "Goals", icon: GoalsIcon },
   { href: "/app/circles", label: "Savings circles", icon: CirclesIcon },
   { href: "/app/scenarios", label: "What if", icon: WhatIfIcon },
@@ -43,13 +40,42 @@ export function AppNav() {
   const isActive = (href: string) =>
     href === "/app" ? pathname === "/app" : pathname.startsWith(href);
 
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void apiGet<SystemStatus>("/api/status", controller.signal)
+      .then(setStatus)
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
+  const more = MORE.filter((tab) =>
+    ["/app/goals", "/app/notifications"].includes(tab.href)
+      ? status?.poweredBy?.savedData
+      : tab.href === "/app/circles"
+        ? status?.technical?.contracts.savingsCircle
+        : true,
+  );
+  const current = [
+    ...TABS,
+    ...MORE,
+    { href: "/app/settings", label: "Settings", icon: SettingsIcon },
+  ].find((tab) => isActive(tab.href)) ?? {
+    href: pathname,
+    label: "Your money",
+    icon: MoneyIcon,
+  };
+
   return (
     <>
       {/* ---------------------------------------------------------- desktop sidebar */}
-      <aside className="fixed bottom-4 left-4 top-4 z-40 hidden w-[240px] flex-col rounded-[28px] bg-surface p-4 shadow-[var(--shadow-card)] lg:flex">
-        <div className="flex items-center justify-between">
-          <Link href="/app" className="flex min-h-[44px] items-center px-2 text-ink" aria-label="Modalis">
-            <ModalisLogo size={24} />
+      <aside className="fixed bottom-4 left-4 top-4 z-40 hidden w-[240px] flex-col overflow-y-auto rounded-[28px] bg-surface p-4 shadow-[var(--shadow-card)] lg:flex">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Link
+            href="/app"
+            className="flex min-h-[44px] items-center px-2 text-ink"
+            aria-label="Modalis"
+          >
+            <ModalisLogo size={24} className="max-[359px]:[&>span]:hidden" />
           </Link>
           <div className="flex items-center">
             <ThemeToggle />
@@ -73,100 +99,107 @@ export function AppNav() {
 
         <div className="eyebrow mt-7 px-3 text-ink-muted">Understand</div>
         <nav className="mt-2 space-y-1" aria-label="Understand your plan">
-          {MORE.map((tab) => (
+          {more.map((tab) => (
             <SideLink key={tab.href} tab={tab} active={isActive(tab.href)} />
           ))}
         </nav>
 
         <div className="mt-auto space-y-1">
           <SideLink
-            tab={{ href: "/app/settings", label: "Settings", icon: SettingsIcon }}
+            tab={{
+              href: "/app/settings",
+              label: "Settings",
+              icon: SettingsIcon,
+            }}
             active={pathname.startsWith("/app/settings")}
           />
           <div className="px-1 pt-2">
-            <WalletButton />
+            <WalletButton signIn />
           </div>
         </div>
       </aside>
 
-      {/* ------------------------------------------------------------ phone top bar */}
-      <header className="sticky top-0 z-40 px-4 pt-4 lg:hidden">
-        <div className="mx-auto flex max-w-5xl items-center gap-2 overflow-hidden rounded-full bg-surface/90 px-3 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
-          <Link href="/app" className="flex min-h-[44px] items-center px-1 text-ink" aria-label="Modalis">
+      <header
+        className="sticky top-0 z-40 px-4 pt-4 lg:hidden"
+        data-testid="app-header"
+      >
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 rounded-full bg-surface/95 px-4 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
+          <Link
+            href="/app"
+            className="flex min-h-11 min-w-0 items-center text-ink"
+            aria-label="Modalis"
+          >
             <ModalisLogo size={24} />
           </Link>
-          <div className="ml-auto flex min-w-0 items-center gap-0.5">
-            <NotificationBell />
-            <Link
-              href="/app/goals"
-              aria-label="Goals"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft hover:bg-sunken"
-            >
-              <GoalsIcon />
-            </Link>
-            <Link
-              href="/app/scenarios"
-              aria-label="What if"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft hover:bg-sunken"
-            >
-              <WhatIfIcon />
-            </Link>
-            <Link
-              href="/app/settings"
-              aria-label="Settings"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft hover:bg-sunken"
-            >
-              <SettingsIcon />
-            </Link>
-            <WalletButton compact />
-          </div>
+          <NavigationSheet
+            title="Menu"
+            trigger={
+              <>
+                <MenuIcon />
+                <span>Menu</span>
+              </>
+            }
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-sunken p-3">
+              <span className="text-xs font-medium text-ink-muted">
+                Testnet demo · no real money
+              </span>
+              <ThemeToggle />
+              <WalletButton />
+            </div>
+            <nav aria-label="More pages" className="space-y-1">
+              {more.map((tab) => (
+                <SideLink
+                  key={tab.href}
+                  tab={tab}
+                  active={isActive(tab.href)}
+                />
+              ))}
+              <SideLink
+                tab={{
+                  href: "/app/settings",
+                  label: "Settings",
+                  icon: SettingsIcon,
+                }}
+                active={isActive("/app/settings")}
+              />
+            </nav>
+          </NavigationSheet>
         </div>
       </header>
 
-      {/* ------------------------------------------------------------ phone dock */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-3 px-4 pb-[max(14px,env(safe-area-inset-bottom))] lg:hidden">
-        <nav
-          aria-label="Your money"
-          className="flex items-center gap-0.5 rounded-full bg-panel p-1.5 shadow-[var(--shadow-float)]"
+      <div
+        data-testid="app-dock"
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(14px,env(safe-area-inset-bottom))] lg:hidden"
+      >
+        <NavigationSheet
+          title="Go to"
+          bottom
+          trigger={
+            <>
+              <current.icon active />
+              <span className="min-w-0 truncate">{current.label}</span>
+              <ChevronIcon />
+            </>
+          }
         >
-          {TABS.map((tab) => {
-            const active = isActive(tab.href);
-            const Icon = tab.icon;
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                aria-label={tab.label}
-                className={`relative flex h-12 items-center justify-center rounded-full transition-colors ${
-                  active ? "px-4 text-ink" : "w-12 text-panel-soft hover:text-panel-ink"
-                }`}
-              >
-                {active ? (
-                  <motion.span
-                    layoutId="dock-active"
-                    aria-hidden
-                    className="absolute inset-0 rounded-full bg-surface"
-                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                  />
-                ) : null}
-                <span className="relative flex items-center gap-2">
-                  <Icon active={active} />
-                  {active ? <span className="text-[13.5px] font-semibold">{tab.label}</span> : null}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <Link
-          href="/app/ask"
-          aria-label="Ask Modalis"
-          aria-current={pathname.startsWith("/app/ask") ? "page" : undefined}
-          className="flex h-[60px] w-[60px] flex-none items-center justify-center rounded-full bg-panel text-panel-ink shadow-[var(--shadow-float)] transition-transform active:scale-95"
-        >
-          <AskIcon />
-        </Link>
+          <nav aria-label="Your money" className="space-y-1">
+            {TABS.map((tab) => (
+              <SideLink key={tab.href} tab={tab} active={isActive(tab.href)} />
+            ))}
+            <SideLink
+              tab={{ href: "/app/ask", label: "Ask Modalis", icon: AskIcon }}
+              active={isActive("/app/ask")}
+            />
+          </nav>
+          <Link
+            href="/app/add-money"
+            className="mt-5 flex min-h-12 items-center justify-center gap-2 rounded-full bg-accent text-sm font-semibold text-accent-ink"
+          >
+            <PlusIcon />
+            Add money
+          </Link>
+        </NavigationSheet>
       </div>
     </>
   );
@@ -179,7 +212,9 @@ function SideLink({ tab, active }: { tab: Tab; active: boolean }) {
       href={tab.href}
       aria-current={active ? "page" : undefined}
       className={`relative flex min-h-[44px] items-center gap-3 rounded-full px-3 text-[14.5px] font-medium transition-colors ${
-        active ? "text-panel-ink" : "text-ink-soft hover:bg-sunken hover:text-ink"
+        active
+          ? "text-panel-ink"
+          : "text-ink-soft hover:bg-sunken hover:text-ink"
       }`}
     >
       {active ? (
@@ -210,7 +245,10 @@ const stroke = (active?: boolean) => ({
 function OverviewIcon({ active }: IconProps) {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
-      <path d="M3.5 9.2 10 3.8l6.5 5.4v6.3a1.3 1.3 0 0 1-1.3 1.3H4.8a1.3 1.3 0 0 1-1.3-1.3z" {...stroke(active)} />
+      <path
+        d="M3.5 9.2 10 3.8l6.5 5.4v6.3a1.3 1.3 0 0 1-1.3 1.3H4.8a1.3 1.3 0 0 1-1.3-1.3z"
+        {...stroke(active)}
+      />
       <path d="M8 14.2h4" {...stroke(active)} />
     </svg>
   );
@@ -228,7 +266,14 @@ function MoneyIcon({ active }: IconProps) {
 function PlanIcon({ active }: IconProps) {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
-      <rect x="2.6" y="2.6" width="14.8" height="14.8" rx="4.6" {...stroke(active)} />
+      <rect
+        x="2.6"
+        y="2.6"
+        width="14.8"
+        height="14.8"
+        rx="4.6"
+        {...stroke(active)}
+      />
       <path d="M6.2 13.4h3v-3h3v-3h2" {...stroke(active)} />
     </svg>
   );
@@ -255,7 +300,10 @@ function GoalsIcon({ active }: IconProps) {
 function WhatIfIcon({ active }: IconProps) {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
-      <path d="M3 15.5c2.5 0 3-4 5.5-4s3 2 5 2 2.5-5 3.5-7" {...stroke(active)} />
+      <path
+        d="M3 15.5c2.5 0 3-4 5.5-4s3 2 5 2 2.5-5 3.5-7"
+        {...stroke(active)}
+      />
       <path d="M3 4.5v11h14" {...stroke(active)} />
     </svg>
   );
@@ -287,8 +335,15 @@ function AskIcon({ active }: IconProps) {
   // A hexagon, after the reference, with a spark inside: "a question, answered from your plan".
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
-      <path d="M11 2.6 18.3 6.8v8.4L11 19.4 3.7 15.2V6.8z" {...stroke(active)} />
-      <path d="M11 6.6l1.2 3.2 3.2 1.2-3.2 1.2L11 15.4l-1.2-3.2L6.6 11l3.2-1.2z" {...stroke(active)} strokeWidth={1.4} />
+      <path
+        d="M11 2.6 18.3 6.8v8.4L11 19.4 3.7 15.2V6.8z"
+        {...stroke(active)}
+      />
+      <path
+        d="M11 6.6l1.2 3.2 3.2 1.2-3.2 1.2L11 15.4l-1.2-3.2L6.6 11l3.2-1.2z"
+        {...stroke(active)}
+        strokeWidth={1.4}
+      />
     </svg>
   );
 }
@@ -306,7 +361,27 @@ function SettingsIcon({ active }: IconProps) {
 function PlusIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
-      <path d="M8 3.5v9M3.5 8h9" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+      <path
+        d="M8 3.5v9M3.5 8h9"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function MenuIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path d="M4 7h12M4 13h12" {...stroke()} />
+    </svg>
+  );
+}
+function ChevronIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path d="m5 12 5-5 5 5" {...stroke()} />
     </svg>
   );
 }

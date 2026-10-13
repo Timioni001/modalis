@@ -56,9 +56,9 @@ Entities: `User`, `Mandate`, `MandateAllocation`, `Position`, `Transaction`, `Re
 - Handlers are written against the real HyperIndex 3.x API (`indexer.onEvent`,
   `context.<Entity>.set/get/getWhere`), read from the installed package's `index.d.ts`.
 
-**Not verified here, and why:** `envio codegen` / `envio dev` need Docker and Postgres, which this
-build environment does not have, so the generated types have not been compiled and the indexer has
-not been run against a live chain. Run the three commands below before relying on it.
+**Verified during the functional repair:** `envio codegen --config config.hosted.yaml` succeeds with the real 3.12.1 CLI, and `tsc --noEmit` passes with `.envio/types.d.ts` included. Contract addresses are quoted to avoid YAML interpreting a hexadecimal address as a number. The SDK version is pinned exactly for Envio Cloud.
+
+**Still unverified:** hosted syncing and live GraphQL queries against the owner's hosted indexer. Code generation and a typecheck do not establish that the live service is running.
 
 ## Running it
 

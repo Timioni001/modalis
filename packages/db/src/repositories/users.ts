@@ -62,6 +62,7 @@ export type GoalInput = {
   /** 1 is funded first. Omitted: after every existing goal. */
   priority?: number;
   liquidityNeed?: LiquidityNeed;
+  savingsPreferences?: GoalRow["savings_preferences"];
 };
 
 export async function createGoal(db: ModalisClient, input: GoalInput): Promise<GoalRow | null> {
@@ -83,6 +84,7 @@ export async function createGoal(db: ModalisClient, input: GoalInput): Promise<G
         contribution_cadence: input.contributionCadence,
         priority,
         liquidity_need: input.liquidityNeed ?? "some",
+        ...(input.savingsPreferences !== undefined ? { savings_preferences: input.savingsPreferences } : {}),
       })
       .select()
       .single();
@@ -195,12 +197,15 @@ export async function listGoals(db: ModalisClient, userId: string): Promise<Goal
 }
 
 export type GoalPatch = Partial<{
+  type: GoalType;
+  initialAmount: number;
   name: string;
   targetValue: number;
   targetDate: string;
   contributionAmount: number;
   contributionCadence: "weekly" | "monthly" | "quarterly";
   liquidityNeed: LiquidityNeed;
+  savingsPreferences: GoalRow["savings_preferences"];
   status: "active" | "achieved" | "archived";
 }>;
 
@@ -212,12 +217,15 @@ export async function updateGoal(
 ): Promise<GoalRow | null> {
   return tolerate("updateGoal", async () => {
     const row: Partial<GoalInsert> = {};
+    if (patch.type !== undefined) row.type = patch.type;
+    if (patch.initialAmount !== undefined) row.initial_amount = String(patch.initialAmount);
     if (patch.name !== undefined) row.name = patch.name;
     if (patch.targetValue !== undefined) row.target_value = String(patch.targetValue);
     if (patch.targetDate !== undefined) row.target_date = patch.targetDate;
     if (patch.contributionAmount !== undefined) row.contribution_amount = String(patch.contributionAmount);
     if (patch.contributionCadence !== undefined) row.contribution_cadence = patch.contributionCadence;
     if (patch.liquidityNeed !== undefined) row.liquidity_need = patch.liquidityNeed;
+    if (patch.savingsPreferences !== undefined) row.savings_preferences = patch.savingsPreferences;
     if (patch.status !== undefined) row.status = patch.status;
     const { data, error } = await db
       .from("goals")

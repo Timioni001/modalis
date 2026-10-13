@@ -48,11 +48,11 @@ chains:
       - url: https://testnet-rpc.monad.xyz
     contracts:
       - name: PortfolioMandate
-        address: 0x3bbeB5f85C3118847521FA23e48b929aaB1D6A19
+        address: "0x3bbeB5f85C3118847521FA23e48b929aaB1D6A19"
       - name: PortfolioVault
-        address: 0xBd4B137d04518512cdA77c223B4C4BFB56811883
+        address: "0xBd4B137d04518512cdA77c223B4C4BFB56811883"
       - name: RebalanceExecutor
-        address: 0x30122e85856FD1531bfC904e77Df9b6a91918D18
+        address: "0x30122e85856FD1531bfC904e77Df9b6a91918D18"
 
 # A rebalance that gets reorged away must not stay in the portfolio's history.
 rollback_on_reorg: true

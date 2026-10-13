@@ -4,13 +4,15 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decodeFunctionData, type Address, type WalletClient } from "viem";
+import { decodeFunctionData, type Address, type PublicClient, type WalletClient } from "viem";
 import {
   TEST_MONEY_UNITS,
   hasLowGas,
   isOutOfGasFundsError,
   isTestnetFaucetChain,
   mintTestMoney,
+  mintTestMoneyTo,
+  MULTICALL3_ADDRESS,
   testMoneyCalls,
 } from "../src/faucet.ts";
 import { MockERC20Abi } from "../src/abis/index.ts";
@@ -49,7 +51,7 @@ test("never on mainnet", async () => {
   assert.equal(isTestnetFaucetChain(143), false);
   assert.equal(isTestnetFaucetChain(10143), true);
   const wallet = { account: { address: ME }, writeContract: async () => "0x" } as unknown as WalletClient;
-  await assert.rejects(mintTestMoney(wallet, { ...deployment, chainId: 143 }), /test network/);
+  await assert.rejects(mintTestMoney(wallet, { ...deployment, chainId: 143 }, {} as PublicClient), /test network/);
 });
 
 test("low gas means essentially none", () => {
@@ -64,4 +66,31 @@ test("recognises a wallet that can't pay the fee, however it is worded", () => {
   });
   assert.equal(isOutOfGasFundsError(nested), true);
   assert.equal(isOutOfGasFundsError(new Error("User rejected the request.")), false);
+});
+
+
+test("a bare local node mints into the wallet instead of calling an empty Multicall3 address", async () => {
+  const targets: string[] = [];
+  const confirmed: string[] = [];
+  const wallet = { account: { address: ME }, writeContract: async (args: { address: string; args: unknown[] }) => {
+    targets.push(args.address);
+    assert.equal(args.args[0], ME);
+    return `0x${targets.length.toString(16).padStart(64, "0")}`;
+  } } as unknown as WalletClient;
+  const client = { getCode: async () => "0x", waitForTransactionReceipt: async ({ hash }: { hash: string }) => {
+    confirmed.push(hash); return { status: "success" };
+  } } as unknown as PublicClient;
+  const receipts = await mintTestMoneyTo(wallet, client, deployment, ME);
+  assert.equal(receipts.length, 3);
+  assert.equal(confirmed.length, 3);
+  assert.ok(!targets.includes(MULTICALL3_ADDRESS));
+  assert.equal(isTestnetFaucetChain(1), false, "Ethereum mainnet isn't a test network");
+});
+
+test("a reverted individual mint stops the remaining writes", async () => {
+  let writes = 0;
+  const wallet = { account: { address: ME }, writeContract: async () => { writes++; return "0x"; } } as unknown as WalletClient;
+  const client = { getCode: async () => "0x", waitForTransactionReceipt: async () => ({ status: "reverted" }) } as unknown as PublicClient;
+  await assert.rejects(() => mintTestMoneyTo(wallet, client, deployment, ME), /reverted/);
+  assert.equal(writes, 1);
 });

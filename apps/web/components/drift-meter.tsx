@@ -34,6 +34,9 @@ export function DriftMeter() {
 
   useEffect(() => {
     if (!address || !contracts?.portfolioMandate || needsPlan) return;
+    setState(null);
+    setFailed(false);
+    lastBlock.current = 0n;
     const client = browserClient(chainId, rpcUrl);
     const deployment = {
       chainId,
@@ -71,7 +74,7 @@ export function DriftMeter() {
     };
   }, [address, contracts, tokens, chainId, rpcUrl, needsPlan]);
 
-  if (!state || state.positions.length === 0 || state.totalValueE18 === 0n) return null;
+  if (failed || state?.owner.toLowerCase() !== address?.toLowerCase() || !state || state.positions.length === 0 || state.totalValueE18 === 0n) return null;
 
   const outside = state.positions.filter((p) => p.allocationBps < p.minBps || p.allocationBps > p.maxBps);
 

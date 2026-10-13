@@ -146,6 +146,7 @@ async function inputsFor(
         kind: stored.type ?? goal.kind,
         name: stored.name ?? goal.name,
         startingAmount: moneyFromE18(usdToE18(Number(stored.initial_amount ?? 0)), 0),
+        savings: stored.savings_preferences ?? undefined,
         contribution: {
           amount: moneyFromE18(usdToE18(Number(stored.contribution_amount ?? 0)), 0),
           cadence: cadenceOf(stored.contribution_cadence),

@@ -29,7 +29,11 @@ apps/web/next-env.d.ts
 # Screenshots taken during verification. Not part of the build.
 apps/web/.screenshots/
 .cache/
-
 # The pitch render writes here while it runs; the finished file is added with git add -f.
 pitch/modalis-pitch.mp4
 pitch/stills/
+
+work/
+
+apps/web/test-results/
+apps/web/playwright-report/

@@ -442,3 +442,12 @@ select.field {
   transition: none !important;
   scroll-behavior: auto !important;
 }
+
+/* Portal sheets animate as a single surface; controls remain stable under the user's finger. */
+.nav-backdrop { transition: opacity 180ms ease; }
+.nav-sheet { transition: opacity 200ms ease, transform 260ms cubic-bezier(.22,1,.36,1); }
+.nav-backdrop[data-starting-style], .nav-backdrop[data-ending-style] { opacity: 0; }
+.nav-sheet[data-starting-style], .nav-sheet[data-ending-style] { opacity: 0; transform: translateY(12px) scale(.98); }
+@media (prefers-reduced-motion: reduce) {
+  .nav-sheet, .nav-backdrop { transition: none; transform: none; }
+}

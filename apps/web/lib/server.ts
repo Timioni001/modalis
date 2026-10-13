@@ -75,7 +75,13 @@ export async function getServerContext(): Promise<ServerContext> {
   const client = multicall ? createMonadPublicClient({ ...rpc, multicall: true }) : probe;
 
   const deployment = loadDeployment(rpc.chainId);
-  cached = { rpc, deployment, client, deployed: isFullyDeployed(deployment) };
+  const actualChainId = await client.getChainId();
+  if (actualChainId !== rpc.chainId) throw new Error("The configured RPC points to a different network.");
+  const core = ["assetRegistry", "portfolioMandate", "portfolioVault", "rebalanceExecutor"] as const;
+  const codes = isFullyDeployed(deployment)
+    ? await Promise.all(core.map((key) => client.getCode({ address: deployment.contracts[key]! })))
+    : [];
+  cached = { rpc, deployment, client, deployed: codes.length === core.length && codes.every((code) => code && code !== "0x") };
   return cached;
 }
 

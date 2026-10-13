@@ -7,6 +7,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { getMoney } from "../src/services/money.ts";
 import { getPlan, hasPlan, type GoalAnswers } from "../src/services/plans.ts";
 import { getProgress } from "../src/services/progress.ts";
 import { getPlanStatus } from "../src/services/adjustments.ts";
@@ -148,4 +149,17 @@ test("plan status is refused for someone with no plan", async () => {
     () => getPlanStatus(fakeContext(noPlan()), OWNER),
     (err: unknown) => err instanceof DomainError && err.code === "no_plan",
   );
+});
+
+test("a stale oracle cannot prevent reading the approved plan rules", async () => {
+  const ctx = fakeContext(onPlan());
+  const read = ctx.client.readContract.bind(ctx.client);
+  ctx.client = { ...ctx.client, readContract: async (args: Parameters<typeof ctx.client.readContract>[0]) => {
+    if (args.functionName === "value") throw new Error("PRICE_STALE");
+    return read(args);
+  } } as typeof ctx.client;
+  const plan = await getPlan(ctx, OWNER);
+  assert.equal(plan.version, 1);
+  assert.equal(plan.howMoneyIsSpread.length, 3);
+  await assert.rejects(() => getMoney(ctx, OWNER), /PRICE_STALE/);
 });

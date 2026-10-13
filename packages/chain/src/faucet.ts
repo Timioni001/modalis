@@ -16,9 +16,9 @@
  * The demo tokens are open-mint on purpose (contracts/src/mocks/MockERC20.sol): they are props,
  * not assets. None of this exists on mainnet, and every entry point here refuses to run there.
  */
-import { encodeFunctionData, parseAbi, type Address, type Hex, type WalletClient } from "viem";
+import { encodeFunctionData, parseAbi, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 import { MockERC20Abi } from "./abis/index.ts";
-import { MONAD_MAINNET_ID } from "./chains.ts";
+import { MONAD_TESTNET_ID } from "./chains.ts";
 import type { Deployment, TokenKey } from "./addresses.ts";
 
 /**
@@ -60,7 +60,7 @@ export const multicall3Abi = parseAbi([
 ]);
 
 export function isTestnetFaucetChain(chainId: number): boolean {
-  return chainId !== MONAD_MAINNET_ID;
+  return chainId === MONAD_TESTNET_ID;
 }
 
 export function hasLowGas(balanceWei: bigint): boolean {
@@ -95,22 +95,38 @@ export function testMoneyCalls(deployment: Deployment, to: Address) {
  * Multicall3 is the caller of `mint`, which is fine because `mint` takes the recipient as an
  * argument and is open to anyone. One signature instead of four is the point.
  */
-export async function mintTestMoney(wallet: WalletClient, deployment: Deployment): Promise<Hex> {
-  if (!isTestnetFaucetChain(deployment.chainId)) {
-    throw new Error("Test money only exists on the test network.");
-  }
+export async function mintTestMoneyTo(
+  wallet: WalletClient, client: PublicClient, deployment: Deployment, to: Address,
+): Promise<Hex[]> {
+  if (!isTestnetFaucetChain(deployment.chainId)) throw new Error("Test money only exists on the test network.");
   const account = wallet.account;
   if (!account) throw new Error("Wallet client has no account connected");
-  const calls = testMoneyCalls(deployment, account.address);
-  if (calls.length === 0) throw new Error("There are no demo tokens on this network.");
-  return wallet.writeContract({
-    address: MULTICALL3_ADDRESS,
-    abi: multicall3Abi,
-    functionName: "aggregate3",
-    args: [calls],
-    account,
-    chain: wallet.chain,
-  });
+  const mints = testMoneyMints(deployment);
+  if (!mints.length) throw new Error("There are no demo tokens on this network.");
+  const code = await client.getCode({ address: MULTICALL3_ADDRESS });
+  const hashes: Hex[] = [];
+  const confirm = async (hash: Hex) => {
+    const receipt = await client.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new Error("The test money mint reverted.");
+    hashes.push(hash);
+  };
+  if (code && code !== "0x") {
+    await confirm(await wallet.writeContract({ address: MULTICALL3_ADDRESS, abi: multicall3Abi,
+      functionName: "aggregate3", args: [testMoneyCalls(deployment, to)], account, chain: wallet.chain }));
+  } else {
+    // A bare Anvil chain has no Multicall3. Calling its empty address succeeds without minting.
+    for (const mint of mints) {
+      await confirm(await wallet.writeContract({ address: mint.token, abi: MockERC20Abi,
+        functionName: "mint", args: [to, mint.units], account, chain: wallet.chain }));
+    }
+  }
+  return hashes;
+}
+
+export async function mintTestMoney(wallet: WalletClient, deployment: Deployment, client: PublicClient): Promise<Hex> {
+  if (!wallet.account) throw new Error("Wallet client has no account connected");
+  const receipts = await mintTestMoneyTo(wallet, client, deployment, wallet.account.address);
+  return receipts[receipts.length - 1];
 }
 
 /**

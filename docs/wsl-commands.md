@@ -1,266 +1,117 @@
-# Running Modalis from Ubuntu/WSL
+# Run Modalis on Ubuntu WSL2
 
-> **Taking it live?** Follow [go-live.md](go-live.md): one script migrates the database, deploys the contracts and configures Vercel.
+Use Ubuntu inside WSL2. Keep the repository in the Linux filesystem, such as `~/modalis`, rather than `/mnt/c`, for reliable filesystem watching and faster builds. This repository is independent of other projects.
 
-Every command here is run from inside WSL, from the repository root, unless it says otherwise.
+## Toolchain
 
-```bash
-cd ~/modalis          # wherever you cloned it
-```
-
----
-
-## 0. One time, on a fresh machine
-
-Modalis runs TypeScript directly through Node's type stripping, which needs **Node 22 or newer**.
-Node 20 will fail with `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` and nothing will make it work.
+Install Git, curl, Python 3 and build tools, then Node 22 LTS or newer. Use pnpm **10.28.0**, matching `packageManager`; using a different pnpm major can trigger a dependency-layout rebuild.
 
 ```bash
-# Node 22
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-node -v                                    # must print v22.x or higher
-
-# pnpm
+sudo apt-get update
+sudo apt-get install -y git curl python3 python3-yaml python3-jsonschema build-essential
+# Install Node 22 LTS using your usual trusted Node installer.
+node --version
 corepack enable
-corepack prepare pnpm@latest --activate
-
-# Foundry (anvil, forge, cast)
-curl -L https://foundry.paradigm.xyz | bash
-echo 'export PATH="$HOME/.foundry/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-foundryup
-```
-
-Then let the setup script do the rest. It is safe to re-run — every step checks before installing.
-
-```bash
+corepack prepare pnpm@10.28.0 --activate
+cd ~/modalis
 bash scripts/setup.sh
 ```
 
-That installs workspace dependencies, clones forge-std and OpenZeppelin into `contracts/lib/`,
-builds the contracts, generates ABIs, and copies `.env.example` to `.env`.
+If your Node distribution has no Corepack, install the matching manager with `npm install -g pnpm@10.28.0`. The setup script installs Foundry, fetches the pinned Solidity libraries, installs locked dependencies, builds contracts and synchronizes ABIs. It creates `.env` from `.env.example` if needed.
 
----
+## Functional local app: no hosted keys required
 
-## 1. Check everything works, offline
-
-```bash
-bash scripts/verify.sh
-```
-
-Builds the contracts, runs all 47 Solidity tests and all 170 Node tests, typechecks twelve
-packages, validates the Envio config against Envio's own JSON schema, and does a production build
-of the web app. It exits non-zero if anything fails, so it also works as a CI gate.
-
-Individual pieces, when you only want one:
-
-```bash
-pnpm test                    # Node tests across packages + the web app
-pnpm typecheck               # every package
-pnpm contracts:test          # Solidity only
-pnpm contracts:build
-cd apps/web && npx next build
-```
-
----
-
-## 2. Run the whole financial loop against a local chain
-
-```bash
-bash scripts/demo-local.sh
-```
-
-Starts anvil on `127.0.0.1:8545` with chain id 10143, deploys the protocol, then runs eleven
-steps: goal → plan → deposit → a controlled price move → breach detected → adjustment proposed →
-**a deliberately invalid proposal rejected by the contract** → the valid one executed and settled →
-state back inside the limits → the manager key proven unable to withdraw.
-
-Every transaction is real and every hash comes from the node. The only synthetic input is the demo
-oracle price move that creates the breach. The report is written to `docs/e2e-run.md`.
-
-anvil stays up afterwards so you can click through the same chain. `KEEP_ANVIL=false` exits as
-soon as the loop finishes.
-
----
-
-## 3. Run the web app
-
-### Against the local chain
-
-In a **second** WSL terminal, with `demo-local.sh` still running in the first:
+Terminal 1:
 
 ```bash
 cd ~/modalis
-MODALIS_RPC_URL=http://127.0.0.1:8545 \
-NEXT_PUBLIC_MONAD_CHAIN_ID=10143 \
-DEMO_MODE=true NEXT_PUBLIC_DEMO_MODE=true \
-pnpm dev
+bash scripts/demo-local.sh
 ```
 
-Open http://localhost:3000.
+This starts Anvil on `127.0.0.1:8545`, deploys the contracts and runs the complete financial loop. Leave it running. All transactions are real local-EVM transactions; tokens and oracle inputs are test fixtures. The report is `docs/e2e-run.md`.
 
-The public site, the hero calculator and the five onboarding steps all work with nothing else
-configured. To get past the sign-in gate you need a Dynamic environment id — see below.
+Terminal 2:
 
-### Just the site, nothing else
+```bash
+cd ~/modalis
+bash scripts/dev-local.sh
+```
+
+Open **http://localhost:3000** from Windows. The header says **Local wallet**. Create a plan, approve it, open Add money, get test money and fund the plan. Try Money, Activity, What if, Ask Modalis, withdrawals, pause/resume and manager revocation. Savings circles are included in new deployments.
+
+The local launcher uses loopback RPC and unlocked Anvil accounts. It skips the root deployment `.env`, so local work does not inherit hosted addresses or credentials. It sets only well-known local test identities; the owner's private key is never sent to the browser. The bypass is refused in production. The local wallet is not evidence of a live Dynamic integration.
+
+When first opening a development route, allow its initial compile to complete. Browser calculations and sign-in SDK code have separate entry points. If development bundling is problematic on your machine, try `bash scripts/dev-local.sh --webpack`.
+
+Without Supabase, chain-backed actions work but named goals, saved contributions, multiple goals, notification history and automation preferences cannot persist. The UI explicitly reports this; it does not invent saved records.
+
+## Saved data and hosted sign-in
+
+For the full saved-data experience, configure a dedicated Supabase project and apply the migrations in `supabase/migrations` in order. Configure the Dynamic environment and allowed origin `http://localhost:3000`, enable EVM/Monad Testnet, and fill the documented variables in the repository `.env`. **Server keys must never use a `NEXT_PUBLIC_` prefix.**
 
 ```bash
 pnpm dev
 ```
 
-Everything behind sign-in will say so plainly rather than pretending to work.
+The root `dev`, `build` and `start` commands load the root `.env` before launching the Next app. Environment variables already supplied by the shell take precedence. Keep `.env` out of Git. For a hosted chain, use matching RPC, contract addresses and wallet network; `/api/status` checks the RPC network and core contract bytecode.
 
----
-
-## 4. Sign-in (needed to see the app screens)
-
-Free account at <https://app.dynamic.xyz> → Developers → SDK & API Keys. Create
-`apps/web/.env.local`:
+For database security checks that require no hosted credentials:
 
 ```bash
-cat > apps/web/.env.local <<'EOF'
-NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=your-environment-id-here
-NEXT_PUBLIC_MONAD_CHAIN_ID=10143
-EOF
-```
-
-In the Dynamic dashboard, enable **EVM** and add Monad testnet (chain id `10143`) as a network.
-
-`.env.local` is gitignored. Nothing in it is a secret — `NEXT_PUBLIC_` values ship to the browser
-by definition — but keep server keys out of it anyway.
-
----
-
-## 5. Put it on Monad testnet
-
-### Deploy
-
-```bash
-# A key that exists ONLY for this testnet. Never one that holds anything real.
-cast wallet new
-```
-
-That prints an address and a private key. Fund the **address** at <https://faucet.monad.xyz>,
-then:
-
-```bash
-DEPLOYER_PRIVATE_KEY=0xyour_key_here bash scripts/deploy-testnet.sh
-```
-
-It checks the key has gas before touching anything, deploys, writes
-`contracts/deployments/10143.json`, and prints the exact `NEXT_PUBLIC_*_ADDRESS` lines to paste
-into Vercel. It never writes, prints or commits the key.
-
-Deploying again makes *new* contracts at *new* addresses. Anyone whose plan was on the old ones
-will not see it on the new ones, so only redeploy when the contracts themselves changed.
-
-### Get demo tokens so you can actually add money
-
-The demo tokens are testnet props with an open mint. Without them, "Add money" correctly reports a
-shortfall and stops — which is right, but it means a fresh wallet can't test anything downstream.
-
-```bash
-# The address under Settings -> Your account in the app
-DEPLOYER_PRIVATE_KEY=0xyour_key_here \
-  bash scripts/fund-wallet.sh 0xYourWalletAddress
-```
-
-Mints 10,000 mUSD, 0.2 mBTC, 4 mETH and 100 mBOND — about $35,000 of demo value at the oracle's
-opening prices. They are worth nothing and the app says so.
-
-Locally, against anvil, the deployer key is optional:
-
-```bash
-MODALIS_RPC_URL=http://127.0.0.1:8545 \
-  bash scripts/fund-wallet.sh 0xYourWalletAddress
-```
-
-### Then run the app against testnet
-
-```bash
-NEXT_PUBLIC_MONAD_CHAIN_ID=10143 pnpm dev
-```
-
-`contracts/deployments/10143.json` now holds the testnet addresses, so the app finds them with no
-further configuration.
-
----
-
-## 6. Deploy the site to Vercel
-
-**One dashboard setting decides whether this works: Root Directory must be `apps/web`.**
-
-Vercel detects a framework from the `package.json` of the root directory. The repository root has
-no `next` dependency — it is a pnpm workspace whose root package only holds scripts — so pointing
-Vercel at the repository root fails with `No Next.js version detected`. No file in the repo can fix
-that; only the setting can.
-
-```bash
-npm i -g vercel
-vercel login
-vercel link          # when it asks for the root directory, answer: apps/web
-vercel --prod
-```
-
-Then paste the environment variables `deploy-testnet.sh` printed into
-**Project → Settings → Environment Variables**, plus:
-
-| Variable | What it turns on |
-|---|---|
-| `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` | Sign-in |
-| `MONAD_TESTNET_RPC_URL` | Server-side RPC — use your own endpoint, not a shared public one |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Goals and history are kept |
-
-Leave `MODALIS_DEV_AUTH` unset. Redeploy, then read `/api/status` — it reports what is actually
-wired up, and anything missing says so rather than appearing to work.
-
----
-
-## 7. Database (optional)
-
-Nothing is required: with no database the product runs chain-only, and loses the goal's name, the
-contribution figure and the record of adjustments your rules refused.
-
-```bash
-sudo apt-get install -y postgresql
-pnpm db:local        # start a local Postgres and apply the schema
-pnpm db:check        # prove row-level security actually blocks cross-account reads
+sudo apt-get install -y postgresql postgresql-client
+pnpm db:local
+pnpm db:check
+pnpm db:integration
 pnpm db:down
 ```
 
-Against a hosted Supabase project:
+These use a disposable local Postgres cluster and PostgREST. They are validation tools, not a replacement for a configured hosted Supabase deployment.
+
+## Verify and build
 
 ```bash
-SUPABASE_DB_URL='postgres://...' pnpm db:migrate
+pnpm test
+pnpm typecheck
+pnpm contracts:test
+pnpm --filter @modalis/risk-monitor test
+pnpm --filter @modalis/cre-risk-monitor test
+cd integrations/envio
+pnpm exec envio codegen --config config.hosted.yaml
+pnpm exec tsc --noEmit
+cd ../..
+pnpm build
+pnpm start
 ```
 
----
-
-## 8. Everything else
+For the automated browser flow, keep the local chain and development app running in the first two terminals:
 
 ```bash
-pnpm risk-monitor            # the off-chain risk monitor, polling continuously
-pnpm risk-monitor:once       # one pass, then exit
-pnpm cre:simulate            # simulate the Chainlink CRE workflow
-pnpm envio:validate          # check the indexer config
-pnpm envio:dev               # run the indexer locally
-pnpm contracts:sync-abis     # regenerate ABIs after changing a contract
+pnpm --filter @modalis/web exec playwright install chromium
+pnpm test:e2e
 ```
 
----
+This test refuses hosted origins and requires the explicit local-development deployment flag. It signs real local transactions and checks the resulting balances, withdrawal, pause/resume and manager revocation, plus layouts at 320, 390 and 1280 pixels.
 
-## When something goes wrong
+`pnpm build` produces the production app. `pnpm start` does not enable the local authentication bypass; production wallet flows require Dynamic configuration.
 
-| What you see | What it is |
-|---|---|
-| `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` | Node is older than 22. `node -v` |
-| `forge: command not found` | `export PATH="$HOME/.foundry/bin:$PATH"` — add it to `~/.bashrc` |
-| `No Next.js version detected` on Vercel | Root Directory is not `apps/web` |
-| "Modalis isn't set up on this network" | The contracts are not deployed for that chain id, or the addresses are not set |
-| "Signing in isn't set up on this deployment" | `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` is missing |
-| "You don't have enough of everything yet" | Run `scripts/fund-wallet.sh` |
-| `EADDRINUSE :3000` | `fuser -k 3000/tcp` |
-| anvil won't start | `pkill anvil`, then try again |
+## Repair expired testnet demo quotes
 
-`/api/status` is the honest answer to "what is actually running here". Read it first.
+A demo oracle quote expires after 24 hours. Do not remove this check or use expired prices. With the dedicated oracle-owner key configured and the correct deployment JSON present:
+
+```bash
+pnpm prices --refresh --once
+PRICE_INTERVAL_SECONDS=21600 pnpm prices --refresh
+```
+
+`--refresh` re-publishes the existing synthetic prices without changing their values. Run the continuous refresher in a supervised process, fund its testnet gas, and alert on failures. `pnpm prices` without `--refresh` deliberately simulates market drift. Both modes refuse mainnet.
+
+For deployment and sponsor credentials see `.env.example`, [deployment.md](deployment.md), and [metropolis-research.md](metropolis-research.md). Live Dynamic, Kuru, CRE, Envio and Alchemy validation requires those services; local tests do not certify them.
+
+
+## Apply the custom savings update
+
+Before deploying to the existing Supabase-backed demo, run `supabase/migrations/0004_savings_preferences.sql` in that project's SQL Editor after migrations 0001–0003. The migration adds a nullable settings column and constraints; existing goals remain valid. Do not run the local reset workflow against a hosted database.
+
+Then install the locked dependencies and run `pnpm test`, `pnpm typecheck` and `pnpm build`. The new `/api/plan/savings` endpoint requires the verified owner's session. Test onboarding → Your limits → Custom savings details, approve, reload Your plan, edit preferences, try an undersized contribution and review an early withdrawal. Personal retrieval reminders allow early withdrawal. The standalone browser test `savings-preferences.spec.ts` requires a local integration database alongside Anvil; it skips honestly when that database is absent.
+
+The local launcher intentionally skips the hosted root `.env`. To exercise persistence in local Anvil mode, pass a dedicated local database's `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to the shell running `bash scripts/dev-local.sh`. Never point the local authentication bypass at the hosted production database. The anonymous `/demo` preview needs no database.

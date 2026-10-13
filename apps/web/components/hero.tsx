@@ -16,7 +16,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { moneyInSentence, project } from "@modalis/domain";
+import { moneyInSentence, project } from "@modalis/domain/client";
 import { RainbowButton } from "@/components/shadcn/rainbow-button";
 import { moneyCompact } from "@/lib/format";
 

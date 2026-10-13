@@ -101,7 +101,7 @@ export function SiteNav() {
         {/* Links left, mark centred, actions right — the mark is the anchor, not a corner. */}
         <nav
           aria-label="Main"
-          className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-full bg-surface/90 px-3 py-2 backdrop-blur-xl sm:px-4"
+          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-full bg-surface/90 px-3 py-2 backdrop-blur-xl sm:px-4"
         >
           <div className="flex items-center gap-0.5">
             <button
@@ -109,8 +109,10 @@ export function SiteNav() {
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-haspopup="true"
-              className={`hidden min-h-[40px] items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-medium transition-colors md:inline-flex ${
-                open ? "bg-sunken text-ink" : "text-ink-soft hover:bg-sunken hover:text-ink"
+              className={`hidden min-h-[40px] items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-medium transition-colors lg:inline-flex ${
+                open
+                  ? "bg-sunken text-ink"
+                  : "text-ink-soft hover:bg-sunken hover:text-ink"
               }`}
             >
               Product
@@ -120,16 +122,25 @@ export function SiteNav() {
                 className={`h-3 w-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
                 fill="none"
               >
-                <path d="M3 4.5 6 7.5 9 4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M3 4.5 6 7.5 9 4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </button>
-            <span className="hidden md:inline-flex">
+            <span className="hidden lg:inline-flex">
               <NavLink href="/security" active={pathname === "/security"}>
                 Security
               </NavLink>
             </span>
-            <span className="hidden md:inline-flex">
-              <NavLink href="/how-it-works" active={pathname === "/how-it-works"}>
+            <span className="hidden lg:inline-flex">
+              <NavLink
+                href="/how-it-works"
+                active={pathname === "/how-it-works"}
+              >
                 How it works
               </NavLink>
             </span>
@@ -140,50 +151,59 @@ export function SiteNav() {
             </span>
             <Link
               href="/"
-              className="flex min-h-[44px] items-center text-ink md:hidden"
+              className="flex min-h-[44px] items-center text-ink lg:hidden"
               aria-label="Modalis home"
             >
-              <ModalisLogo />
+              <ModalisLogo className="max-[359px]:[&>span]:hidden" />
             </Link>
           </div>
 
           <Link
             href="/"
-            className="hidden min-h-[44px] items-center text-ink md:flex"
+            className="hidden min-h-[44px] items-center text-ink lg:flex"
             aria-label="Modalis home"
           >
-            <ModalisLogo />
+            <ModalisLogo className="max-[359px]:[&>span]:hidden" />
           </Link>
-          <span className="md:hidden" />
+          <span className="lg:hidden" />
 
-          <div className="flex items-center justify-end gap-1.5">
-            <span className="hidden md:inline-flex">
+          <div className="flex items-center justify-end gap-1">
+            <span className="hidden lg:inline-flex">
               <NavLink href="/contact" active={pathname === "/contact"}>
                 Contact
               </NavLink>
             </span>
-            <ThemeToggle />
-            <div className="hidden sm:block">
-              <WalletButton />
-            </div>
-            <Link
-              href="/onboarding"
-              className="inline-flex min-h-[40px] items-center rounded-full bg-panel px-5 text-[13.5px] font-semibold text-panel-ink transition-opacity hover:opacity-90"
-            >
-              Start
-            </Link>
+            <span className="hidden lg:inline-flex">
+              <ThemeToggle />
+            </span>
+            <WalletButton />
             <button
               type="button"
               onClick={() => setMobile((v) => !v)}
               aria-expanded={mobile}
               aria-label={mobile ? "Close menu" : "Open menu"}
-              className="inline-flex h-[40px] w-[40px] items-center justify-center rounded-full text-ink hover:bg-sunken md:hidden"
+              className="inline-flex h-[40px] w-[40px] items-center justify-center rounded-full text-ink hover:bg-sunken lg:hidden"
             >
-              <svg aria-hidden viewBox="0 0 20 20" className="h-5 w-5" fill="none">
+              <svg
+                aria-hidden
+                viewBox="0 0 20 20"
+                className="h-5 w-5"
+                fill="none"
+              >
                 {mobile ? (
-                  <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <path
+                    d="M5 5l10 10M15 5L5 15"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
                 ) : (
-                  <path d="M3.5 6.5h13M3.5 13.5h13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  <path
+                    d="M3.5 6.5h13M3.5 13.5h13"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
                 )}
               </svg>
             </button>
@@ -198,15 +218,15 @@ export function SiteNav() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute left-0 right-0 top-[calc(100%+10px)] hidden overflow-hidden rounded-[28px] bg-surface p-3 shadow-[var(--shadow-float)] md:block"
+              className="absolute left-0 right-0 top-[calc(100%+10px)] hidden overflow-hidden rounded-[28px] bg-surface p-3 shadow-[var(--shadow-float)] lg:block"
             >
               <div className="grid gap-2 sm:grid-cols-2">
                 <MenuColumn title="The product" items={PRODUCT} />
                 <MenuColumn title="Trust" items={TRUST} />
               </div>
               <div className="mt-2 rounded-[20px] bg-sunken px-5 py-4 text-[13.5px] text-ink-soft">
-                A technical demonstration built on Monad. Modalis is not an investment adviser,
-                broker or fund.
+                A technical demonstration built on Monad. Modalis is not an
+                investment adviser, broker or fund.
               </div>
             </motion.div>
           ) : null}
@@ -220,10 +240,14 @@ export function SiteNav() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute left-0 right-0 top-[calc(100%+10px)] rounded-[28px] bg-surface p-3 shadow-[var(--shadow-float)] md:hidden"
+              className="absolute left-0 right-0 top-[calc(100%+10px)] rounded-[28px] bg-surface p-3 shadow-[var(--shadow-float)] lg:hidden"
             >
               <ul className="space-y-1">
-                {[{ href: "/app", label: "Open my plan", blurb: "" }, ...PRODUCT.slice(0, 1), ...TRUST].map((item) => (
+                {[
+                  { href: "/app", label: "Open my plan", blurb: "" },
+                  ...PRODUCT.slice(0, 1),
+                  ...TRUST,
+                ].map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}
@@ -267,7 +291,9 @@ function NavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={`inline-flex min-h-[40px] items-center rounded-full px-4 text-[14px] font-semibold transition-colors ${
-        active ? "bg-sunken text-ink" : "text-ink-soft hover:bg-sunken hover:text-ink"
+        active
+          ? "bg-sunken text-ink"
+          : "text-ink-soft hover:bg-sunken hover:text-ink"
       }`}
     >
       {children}
@@ -288,7 +314,9 @@ function MenuColumn({ title, items }: { title: string; items: MenuItem[] }) {
               href={item.href}
               className="block rounded-[20px] px-4 py-3 transition-colors hover:bg-sunken"
             >
-              <span className="block text-[14.5px] font-semibold text-ink">{item.label}</span>
+              <span className="block text-[14.5px] font-semibold text-ink">
+                {item.label}
+              </span>
               <span className="mt-0.5 block text-[13px] leading-snug text-ink-muted">
                 {item.blurb}
               </span>

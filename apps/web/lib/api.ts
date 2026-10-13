@@ -21,13 +21,15 @@ import { errorResponse, jsonResponse } from "./serialize";
 import { TooManyRequests, callerHint, limit, once } from "./guard";
 import { idempotencyKey, readBody } from "./validate";
 import { count, log, timing } from "./observe";
+import { chainFailure } from "./chain-errors";
 import { reportError } from "./error-report";
 
 export { jsonResponse, readBody };
 
 /** Builds the context a domain service needs for this request. */
 export async function domainContext(): Promise<DomainContext> {
-  const { client, deployment, rpc } = await getServerContext();
+  const { client, deployment, rpc, deployed } = await getServerContext();
+  if (!deployed) throw new DomainError("deployment_unavailable", "Modalis is not set up on this network. Check the deployment configuration.", 503);
   return {
     client,
     deployment,
@@ -119,6 +121,11 @@ export function handleError(err: unknown): Response {
     else if (/stale/i.test(err.code ?? "")) count("oracle.stale");
     count("api.errors.client", 1, err.code);
     return Response.json({ error: err.message, code: err.code }, { status: err.status, headers });
+  }
+  const failure = chainFailure(err);
+  if (failure) {
+    count("oracle.stale");
+    return Response.json({ error: failure.message, code: failure.code }, { status: failure.status });
   }
   // Never leak a stack or an internal identifier to a consumer surface. The log keeps the detail
   // — scrubbed, because upstream errors carry RPC URLs and those URLs carry API keys.

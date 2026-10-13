@@ -7,7 +7,7 @@
  * Every funding figure assumes NO investment growth. The honest answer to "will I get there?" is
  * framed in money the person adds, never in a return Modalis would be guessing at.
  */
-import { createPlan, type GoalAnswers } from "@modalis/domain";
+import { createPlan, parseGoalAnswers, type GoalAnswers } from "@modalis/domain";
 import { domainContext, jsonResponse, rateLimit, route } from "@/lib/api";
 import { readUniverse } from "@/lib/universe";
 import { errorResponse } from "@/lib/serialize";
@@ -29,8 +29,8 @@ export async function POST(request: Request): Promise<Response> {
     const now = new Date();
 
     const [current, changed] = await Promise.all([
-      createPlan(ctx, body.answers, universe, now),
-      createPlan(ctx, { ...body.answers, ...(body.changes ?? {}) }, universe, now),
+      createPlan(ctx, parseGoalAnswers(body.answers), universe, now),
+      createPlan(ctx, parseGoalAnswers({ ...body.answers, ...(body.changes ?? {}) }), universe, now),
     ]);
 
     return jsonResponse({

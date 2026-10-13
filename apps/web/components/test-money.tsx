@@ -19,7 +19,7 @@ import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
 import { useWallet } from "@/components/wallet-context";
 import { apiGet, apiPost } from "@/lib/client-api";
-import { confirmOnChain } from "@/lib/chain-client";
+import { browserClient, confirmOnChain } from "@/lib/chain-client";
 import { ConfirmedIn } from "@/components/confirmed-in";
 import { Explain } from "@/components/explain";
 
@@ -75,7 +75,7 @@ export function TestMoney({ onFunded }: { onFunded?: () => void | Promise<void> 
           contracts: (status?.technical?.contracts ?? {}) as Record<string, Address>,
           tokens: (status?.technical?.tokens ?? {}) as Record<string, Address>,
         };
-        const hash = await mintTestMoney(wallet, deployment);
+        const hash = await mintTestMoney(wallet, deployment, browserClient(chainId, rpcUrl));
         setMs((await confirmOnChain(hash, { chainId, rpcUrl })).ms);
         setReceipt(hash);
       }
@@ -117,7 +117,7 @@ export function TestMoney({ onFunded }: { onFunded?: () => void | Promise<void> 
           <p className="text-sm leading-relaxed text-ink-soft">
             {state.modalisPays
               ? "One tap and Modalis sends demo dollars, plus a little MON for network fees, to your wallet. You don't sign anything."
-              : "One tap mints demo dollars to your wallet in a single transaction, so you can try adding money to your plan."}
+              : "Your wallet confirms the test-token minting transactions, so you can try adding money to your plan."}
           </p>
           <div className="mt-4">
             <Button onClick={get} busy={working} busyLabel="Sending…" disabled={working || needsMon}>

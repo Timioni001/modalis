@@ -10,6 +10,7 @@ import {RiskSignalReceiver} from "../src/RiskSignalReceiver.sol";
 import {KuruAdapter} from "../src/adapters/KuruAdapter.sol";
 import {IKuruRouter} from "../src/interfaces/IKuruRouter.sol";
 import {MockERC20} from "../src/mocks/MockERC20.sol";
+import {SavingsCircle} from "../src/SavingsCircle.sol";
 import {MockPriceOracle} from "../src/mocks/MockPriceOracle.sol";
 import {MockExecutionAdapter} from "../src/mocks/MockExecutionAdapter.sol";
 
@@ -39,6 +40,7 @@ import {MockExecutionAdapter} from "../src/mocks/MockExecutionAdapter.sol";
 /// deploy the Kuru adapter, and transfer ownership to a multisig via Ownable2Step.
 contract Deploy is Script {
     struct Deployed {
+        address savingsCircle;
         address assetRegistry;
         address portfolioMandate;
         address portfolioVault;
@@ -63,6 +65,8 @@ contract Deploy is Script {
         Deployed memory d;
 
         vm.startBroadcast(pk);
+
+        d.savingsCircle = address(new SavingsCircle());
 
         // --- Core protocol
         AssetRegistry registry = new AssetRegistry(deployer);
@@ -149,6 +153,7 @@ contract Deploy is Script {
         console2.log("=== MODALIS deployment ===");
         console2.log("chainId          ", block.chainid);
         console2.log("deployer         ", deployer);
+        console2.log("SavingsCircle    ", d.savingsCircle);
         console2.log("AssetRegistry    ", d.assetRegistry);
         console2.log("PortfolioMandate ", d.portfolioMandate);
         console2.log("PortfolioVault   ", d.portfolioVault);
@@ -186,6 +191,7 @@ contract Deploy is Script {
         vm.serializeUint(o, "blockNumber", block.number);
 
         string memory c = "contracts";
+        vm.serializeAddress(c, "savingsCircle", d.savingsCircle);
         vm.serializeAddress(c, "assetRegistry", d.assetRegistry);
         vm.serializeAddress(c, "portfolioMandate", d.portfolioMandate);
         vm.serializeAddress(c, "portfolioVault", d.portfolioVault);

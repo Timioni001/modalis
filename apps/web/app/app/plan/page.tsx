@@ -30,6 +30,7 @@ import { usePortfolio } from "@/components/portfolio-provider";
 import { ReceiptLink } from "@/components/receipt-link";
 import { PauseControl } from "@/components/pause-control";
 import { PlanHistory } from "@/components/plan-history";
+import { SavingsPreferencesEditor } from "@/components/savings-preferences-editor";
 import { monthYear, percent, usdFromDecimal } from "@/lib/format";
 
 export default function PlanPage() {
@@ -54,7 +55,7 @@ const CANNOT = [
 ];
 
 function PlanView() {
-  const { plan, goal, status } = usePortfolio();
+  const { plan, goal, status, refresh, address } = usePortfolio();
 
   if (!plan) return <Loading label="Loading your plan" />;
 
@@ -93,18 +94,34 @@ function PlanView() {
         lede={plan.summary}
         action={
           <Badge
-            tone={plan.status === "active" ? "ok" : plan.status === "paused" ? "warn" : "default"}
+            tone={
+              plan.status === "active"
+                ? "ok"
+                : plan.status === "paused"
+                  ? "warn"
+                  : "default"
+            }
             dot
           >
-            {plan.status === "active" ? "Running" : plan.status === "paused" ? "Paused" : "Draft"}
+            {plan.status === "active"
+              ? "Running"
+              : plan.status === "paused"
+                ? "Paused"
+                : "Draft"}
           </Badge>
         }
+      />
+      <SavingsPreferencesEditor
+        key={address}
+        savings={plan.goal.savings}
+        canSave={Boolean(plan.goal.id && status?.poweredBy?.savedData)}
+        onSaved={refresh}
       />
 
       {plan.status === "paused" ? (
         <Notice tone="warn" title="Your plan is paused">
-          Modalis won&rsquo;t make any adjustments while it&rsquo;s paused. Your money stays where
-          it is, and you can still withdraw it at any time.
+          Modalis won&rsquo;t make any adjustments while it&rsquo;s paused. Your
+          money stays where it is, and you can still withdraw it at any time.
         </Notice>
       ) : null}
 
@@ -123,13 +140,15 @@ function PlanView() {
                 {limit.value}
               </div>
               <div className="mt-4 font-semibold text-ink">{limit.label}</div>
-              <p className="mt-1.5 text-[14px] leading-relaxed text-ink-muted">{limit.body}</p>
+              <p className="mt-1.5 text-[14px] leading-relaxed text-ink-muted">
+                {limit.body}
+              </p>
             </div>
           ))}
         </div>
         <p className="mt-3 px-1 text-[13.5px] text-ink-muted">
-          This is the whole of what Modalis may do. Anything outside these is refused before it can
-          happen.
+          This is the whole of what Modalis may do. Anything outside these is
+          refused before it can happen.
         </p>
       </section>
 
@@ -146,7 +165,10 @@ function PlanView() {
             </div>
             <ul className="mt-3 space-y-2.5">
               {CAN.map((line) => (
-                <li key={line} className="flex gap-2.5 text-[14.5px] leading-snug text-ink">
+                <li
+                  key={line}
+                  className="flex gap-2.5 text-[14.5px] leading-snug text-ink"
+                >
                   <svg
                     aria-hidden
                     viewBox="0 0 16 16"
@@ -172,14 +194,22 @@ function PlanView() {
             </div>
             <ul className="mt-3 space-y-2.5">
               {CANNOT.map((line) => (
-                <li key={line} className="flex gap-2.5 text-[14.5px] leading-snug text-ink-soft">
+                <li
+                  key={line}
+                  className="flex gap-2.5 text-[14.5px] leading-snug text-ink-soft"
+                >
                   <svg
                     aria-hidden
                     viewBox="0 0 16 16"
                     className="mt-0.5 h-4 w-4 flex-none text-ink-muted"
                     fill="none"
                   >
-                    <path d="M3.5 8h9" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                    <path
+                      d="M3.5 8h9"
+                      stroke="currentColor"
+                      strokeWidth="1.9"
+                      strokeLinecap="round"
+                    />
                   </svg>
                   {line}
                 </li>
@@ -197,7 +227,9 @@ function PlanView() {
               </div>
               <div className="mt-1.5">
                 {status?.technical?.contracts?.portfolioMandate ? (
-                  <ReceiptLink address={status.technical.contracts.portfolioMandate} />
+                  <ReceiptLink
+                    address={status.technical.contracts.portfolioMandate}
+                  />
                 ) : (
                   <span className="text-[13px] text-ink-muted">
                     Not published on this deployment.
@@ -208,7 +240,8 @@ function PlanView() {
             <PauseControl />
           </div>
           <p className="mt-4 text-[13px] leading-relaxed text-ink-muted">
-            Pausing stops Modalis acting immediately. It never stops you withdrawing.
+            Pausing stops Modalis acting immediately. It never stops you
+            withdrawing.
           </p>
         </div>
       </Card>
@@ -219,7 +252,9 @@ function PlanView() {
           <SectionTitle>What it&rsquo;s for</SectionTitle>
           <dl>
             <KeyValue label="Goal">{goal.goal.name}</KeyValue>
-            <KeyValue label="Target">{usdFromDecimal(goal.goal.target.amount, 0)}</KeyValue>
+            <KeyValue label="Target">
+              {usdFromDecimal(goal.goal.target.amount, 0)}
+            </KeyValue>
             <KeyValue label="By">{monthYear(goal.goal.targetDate)}</KeyValue>
             <KeyValue label="You said you'd add">
               {usdFromDecimal(goal.goal.contribution.amount.amount, 0)} per{" "}
@@ -247,9 +282,12 @@ function PlanView() {
                 ) : null}
               </div>
               <div className="text-right">
-                <div className="numeric font-semibold text-ink">{percent(h.sharePercent)}</div>
+                <div className="numeric font-semibold text-ink">
+                  {percent(h.sharePercent)}
+                </div>
                 <div className="numeric text-xs text-ink-muted">
-                  {percent(h.allowedRange.minPercent)}&ndash;{percent(h.allowedRange.maxPercent)}
+                  {percent(h.allowedRange.minPercent)}&ndash;
+                  {percent(h.allowedRange.maxPercent)}
                 </div>
               </div>
             </Row>
@@ -263,9 +301,9 @@ function PlanView() {
       <Card>
         <SectionTitle>Changing your plan</SectionTitle>
         <p className="text-[15px] leading-relaxed text-ink-soft">
-          Changing your plan replaces it. Anything Modalis had already worked out against the old
-          limits stops being valid at that moment, so nothing out of date can go through
-          afterwards.
+          Changing your plan replaces it. Anything Modalis had already worked
+          out against the old limits stops being valid at that moment, so
+          nothing out of date can go through afterwards.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <Button href="/onboarding" variant="secondary">

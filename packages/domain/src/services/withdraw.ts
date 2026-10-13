@@ -15,6 +15,8 @@ import { planWithdrawal } from "../withdrawals.ts";
 import { goalBookFor } from "./goals.ts";
 import { getScenarios } from "./goal.ts";
 import { usdStringToE18 } from "./money.ts";
+import { getPlan } from "./plans.ts";
+import { retrievalReminderAt } from "../savings-preferences.ts";
 
 export type WithdrawalStep = {
   id: string;
@@ -40,6 +42,7 @@ export async function buildWithdrawalPlan(
   ctx: DomainContext,
   owner: Address,
   request: { amount: string },
+  now = new Date(),
 ): Promise<WithdrawalPlan> {
   const who = getAddress(owner);
   const amountE18 = usdStringToE18(request.amount);
@@ -84,6 +87,13 @@ export async function buildWithdrawalPlan(
   if (steps.length === 0) throw new DomainError("amount_too_small", "That amount is too small to withdraw.");
 
   const consequences: string[] = [];
+  if (ctx.db) {
+    const savings = (await getPlan(ctx, who)).goal.savings;
+    const reminderAt = savings ? retrievalReminderAt(savings) : null;
+    if (reminderAt && Date.parse(reminderAt) > now.getTime()) {
+      consequences.push(`You planned to wait until ${new Date(reminderAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })} (UTC) before retrieving savings. This is a personal reminder; you can still withdraw early.`);
+    }
+  }
 
   // Which goal it comes out of: under the waterfall, the lowest-priority funded goals shrink first.
   try {

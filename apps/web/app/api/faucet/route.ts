@@ -19,9 +19,7 @@ import {
   hasLowGas,
   isTestnetFaucetChain,
   readTokenBalance,
-  testMoneyCalls,
-  MULTICALL3_ADDRESS,
-  multicall3Abi,
+  mintTestMoneyTo,
 } from "@modalis/chain";
 import type { Address, Hex } from "viem";
 import { jsonResponse, rateLimit, requireOwner, route } from "@/lib/api";
@@ -115,19 +113,9 @@ export async function POST(request: Request): Promise<Response> {
       }
 
       if (!s.hasTestMoney) {
-        const calls = testMoneyCalls(s.deployment, owner);
-        if (calls.length > 0) {
-          mintTx = await wallet.writeContract({
-            address: MULTICALL3_ADDRESS,
-            abi: multicall3Abi,
-            functionName: "aggregate3",
-            args: [calls],
-            account: wallet.account!,
-            chain: wallet.chain,
-          });
-          const receipt = await s.client.waitForTransactionReceipt({ hash: mintTx });
-          if (receipt.status !== "success") throw new Error("The test money mint reverted.");
-        }
+        const hashes = await mintTestMoneyTo(wallet, s.client, s.deployment, owner);
+        mintTx = hashes[hashes.length - 1] ?? null;
+        if (!(await walletState(owner)).hasTestMoney) throw new Error("Test money did not arrive in your wallet.");
       }
       return { gasTx, mintTx };
     }).catch((err: unknown) => {

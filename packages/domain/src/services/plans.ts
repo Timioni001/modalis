@@ -5,7 +5,7 @@
  * never signs that, because a plan is the boundary on Modalis's own authority — letting a server
  * key write it would defeat the point.
  */
-import { readManager, readPortfolio, type Deployment } from "@modalis/chain";
+import { readManager, readPlanState, type Deployment } from "@modalis/chain";
 import {
   buildMandateDraft,
   interpretGoal,
@@ -15,6 +15,7 @@ import {
   type UniverseAsset,
 } from "@modalis/ai";
 import { getAddress, type Address } from "viem";
+import { monthlyFrom } from "./goal.ts";
 import { DomainError, type DomainContext } from "../context.ts";
 import { monthsUntil, planFromChain, planFromDraft, toGoal, toRiskLevel } from "../translate.ts";
 import type { Goal, Plan } from "../models.ts";
@@ -27,6 +28,7 @@ export type GoalAnswers = {
   goalKind: Goal["kind"];
   /** Their own words, optional. Read by the AI layer when present. */
   inTheirWords?: string;
+  savings?: import("../savings-preferences.ts").SavingsPreferences;
   /** Dollars. */
   targetAmount: number;
   /** Dollars they have now. */
@@ -134,6 +136,7 @@ export async function createPlan(
     kind: interview.goalType,
     name: GOAL_NAMES[interview.goalType],
     description: answers.inTheirWords,
+    savings: answers.savings,
     targetE18: draft.params.targetValue,
     targetDateUnix: Number(draft.params.targetDate),
     startingAmountE18: usdToE18(interview.initialAmount),
@@ -167,16 +170,31 @@ export async function createPlan(
 export async function getPlan(
   ctx: DomainContext,
   owner: Address,
-  goalContext?: { id?: string | null; kind?: Goal["kind"]; name?: string; description?: string; startingAmountE18?: bigint; contributionE18?: bigint },
+  goalContext?: { id?: string | null; kind?: Goal["kind"]; name?: string; description?: string; startingAmountE18?: bigint; contributionE18?: bigint; savings?: Goal["savings"] },
   now = new Date(),
 ): Promise<Plan> {
   const who = getAddress(owner);
-  const state = await readPortfolio(ctx.client, ctx.deployment, who);
+  const state = await readPlanState(ctx.client, ctx.deployment, who);
   if (!state.hasMandate) {
     throw new DomainError("no_plan", "You don't have a plan yet.", 404);
   }
 
   const manager = await readManager(ctx.client, ctx.deployment, who);
+  if (!goalContext && ctx.db) {
+    const { findUserByWallet, activeMandate, listGoals, latestGoal } = await import("@modalis/db");
+    const user = await findUserByWallet(ctx.db, who);
+    if (user) {
+      const [mandate, goals] = await Promise.all([activeMandate(ctx.db, user.id), listGoals(ctx.db, user.id)]);
+      const stored = goals.find((goal) => goal.id === mandate?.goal_id) ?? await latestGoal(ctx.db, user.id);
+      const cadence = stored?.contribution_cadence === "weekly" || stored?.contribution_cadence === "quarterly" ? stored.contribution_cadence : "monthly";
+      if (stored) goalContext = {
+        id: stored.id, kind: stored.type, name: stored.name,
+        startingAmountE18: usdToE18(Number(stored.initial_amount)),
+        contributionE18: usdToE18(monthlyFrom(Number(stored.contribution_amount), cadence)),
+        savings: stored.savings_preferences ?? undefined,
+      };
+    }
+  }
   const kind = goalContext?.kind ?? "custom";
 
   const goal = toGoal({
@@ -184,6 +202,7 @@ export async function getPlan(
     kind,
     name: goalContext?.name ?? GOAL_NAMES[kind],
     description: goalContext?.description,
+    savings: goalContext?.savings,
     targetE18: state.mandate.targetValue,
     targetDateUnix: state.mandate.targetDate,
     startingAmountE18: goalContext?.startingAmountE18 ?? 0n,
@@ -224,7 +243,7 @@ function inferRiskScore(maxSingleAssetBps: number): number {
 }
 
 export async function hasPlan(ctx: DomainContext, owner: Address): Promise<boolean> {
-  const state = await readPortfolio(ctx.client, ctx.deployment, getAddress(owner));
+  const state = await readPlanState(ctx.client, ctx.deployment, getAddress(owner));
   return state.hasMandate;
 }
 

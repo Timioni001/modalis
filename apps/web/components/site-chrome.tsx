@@ -10,8 +10,9 @@
  * Deciding here rather than in each page keeps a route from accidentally shipping the wrong one.
  */
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
+import { MotionConfig } from "motion/react";
 import { Toaster } from "sonner";
 import { ModalisLogo } from "./brand";
 import { WalletButton } from "./wallet-button";
@@ -33,11 +34,22 @@ const FOCUSED = ["/onboarding", "/plan"];
 
 export function SiteChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
-  const inApp = APP_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-  const focused = FOCUSED.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const inApp = APP_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+  const focused = FOCUSED.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+
+  useEffect(() => {
+    if (inApp && !focused) document.getElementById("main")?.scrollTo(0, 0);
+  }, [pathname, inApp, focused]);
 
   return (
-    <>
+    <MotionConfig
+      reducedMotion="user"
+      transition={{ type: "spring", stiffness: 360, damping: 32 }}
+    >
       {focused ? (
         <div className="isolate flex min-h-screen flex-col bg-canvas">
           <AmbientBackground />
@@ -48,16 +60,17 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <AppFootnote />
         </div>
       ) : inApp ? (
-        // The bottom padding clears the floating phone dock. It lives here, on the shell, so it
-        // sits BELOW the content: inside AppNav it rendered above <main>, which left a dead gap
-        // at the top of every screen and the footer underneath the dock.
-        <div className="isolate flex min-h-screen flex-col bg-canvas pb-[104px] lg:pb-0 lg:pl-[256px] print:pb-0 print:pl-0">
+        // Reserve real viewport space for the dock. Forms scroll above it, never behind it.
+        <div className="isolate flex h-dvh flex-col overflow-hidden bg-canvas pb-[calc(88px+env(safe-area-inset-bottom))] lg:h-auto lg:min-h-screen lg:overflow-visible lg:pb-0 lg:pl-[256px] print:h-auto print:overflow-visible print:pb-0 print:pl-0">
           <AmbientBackground />
           <AppNav />
-          <main id="main" className="flex-1">
+          <main
+            id="main"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain lg:overflow-visible print:overflow-visible"
+          >
             {children}
+            <AppFootnote />
           </main>
-          <AppFootnote />
         </div>
       ) : (
         // The public site is white with grey cards; the app is grey with white cards.
@@ -67,7 +80,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           <main id="main" className="flex-1">
             {children}
           </main>
-          <SiteFooter />
+          {pathname === "/demo" ? <AppFootnote /> : <SiteFooter />}
         </div>
       )}
 
@@ -91,7 +104,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
           },
         }}
       />
-    </>
+    </MotionConfig>
   );
 }
 
@@ -100,11 +113,15 @@ function FocusedNav() {
   return (
     <header className="px-4 pt-4 sm:px-5 sm:pt-5">
       <div className="mx-auto flex max-w-5xl items-center gap-3 rounded-full bg-surface/90 px-4 py-2.5 shadow-[var(--shadow-card)] backdrop-blur-xl">
-        <Link href="/" className="flex min-h-[44px] items-center text-ink" aria-label="Modalis home">
-          <ModalisLogo size={24} />
+        <Link
+          href="/"
+          className="flex min-h-[44px] items-center text-ink"
+          aria-label="Modalis home"
+        >
+          <ModalisLogo size={24} className="max-[359px]:[&>span]:hidden" />
         </Link>
         <div className="ml-auto">
-          <WalletButton />
+          <WalletButton signIn />
         </div>
       </div>
     </header>
@@ -122,8 +139,9 @@ function AppFootnote() {
     <footer className="mt-12">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-8 text-xs text-ink-muted">
         <p className="max-w-xl">
-          A technical demonstration. Modalis is not an investment adviser, broker or fund, no
-          return is promised, and the demo investments are not real assets.
+          A technical demonstration. Modalis is not an investment adviser,
+          broker or fund, no return is promised, and the demo investments are
+          not real assets.
         </p>
         <nav className="flex gap-4" aria-label="Legal">
           <a className="hover:text-ink" href="/legal/risk">

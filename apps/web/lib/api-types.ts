@@ -8,6 +8,8 @@
 export type SystemStatus = {
   network: { name: string; chainId: number; reachable: boolean; blockNumber: string | null };
   ready: boolean;
+  prices?: { ready: boolean };
+  developmentLocal?: boolean;
   capabilities: {
     canCreatePlan: boolean;
     canFund: boolean;
