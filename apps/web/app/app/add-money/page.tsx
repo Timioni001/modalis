@@ -48,6 +48,7 @@ import { moneyLabel } from "@/lib/format";
 import { meetsMinimumContribution } from "@modalis/domain/client";
 import { DemoPriceRecovery } from "@/components/demo-price-recovery";
 import { DirectSaving } from "@/components/direct-saving";
+import { walletActionMessage } from "@/lib/wallet-error";
 
 export default function AddMoneyPage() {
   return (
@@ -247,9 +248,7 @@ function AddMoney() {
     } catch (err) {
       setError(
         gasHelpMessage(err) ??
-          (err instanceof Error
-            ? `${err.message} Anything that already went through is safely in your plan.`
-            : "Something didn't go through."),
+          `${walletActionMessage(err, "Something didn't go through.")} Anything already confirmed remains safely in your plan.`,
       );
     } finally {
       setWorking(false);

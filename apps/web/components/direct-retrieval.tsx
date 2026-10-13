@@ -8,6 +8,7 @@ import { useWallet, useWalletConfig } from "./wallet-context";
 import { usePortfolio } from "./portfolio-provider";
 import { apiPost } from "@/lib/client-api";
 import { confirmOnChain } from "@/lib/chain-client";
+import { walletActionMessage } from "@/lib/wallet-error";
 
 type Review = {
   token: Address;
@@ -87,11 +88,7 @@ export function DirectRetrieval({ onStart }: { onStart: () => void }) {
       await refresh();
     } catch (problem) {
       if (alive.current)
-        setError(
-          problem instanceof Error
-            ? problem.message
-            : "The retrieval could not finish.",
-        );
+        setError(walletActionMessage(problem, "The retrieval could not finish."));
     } finally {
       if (alive.current) setBusy(false);
     }

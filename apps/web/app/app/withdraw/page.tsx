@@ -32,6 +32,7 @@ import { ApiError, apiPostOnce } from "@/lib/client-api";
 import { moneyLabel } from "@/lib/format";
 import { DirectRetrieval } from "@/components/direct-retrieval";
 import { DemoPriceRecovery } from "@/components/demo-price-recovery";
+import { walletActionMessage } from "@/lib/wallet-error";
 
 export default function WithdrawPage() {
   return (
@@ -129,7 +130,7 @@ function Withdraw() {
       await refresh();
     } catch (err) {
       setProblem(
-        `${err instanceof Error ? err.message : "Something didn't go through."} Anything already withdrawn is in your account.`,
+        `${walletActionMessage(err)} Anything already withdrawn is in your account.`,
       );
     } finally {
       setWorking(false);

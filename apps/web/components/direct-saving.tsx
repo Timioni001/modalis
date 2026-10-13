@@ -9,6 +9,7 @@ import { usePortfolio } from "./portfolio-provider";
 import { apiPost } from "@/lib/client-api";
 import { confirmOnChain } from "@/lib/chain-client";
 import { ReceiptLink } from "./receipt-link";
+import { walletActionMessage } from "@/lib/wallet-error";
 
 type Prepared = {
   token: Address;
@@ -109,9 +110,7 @@ export function DirectSaving({ onStart }: { onStart: () => void }) {
     } catch (problem) {
       if (alive.current)
         setError(
-          problem instanceof Error
-            ? problem.message
-            : "The saving could not finish. Any confirmed approval remains in your account.",
+          `${walletActionMessage(problem, "The saving could not finish.")} Any confirmed approval remains in your account.`,
         );
     } finally {
       if (alive.current) {

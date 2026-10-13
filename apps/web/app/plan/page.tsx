@@ -41,6 +41,7 @@ import { monthsToHuman, percent, usdFromDecimal } from "@/lib/format";
 import { ReceiptLink } from "@/components/receipt-link";
 import { SavingsPreferencesSummary } from "@/components/savings-preferences";
 import type { SystemStatus } from "@/lib/api-types";
+import { walletActionMessage } from "@/lib/wallet-error";
 
 /**
  * What the person's wallet signs to make the plan real.
@@ -207,9 +208,7 @@ export default function PlanPage() {
       setState("done");
     } catch (err) {
       setState("idle");
-      setError(
-        err instanceof Error ? err.message : "We couldn't approve your plan.",
-      );
+      setError(walletActionMessage(err, "We couldn't approve your plan. Nothing was changed."));
     }
   }, [data, getWalletClient, chainId, rpcUrl]);
 

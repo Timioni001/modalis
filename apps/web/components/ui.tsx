@@ -526,10 +526,10 @@ export function Notice({
     <div
       role={urgent ? "alert" : "status"}
       aria-live={urgent ? "assertive" : "polite"}
-      className={`rounded-2xl p-4 text-sm ${styles[tone]}`}
+      className={`min-w-0 max-w-full rounded-2xl p-4 text-sm ${styles[tone]}`}
     >
       {title ? <div className={`mb-1 font-semibold ${TONE_TEXT[tone]}`}>{title}</div> : null}
-      <div className="text-ink-soft [&_a]:font-medium [&_a]:text-ink [&_a]:underline [&_a]:underline-offset-2">
+      <div className="min-w-0 break-words text-ink-soft [overflow-wrap:anywhere] [&_a]:font-medium [&_a]:text-ink [&_a]:underline [&_a]:underline-offset-2">
         {children}
       </div>
       {action ? <div className="mt-3.5">{action}</div> : null}

@@ -25,6 +25,7 @@ import {
 } from "@/lib/payment-request";
 import { WalletButton } from "@/components/wallet-button";
 import { shortAddress } from "@/lib/format";
+import { walletActionMessage } from "@/lib/wallet-error";
 
 /** mUSD, the demo dollar, has 6 decimals (contracts/script/Deploy.s.sol). */
 const USD_DECIMALS = 6;
@@ -108,9 +109,7 @@ export default function GiftPage({
           ? "Your wallet needs a little MON for the network fee. Get some on the Add money page."
           : /exceeds balance|insufficient/i.test(String(err))
             ? "You don't have that many demo dollars. Get test money on the Add money page first."
-            : err instanceof Error
-              ? err.message.split("\n")[0]
-              : "That didn't go through. Nothing was sent.",
+            : walletActionMessage(err, "That didn't go through. Nothing was sent."),
       );
     } finally {
       setBusy(false);
