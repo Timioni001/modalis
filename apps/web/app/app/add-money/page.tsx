@@ -409,13 +409,13 @@ function AddMoney() {
             </Notice>
           ) : null}
 
-          <ol className="mt-4 space-y-px overflow-hidden rounded-2xl bg-line">
+          <ol className="mt-4 space-y-2">
             {steps.map((step, i) => (
               <li
                 key={step.id}
-                className="flex items-start justify-between gap-4 bg-surface px-4 py-4"
+                className="flex min-w-0 items-start justify-between gap-4 rounded-2xl border border-line bg-surface px-4 py-4 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-lift)]"
               >
-                <div className="flex items-start gap-3">
+                <div className="flex min-w-0 items-start gap-3">
                   <span
                     aria-hidden
                     className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
@@ -428,7 +428,7 @@ function AddMoney() {
                   >
                     {step.status === "done" ? "✓" : i + 1}
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-sm font-medium text-ink">
                       {step.description}
                     </div>
@@ -452,6 +452,7 @@ function AddMoney() {
                   </div>
                 </div>
                 <Badge
+                  className="shrink-0"
                   tone={
                     step.status === "done"
                       ? "ok"

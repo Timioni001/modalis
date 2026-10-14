@@ -86,7 +86,8 @@
  * become raised dark cards, and the black panel becomes the one light surface.
  */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  /* Kept as a named opt-in state for older cached markup; new visitors default to light. */
+  :root[data-theme="system"] {
     --color-ink: #f7f7f8;
     --color-ink-soft: #a9a9b2;
     --color-ink-muted: #7b7b84;

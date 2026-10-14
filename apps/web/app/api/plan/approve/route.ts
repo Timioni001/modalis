@@ -99,9 +99,13 @@ export async function POST(request: Request): Promise<Response> {
       chainId: ctx.deployment.chainId,
     });
     if (!user)
-      return errorResponse(
-        "Your plan is live, but we couldn't save your goal.",
-        207,
+      return jsonResponse(
+        {
+          plan,
+          saved: false,
+          note: "Your plan is live, but the goal record is temporarily unavailable. Try again in a moment.",
+        },
+        { status: 207 },
       );
 
     // A re-approval is a NEW VERSION of the same plan, so it updates the goal that plan was built
@@ -166,15 +170,12 @@ export async function POST(request: Request): Promise<Response> {
             : {}),
         } as unknown as Json,
       });
-      if (!saved)
-        return jsonResponse(
-          {
-            plan,
-            saved: false,
-            note: "Your plan is live, but your personal details could not be saved. Try saving them again.",
-          },
-          { status: 207 },
-        );
+      if (!saved) {
+        // The goal row is already safely stored. Keep the approval successful and let a later
+        // retry fill the optional interview history instead of making the person think the goal
+        // disappeared.
+        console.warn("[modalis] goal saved but interview history was unavailable");
+      }
     }
 
     await recordMandate(db, {

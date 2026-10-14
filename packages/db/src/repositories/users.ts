@@ -106,23 +106,32 @@ export async function createGoal(
         : {}),
     };
     let result = await db.from("goals").insert(row).select().single();
-    if (result.error && missingSavingsColumn(result.error)) {
-      const { savings_preferences: unused, ...legacy } = row;
-      result = await db.from("goals").insert(legacy).select().single();
+    // Deployments can be upgraded one migration at a time. If the API schema cache is
+    // temporarily behind the application, remove only the newer column named by Supabase and
+    // retry. The core goal fields have existed since 0001 and remain required.
+    let payload: GoalInsert = row;
+    for (let attempt = 0; result.error && attempt < 3; attempt++) {
+      const column = missingGoalColumn(result.error);
+      if (!column || !(column in payload)) break;
+      const { [column]: unused, ...legacy } = payload as GoalInsert & Record<string, unknown>;
+      payload = legacy as GoalInsert;
+      result = await db.from("goals").insert(payload).select().single();
     }
     if (result.error) throw result.error;
     return result.data;
   });
 }
 
-function missingSavingsColumn(error: {
+function missingGoalColumn(error: {
   code?: string;
   message?: string;
-}): boolean {
-  return (
-    ["42703", "PGRST204"].includes(error.code ?? "") &&
-    Boolean(error.message?.includes("savings_preferences"))
-  );
+}): string | null {
+  if (!["42703", "PGRST204"].includes(error.code ?? "")) return null;
+  const message = error.message ?? "";
+  for (const column of ["savings_preferences", "liquidity_need", "priority"]) {
+    if (message.includes(column)) return column;
+  }
+  return null;
 }
 
 /** The user's current goal, newest first. */
@@ -281,12 +290,17 @@ export async function updateGoal(
       .eq("user_id", userId)
       .select()
       .maybeSingle();
-    if (result.error && missingSavingsColumn(result.error)) {
-      const { savings_preferences: unused, ...legacy } = row;
-      // An edit containing only savings still verifies ownership and updates the row timestamp.
+    let payload: Partial<GoalInsert> = row;
+    for (let attempt = 0; result.error && attempt < 3; attempt++) {
+      const column = missingGoalColumn(result.error);
+      if (!column || !(column in payload)) break;
+      const { [column]: unused, ...legacy } = payload as Partial<GoalInsert> & Record<string, unknown>;
+      payload = legacy as Partial<GoalInsert>;
+      // An edit containing only a column from a newer migration still verifies ownership and
+      // updates the row timestamp on older schemas.
       result = await db
         .from("goals")
-        .update({ ...legacy, updated_at: new Date().toISOString() })
+        .update({ ...payload, updated_at: new Date().toISOString() })
         .eq("id", goalId)
         .eq("user_id", userId)
         .select()

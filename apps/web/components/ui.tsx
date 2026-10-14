@@ -176,10 +176,12 @@ export function Badge({
   tone = "default",
   children,
   dot = false,
+  className = "",
 }: {
   tone?: Tone;
   children: ReactNode;
   dot?: boolean;
+  className?: string;
 }) {
   const styles: Record<Tone, string> = {
     default: "bg-sunken text-ink-soft",
@@ -197,7 +199,7 @@ export function Badge({
   };
   return (
     <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${styles[tone]}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${styles[tone]} ${className}`}
     >
       {dot ? <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dots[tone]}`} /> : null}
       {children}

@@ -78,6 +78,25 @@ function toMandateParams(params: Approval["params"]): MandateParams {
   };
 }
 
+type GoalSaveResponse = { saved: boolean; note?: string };
+
+/** A just-confirmed transaction can reach the chain before the database connection is ready. */
+async function saveGoalDetails(
+  answers: unknown,
+  goalName: string,
+  setTxHash: Hex,
+): Promise<GoalSaveResponse> {
+  const payload = { answers, goalName, setTxHash };
+  const first = await apiPost<GoalSaveResponse>("/api/plan/approve", payload);
+  if (first.saved) return first;
+
+  // One short, idempotent retry absorbs a cold database/API connection without asking someone
+  // to sign their plan again. The endpoint upserts the same goal and mandate version.
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const retry = await apiPost<GoalSaveResponse>("/api/plan/approve", payload);
+  return retry.saved ? retry : first;
+}
+
 export default function PlanPage() {
   const router = useRouter();
   const { configured, chainId, rpcUrl } = useWalletConfig();
@@ -184,13 +203,10 @@ export default function PlanPage() {
       }
 
       try {
-        const saved = await apiPost<{ saved: boolean; note?: string }>(
-          "/api/plan/approve",
-          {
-            answers,
-            goalName: data.plan.goal.name,
-            setTxHash: planHash,
-          },
+        const saved = await saveGoalDetails(
+          answers,
+          data.plan.goal.name,
+          planHash,
         );
         setGoalSaved(Boolean(saved.saved));
         if (!saved.saved)
@@ -386,6 +402,7 @@ export default function PlanPage() {
         {saveNote ? (
           <Notice
             tone="warn"
+            title="Your plan is live"
             action={
               state === "done" && goalSaved === false ? (
                 <Button
@@ -399,18 +416,15 @@ export default function PlanPage() {
                     if (!answers || !receipt) return;
                     setSavingDetails(true);
                     try {
-                      const result = await apiPost<{
-                        saved: boolean;
-                        note?: string;
-                      }>("/api/plan/approve", {
+                      const result = await saveGoalDetails(
                         answers,
-                        goalName: data.plan.goal.name,
-                        setTxHash: receipt.hash,
-                      });
+                        data.plan.goal.name,
+                        receipt.hash,
+                      );
                       setGoalSaved(Boolean(result.saved));
                       setSaveNote(
                         result.saved
-                          ? "Your goal details are saved."
+                          ? null
                           : (result.note ??
                               "Your goal details could not be saved yet."),
                       );
