@@ -8,11 +8,22 @@ export const dynamic = "force-dynamic";
 function isMissingWaitlistTable(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const candidate = error as { code?: unknown; message?: unknown; details?: unknown };
+  const code = typeof candidate.code === "string" ? candidate.code.toUpperCase() : "";
   const text = [candidate.code, candidate.message, candidate.details]
     .filter((value): value is string => typeof value === "string")
     .join(" ")
     .toLowerCase();
-  return text.includes("42p01") || /relation[^\n]*waitlist_signups[^\n]*does not exist/.test(text);
+  // Postgres uses 42P01; PostgREST uses PGRST205 when the table is absent from
+  // its schema cache. Both mean the migration has not reached this project yet.
+  return (
+    code === "42P01" ||
+    code === "PGRST205" ||
+    (/waitlist_signups/.test(text) &&
+      (text.includes("schema cache") ||
+        text.includes("does not exist") ||
+        text.includes("could not find the table") ||
+        text.includes("relation")))
+  );
 }
 
 /** Public early-access signup. It stores only a validated email through the server role. */
