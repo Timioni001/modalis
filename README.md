@@ -353,34 +353,21 @@ pnpm envio:validate      # Envio config against Envio's own schema
 
 ## Promoting a deployment
 
-The implementation was built on the local `work` branch and published to the Vercel-connected
-preview branch `claude/awesome-gates-h1pxk0`. This repository currently has no remote `main`, so
-the shortest safe promotion is:
+`main` is the production branch. Keep the local task branch only while work is in progress, then
+publish a reviewed commit with a fast-forward push:
 
 ```bash
-git fetch origin
-git switch --create main origin/claude/awesome-gates-h1pxk0
-git push --set-upstream origin main
-git push origin --delete claude/awesome-gates-h1pxk0
-git branch -d work                 # optional: remove the local task branch after switching away
-```
-
-If a `main` branch is created before you run this, merge the preview branch instead:
-
-```bash
-git fetch origin
 git switch main
 git pull --ff-only origin main
-git merge --ff-only origin/claude/awesome-gates-h1pxk0
+git merge --ff-only work
 git push origin main
-git push origin --delete claude/awesome-gates-h1pxk0
-git branch -d work
+git branch -d work                 # optional, after switching away from it
 ```
 
-If either merge is not fast-forwardable, stop and resolve the divergence deliberately; do not force
-push. After the push, set **Vercel → Project → Settings → Git → Production Branch** to `main` and
-redeploy. The required Vercel root directory remains `apps/web`; the complete environment and
-deployment guide is [`docs/deployment.md`](docs/deployment.md).
+In Vercel, set **Project → Settings → Git → Production Branch** to `main`, then redeploy the latest
+commit if the Git integration has not started a deployment automatically. The required Vercel root
+directory remains `apps/web`; the complete environment and deployment guide is
+[`docs/deployment.md`](docs/deployment.md).
 
 ## Requirements
 
