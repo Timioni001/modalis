@@ -5,6 +5,16 @@ import { text } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 
+function isMissingWaitlistTable(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown; details?: unknown };
+  const text = [candidate.code, candidate.message, candidate.details]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+  return text.includes("42p01") || /relation[^\n]*waitlist_signups[^\n]*does not exist/.test(text);
+}
+
 /** Public early-access signup. It stores only a validated email through the server role. */
 export async function POST(request: Request): Promise<Response> {
   return route(async () => {
@@ -25,7 +35,16 @@ export async function POST(request: Request): Promise<Response> {
     const { error } = await db
       .from("waitlist_signups")
       .upsert({ email, source: "landing" }, { onConflict: "email", ignoreDuplicates: true });
-    if (error) throw error;
+    if (error) {
+      if (isMissingWaitlistTable(error)) {
+        throw new DomainError(
+          "waitlist_unavailable",
+          "The early-access list is being connected. Please try again shortly.",
+          503,
+        );
+      }
+      throw error;
+    }
     return jsonResponse({ joined: true });
   });
 }
