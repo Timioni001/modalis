@@ -10,6 +10,87 @@ Modalis.
 
 ---
 
+## Submission snapshot
+
+Modalis is a consumer savings and payments product for **Monad Testnet**. A person describes a
+goal, reviews a bounded plan, adds valueless demo money, and can send or request payments without
+giving Modalis withdrawal authority. **Modalis Twin** adds a safe branch of the same experience:
+change the deadline, contribution, withdrawal or risk preference; compare deterministic outcomes;
+then turn the chosen future into an owner-approved plan update.
+
+| | Current implementation |
+|---|---|
+| Primary Metropolis track | Consumer Products & Payments |
+| Technical fit | Monad onchain policy, Dynamic sign-in, Kuru adapter, Chainlink CRE risk signal, Envio activity index, Alchemy-compatible RPC |
+| Public demo | `https://modalis-six.vercel.app/demo` (account-free sample data) |
+| Authenticated product | `https://modalis-six.vercel.app/app` |
+| Twin workspace | `/app/scenarios` — save, duplicate, compare and reopen plan drafts |
+| Submission logo | [`apps/web/public/logo.png`](apps/web/public/logo.png) — 512 × 512 PNG, under 2 MB |
+| Source of truth | Monad contracts for policy, balances and receipts; Supabase is optional persistence for goals and history |
+| Safety boundary | Exploring a future never signs or moves funds; only an owner-approved, policy-valid action can write to Monad |
+
+The portal's current sponsor rules and deadline remain authoritative. The evidence and honest
+limitations for each optional integration are in [`docs/bounty-matrix.md`](docs/bounty-matrix.md)
+and [`docs/metropolis-research.md`](docs/metropolis-research.md).
+
+## Working demo path
+
+Use this order when reviewing the product:
+
+1. Open `/demo` and move the goal sliders. The preview is sample data and requires no wallet.
+2. Choose **Try the demo**, sign in with Dynamic on Monad Testnet, and open the app overview.
+3. Create or review a goal, then approve its limits. Additional goals can be added and ordered;
+   saved plan drafts are separate from the one active wallet policy.
+4. Open **Modalis Twin**. Duplicate the live future, change assumptions, and compare contribution
+   requirements, projected balances, shortfalls and fixed downside paths.
+5. Save a named draft. Select it to preview the exact policy change, approve it in the wallet,
+   wait for the Monad receipt, and reload the plan to verify the new version.
+6. Fund with demo mUSD, use Payments to send or request, and use Activity to inspect receipts.
+
+The calculation engine is deterministic integer/decimal code with documented assumptions. AI may
+interpret free text and explain a result, but it never supplies financial numbers.
+
+## Product and system graphs
+
+The core user journey is intentionally linear. Branches remain read-only until the person chooses
+one and signs the proposed policy update.
+
+```mermaid
+flowchart LR
+    A[Existing goal] --> B[Create or duplicate future]
+    B --> C[Deterministic simulation]
+    C --> D[Compare outcomes]
+    D --> E[Save named draft]
+    E --> F[Preview bounded changes]
+    F --> G{Owner approves?}
+    G -- No --> H[Keep draft or return to Twin]
+    G -- Yes --> I[Monad policy transaction]
+    I --> J[Verify receipt]
+    J --> K[Portfolio and history update]
+    K --> C
+```
+
+The trust boundary keeps consumer language in the web and domain layers while the contracts remain
+the final authority over money.
+
+```mermaid
+flowchart TB
+    U[Person in browser] -->|Dynamic session + wallet signature| W[Next.js web app]
+    W --> D[Deterministic domain and Twin engine]
+    W --> S[(Supabase optional goals/history)]
+    W --> R[Chain reader and transaction builder]
+    R --> M[(Monad Testnet contracts)]
+    M --> E[Receipts and events]
+    E --> V[Envio index / RPC fallback]
+    C[Chainlink CRE risk signal] --> M
+    K[Kuru adapter, when configured] --> M
+    A[Alchemy-compatible RPC, when configured] --> R
+```
+
+This is a capability graph, not a claim that every sponsor service is live in the hosted demo.
+The runtime status page and sponsor matrix identify what is configured, what is fallback, and what
+still needs a credential or live market.
+
 ## The idea
 
 Most people can say what they need their money to do. Far fewer can say which assets to own, how
@@ -91,7 +172,7 @@ execution** means a command in this repository runs it and it passes.
 | | |
 |---|---|
 | **54 contract tests pass** | mandate enforcement, access control, replay, slippage, pause, emergency exit, Kuru adapter, CRE report decoding |
-| **291 package and web tests pass** | portfolio (9), execution (6), intelligence (32), chain (26), persistence (7), authentication (28), domain (124), web (59); plus 5 monitor tests, 3 CRE tests, 3 database integration tests and 7 browser flows |
+| **306 package and web tests pass** | 240 package tests (portfolio 9, execution 6, intelligence 32, chain 26, persistence 7, authentication 28, domain 132) plus 66 web tests |
 | **Sign-in is verified against real signatures** | tokens signed with a real key pair and verified through the real JWKS path; a token signed by the wrong key, expired, unsigned or issued for another deployment is refused |
 | **No route can act on an account the caller does not own** | a static audit over every route in the app: the acting account comes from a verified session, never from a body, path or query string |
 | **No protocol vocabulary reaches a person** | every user-facing sentence in the domain layer is swept for it, and the guard is tested against a planted leak |
@@ -124,6 +205,26 @@ working in the UI — `/api/status` reports the real state and the landing page 
 
 - **Perpl.** The brief marks it optional and warns against leveraged perps in a goal-based wealth
   product. Nothing in the UI implies it exists.
+
+## Resilience and personal settings
+
+Open **Your limits → Custom savings details** during onboarding, or **Your plan → Edit savings
+preferences** after saving the approved goal. The minimum means the smallest complete contribution,
+not a minimum balance or opening deposit. The setting accepts cents from $0 to $100,000, where zero
+means no personal minimum. A contribution below the chosen amount is refused by the funding planner
+before a wallet signature. A personal retrieval reminder can be set from 0 to 3,650 UTC days after
+plan approval; it is a reminder, not a hidden vault lock. The owner can still withdraw, subject to
+the existing contract rules. Optional context is capped at 500 characters and is never treated as a
+payment instruction. See the [research and product distinction](docs/metropolis-research.md#savings-minimums-and-retrieval-timing-research).
+
+The hosted demo remains useful when synthetic portfolio quotes expire. Approved plans, goal
+definitions, exact token quantities, payments, transfers and manual Twin calculations continue to
+work. Add money and Withdraw use owner-signed exact mUSD transfers and do not present token
+quantities as current dollar values. `/api/status` reports quote, signer, database, indexer and
+optional integration health independently, so one unavailable service does not hide the rest of the
+product. Authenticated price recovery only republishes existing positive testnet quotes when a
+configured key matches the deployed oracle owner; it never replaces the oracle or signs a public
+status check. See [`docs/deployment.md`](docs/deployment.md) for Vercel environment variables.
 
 ## What is real and what is simulated
 
@@ -263,6 +364,28 @@ pnpm risk-monitor:once   # evaluate watched portfolios once
 pnpm envio:validate      # Envio config against Envio's own schema
 ```
 
+## Publishing the submission
+
+The implementation was built on the local `work` branch and published to the Vercel-connected
+preview branch `claude/awesome-gates-h1pxk0`. To make it the repository's `main` branch, run these
+commands from a clone with push access:
+
+```bash
+git fetch origin
+git switch main
+git pull --ff-only origin main
+git merge --ff-only origin/claude/awesome-gates-h1pxk0
+git push origin main
+git push origin --delete claude/awesome-gates-h1pxk0
+git branch -d work                 # optional: remove the local task branch after switching away
+```
+
+If `main` does not exist locally yet, use `git switch --track -c main origin/main` after fetching.
+If the merge is not fast-forwardable, stop and resolve the divergence deliberately; do not force
+push. After the push, set **Vercel → Project → Settings → Git → Production Branch** to `main` and
+redeploy. The required Vercel root directory remains `apps/web`; the complete environment and
+deployment guide is [`docs/deployment.md`](docs/deployment.md).
+
 ## Requirements
 
 Node 22+ (the TypeScript runs directly via Node's type stripping), pnpm, Foundry, and Python 3 for
@@ -293,21 +416,3 @@ pooled investment vehicle. Nothing here is financial advice, no return is promis
 no figure shown is a projection of future performance. Demo tokens exist only on test networks and
 are not real investment assets. There has been no security audit — do not put meaningful funds
 behind this.
-
-
-### Custom contribution and retrieval details
-
-Open **Your limits → Custom savings details** during onboarding, or **Your plan → Edit savings preferences** after saving the approved goal. Choose a minimum per complete contribution ($0–$100,000, including cents), a personal retrieval waiting period (0–3,650 days after plan approval), and optional notes. An undersized contribution is refused by the funding planner before any signature. Withdrawal review shows an early-retrieval reminder while preserving the owner's ability to withdraw. Direct owner contract calls retain the vault's existing rules.
-
-Migration `supabase/migrations/0004_savings_preferences.sql` is recommended for a dedicated settings column. Owner- and goal-scoped interview JSON provides compatible persistence on the existing schema. Saved settings retain the existing goals and interview policies. Without a database, approval explicitly reports that these details were not saved. `/demo` lets visitors try the controls using sample data. See the [research and distinction between saving periods, notice and enforced locks](docs/metropolis-research.md#savings-minimums-and-retrieval-timing-research).
-
-
-### Browser recovery on the hosted demo
-
-The consumer flow remains useful when synthetic portfolio quotes expire: approved plans, saved goal definitions, exact asset quantities, payment requests and transfers, and manual “What if?” calculations do not require a portfolio valuation. **Add money** and **Withdraw** offer exact mUSD saving/retrieval when prices are paused. These are owner-signed vault transfers, do not redistribute investments, and do not present token quantities as current dollar values. The whole-contribution minimum still applies; the retrieval waiting period remains a personal reminder, with early withdrawals allowed.
-
-Authenticated `/api/demo/prices` restores expired testnet quotes using their existing values, only when a configured signer matches the deployed mock oracle's owner and has testnet gas. It tries `ORACLE_UPDATER_PRIVATE_KEY`, `DEPLOYER_PRIVATE_KEY`, `FAUCET_PRIVATE_KEY`, and `MANAGER_PRIVATE_KEY`, accepting only that exact owner. Public status checks never sign transactions. A connected oracle owner can also approve recovery in their wallet. Never put these keys in `NEXT_PUBLIC_` variables or Git. `DEMO_MODE=false` disables recovery; an unset flag recognizes a configured testnet mock oracle, with its ABI checked before recovery.
-
-Vercel includes a daily, authenticated `/api/cron/prices` task. Set a private, random `CRON_SECRET` in the project's Vercel environment variables to enable it; Vercel sends that secret as the bearer token. On-demand recovery covers expiry between scheduled calls. Missing or incorrect ownership credentials are reported honestly; no replacement private key can control the existing oracle.
-
-System status checks all enabled asset quotes, the signing-key endpoint, the existing database tables, the actual indexed-event query, signer identity/gas and optional RPC transport. Optional sponsors are collapsed under **Sponsor integrations and evidence**. A configured Kuru adapter or CRE receiver is labelled evidence pending until a real fill or deployed workflow is verified. Preferences are also stored in owner- and goal-scoped interview JSON, so saving/reloading works before migration 0004 is installed; that migration remains recommended for the dedicated settings column.
