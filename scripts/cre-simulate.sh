@@ -11,7 +11,11 @@ cd "$(dirname "$0")/.."
 
 KEEP="contracts/deployments/10143.testnet.json"
 [ -f "$KEEP" ] || { echo "No $KEEP. Run bash scripts/go-live.sh first."; exit 1; }
-command -v cre >/dev/null || { echo "Install the CRE CLI first: https://docs.chain.link/cre"; exit 1; }
+command -v cre >/dev/null || {
+  echo "CRE CLI is missing. Install it with: curl -sSL https://app.chain.link/install.sh | bash"
+  echo "Then open a new WSL terminal (or run: source ~/.bashrc) and retry."
+  exit 1
+}
 
 OWNERS=()
 while [ $# -gt 0 ] && [ "$1" != "--" ]; do OWNERS+=("$1"); shift; done
