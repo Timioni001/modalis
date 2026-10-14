@@ -29,6 +29,10 @@ Use this order when reviewing the product:
 The calculation engine is deterministic integer/decimal code with documented assumptions. AI may
 interpret free text and explain a result, but it never supplies financial numbers.
 
+### Desktop preview
+
+![Modalis desktop landing page preview](docs/screenshots/modalis-desktop-preview.png)
+
 ## Product and system graphs
 
 The core user journey is intentionally linear. Branches remain read-only until the person chooses
