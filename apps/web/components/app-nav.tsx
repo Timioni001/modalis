@@ -27,6 +27,7 @@ const TABS: Tab[] = [
 ];
 
 const MORE: Tab[] = [
+  { href: "/app/profile", label: "Profile", icon: ProfileIcon },
   { href: "/app/notifications", label: "Notifications", icon: ActivityIcon },
   { href: "/app/goals", label: "Goals", icon: GoalsIcon },
   { href: "/app/circles", label: "Savings circles", icon: CirclesIcon },
@@ -145,7 +146,7 @@ export function AppNav() {
                 Testnet demo · no real money
               </span>
               <ThemeToggle />
-              <WalletButton />
+              <WalletButton signIn />
             </div>
             <nav aria-label="More pages" className="space-y-1">
               {more.map((tab) => (
@@ -354,6 +355,15 @@ function SettingsIcon({ active }: IconProps) {
       <path d="M3 6.5h10M16 6.5h1M3 13.5h4M10 13.5h7" {...stroke(active)} />
       <circle cx="14.5" cy="6.5" r="2" {...stroke(active)} />
       <circle cx="8.5" cy="13.5" r="2" {...stroke(active)} />
+    </svg>
+  );
+}
+
+function ProfileIcon({ active }: IconProps) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <circle cx="10" cy="6.4" r="2.8" {...stroke(active)} />
+      <path d="M4.2 16.5c.6-3 2.5-4.5 5.8-4.5s5.2 1.5 5.8 4.5" {...stroke(active)} />
     </svg>
   );
 }

@@ -19,10 +19,62 @@ export function ConfiguredWalletButton({
 }) {
   return <CompactAccount compact={compact} />;
 }
+
+/**
+ * Account actions for the standalone profile screen.
+ *
+ * This stays in the Dynamic-only module because the SDK hooks require a mounted
+ * DynamicContextProvider. The profile route loads this component client-side
+ * after the provider has been selected by the app shell.
+ */
+export function ProfileAccountActions() {
+  const { handleLogOut, setShowDynamicUserProfile } = useDynamicContext();
+  const loggedIn = useIsLoggedIn();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  if (!loggedIn) return null;
+
+  async function logOut() {
+    setLoggingOut(true);
+    try {
+      await handleLogOut();
+      toast.success("You are signed out");
+    } catch {
+      toast.error("We couldn't sign you out. Try again.");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        variant="secondary"
+        onClick={() => setShowDynamicUserProfile(true)}
+      >
+        View profile
+      </Button>
+      <Button
+        variant="quiet"
+        className="text-breach hover:bg-breach-soft hover:text-breach"
+        onClick={() => void logOut()}
+        busy={loggingOut}
+        busyLabel="Signing out…"
+      >
+        Log out
+      </Button>
+    </div>
+  );
+}
 /** Signed in: a compact account control with balances and wallet actions. */
 function CompactAccount({ compact }: { compact: boolean }) {
-  const { setShowDynamicUserProfile, setShowAuthFlow, primaryWallet, user } =
-    useDynamicContext();
+  const {
+    handleLogOut,
+    setShowDynamicUserProfile,
+    setShowAuthFlow,
+    primaryWallet,
+    user,
+  } = useDynamicContext();
   const loggedIn = useIsLoggedIn();
   const { chainId, networkName, rpcUrl, explorerUrl } = useWalletConfig();
   const [open, setOpen] = useState(false);
@@ -31,6 +83,7 @@ function CompactAccount({ compact }: { compact: boolean }) {
     usd: bigint | null;
   } | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const shell = useRef<HTMLDivElement>(null);
 
   const label = user?.email ?? primaryWallet?.address ?? "Your account";
@@ -103,6 +156,19 @@ function CompactAccount({ compact }: { compact: boolean }) {
       toast.success("Wallet address copied");
     } catch {
       toast.error("Copy was unavailable. Select the address manually.");
+    }
+  }
+
+  async function logOut() {
+    setLoggingOut(true);
+    try {
+      await handleLogOut();
+      setOpen(false);
+      toast.success("You are signed out");
+    } catch {
+      toast.error("We couldn't sign you out. Try again.");
+    } finally {
+      setLoggingOut(false);
     }
   }
 
@@ -197,7 +263,17 @@ function CompactAccount({ compact }: { compact: boolean }) {
                 size="md"
                 onClick={() => setShowDynamicUserProfile(true)}
               >
-                Manage account
+                View profile
+              </Button>
+              <Button
+                variant="quiet"
+                size="md"
+                className="text-breach hover:bg-breach-soft hover:text-breach"
+                onClick={() => void logOut()}
+                busy={loggingOut}
+                busyLabel="Signing out…"
+              >
+                Log out
               </Button>
               {explorerUrl && address ? (
                 <Button

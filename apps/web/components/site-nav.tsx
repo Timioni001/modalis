@@ -176,6 +176,11 @@ export function SiteNav() {
             <span className="hidden lg:inline-flex">
               <ThemeToggle />
             </span>
+            <span className="hidden lg:inline-flex">
+              <NavLink href="/app/profile" active={pathname === "/app/profile"}>
+                Account
+              </NavLink>
+            </span>
             <WalletButton />
             <Link
               href="/#waitlist"
@@ -252,6 +257,7 @@ export function SiteNav() {
               <ul className="space-y-1">
                 {[
                   { href: "/app", label: "Open my plan", blurb: "" },
+                  { href: "/app/profile", label: "View profile", blurb: "" },
                   ...PRODUCT.slice(0, 1),
                   ...TRUST,
                 ].map((item) => (
