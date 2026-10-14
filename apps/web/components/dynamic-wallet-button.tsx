@@ -61,6 +61,7 @@ export function ProfileAccountActions() {
         busy={loggingOut}
         busyLabel="Signing out…"
       >
+        <LogoutIcon />
         Log out
       </Button>
     </div>
@@ -273,6 +274,7 @@ function CompactAccount({ compact }: { compact: boolean }) {
                 busy={loggingOut}
                 busyLabel="Signing out…"
               >
+                <LogoutIcon />
                 Log out
               </Button>
               {explorerUrl && address ? (
@@ -298,5 +300,24 @@ function BalanceTile({ label, value }: { label: string; value: string }) {
       <p className="text-[11px] text-panel-soft">{label}</p>
       <p className="mt-1 truncate text-sm font-semibold">{value}</p>
     </div>
+  );
+}
+
+/** Door-and-arrow mark used anywhere an account can be signed out. */
+function LogoutIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M10 4H6.75A1.75 1.75 0 0 0 5 5.75v12.5A1.75 1.75 0 0 0 6.75 20H10" />
+      <path d="M13 8l4 4-4 4M8.5 12H17" />
+    </svg>
   );
 }
