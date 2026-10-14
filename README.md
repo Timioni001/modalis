@@ -367,8 +367,18 @@ pnpm envio:validate      # Envio config against Envio's own schema
 ## Publishing the submission
 
 The implementation was built on the local `work` branch and published to the Vercel-connected
-preview branch `claude/awesome-gates-h1pxk0`. To make it the repository's `main` branch, run these
-commands from a clone with push access:
+preview branch `claude/awesome-gates-h1pxk0`. This repository currently has no remote `main`, so
+the shortest safe promotion is:
+
+```bash
+git fetch origin
+git switch --create main origin/claude/awesome-gates-h1pxk0
+git push --set-upstream origin main
+git push origin --delete claude/awesome-gates-h1pxk0
+git branch -d work                 # optional: remove the local task branch after switching away
+```
+
+If a `main` branch is created before you run this, merge the preview branch instead:
 
 ```bash
 git fetch origin
@@ -377,11 +387,10 @@ git pull --ff-only origin main
 git merge --ff-only origin/claude/awesome-gates-h1pxk0
 git push origin main
 git push origin --delete claude/awesome-gates-h1pxk0
-git branch -d work                 # optional: remove the local task branch after switching away
+git branch -d work
 ```
 
-If `main` does not exist locally yet, use `git switch --track -c main origin/main` after fetching.
-If the merge is not fast-forwardable, stop and resolve the divergence deliberately; do not force
+If either merge is not fast-forwardable, stop and resolve the divergence deliberately; do not force
 push. After the push, set **Vercel → Project → Settings → Git → Production Branch** to `main` and
 redeploy. The required Vercel root directory remains `apps/web`; the complete environment and
 deployment guide is [`docs/deployment.md`](docs/deployment.md).
