@@ -194,7 +194,7 @@ export default function LandingPage() {
       </section>
 
       {/* ------------------------------------------------------------- wait list */}
-      <section className="mx-auto max-w-6xl px-5 pb-20 sm:pb-28">
+      <section id="waitlist" className="mx-auto max-w-6xl scroll-mt-24 px-5 pb-20 sm:pb-28">
         <div className="grid gap-8 rounded-[32px] bg-panel px-6 py-10 text-panel-ink shadow-[var(--shadow-lift)] sm:px-12 sm:py-14 lg:grid-cols-[1fr_minmax(320px,420px)] lg:items-center lg:gap-16">
           <div>
             <div className="eyebrow text-panel-soft">Early access</div>

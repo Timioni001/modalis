@@ -177,6 +177,13 @@ export function SiteNav() {
               <ThemeToggle />
             </span>
             <WalletButton />
+            <Link
+              href="/#waitlist"
+              className="inline-flex min-h-[40px] items-center justify-center rounded-full bg-accent px-3 text-[12px] font-semibold text-accent-ink transition-[filter] hover:brightness-[1.04] sm:px-4 sm:text-[13.5px]"
+            >
+              <span className="sm:hidden">Join</span>
+              <span className="hidden sm:inline">Join wait-list</span>
+            </Link>
             <button
               type="button"
               onClick={() => setMobile((v) => !v)}
@@ -257,6 +264,14 @@ export function SiteNav() {
                     </Link>
                   </li>
                 ))}
+                <li>
+                  <Link
+                    href="/#waitlist"
+                    className="block rounded-[18px] bg-accent px-4 py-3.5 text-[15px] font-semibold text-accent-ink hover:brightness-[1.04]"
+                  >
+                    Join the wait-list
+                  </Link>
+                </li>
                 <li>
                   <Link
                     href="/contact"
