@@ -10,6 +10,7 @@ export * from "./goals.ts";
 export * from "./assets.ts";
 export * from "./exposure.ts";
 export * from "./automation.ts";
+export * from "./twin.ts";
 export type { GoalAnswers } from "./services/plans.ts";
 export type { GoalView, ScenarioSet } from "./services/goal.ts";
 export type { GoalsView, NewGoal, GoalDefinition } from "./services/goals.ts";

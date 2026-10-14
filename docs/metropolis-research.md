@@ -51,6 +51,17 @@ The second build adds `/demo`, an account-free interactive preview explicitly la
 
 This is concrete Consumer Products & Payments evidence: account-free discovery, everyday payment requests, owner-approved transfers and group saving. The mandate and rebalance flow support the secondary Onchain Finance & Trading narrative. These are fit recommendations, not a guarantee of eligibility or awards. The authenticated portal's exact sponsor conditions still need verification; mock trades cannot establish Kuru use, nor can local workflow tests establish a deployed CRE integration.
 
+### Twin evidence for the selected track
+
+Modalis Twin keeps the consumer action understandable: a person can compare “keep my current plan”
+with “reach this goal sooner,” including the amount they would need to add and the downside path,
+then approve one bounded plan update. The simulator is pure integer code and does not use an AI
+model for financial figures. A saved branch uses the existing scenario history table. The only
+Monad write is the owner's signed `setMandate` update, and the receipt is decoded and read back
+before the history is marked selected. This supports Consumer Products & Payments by making a
+real consumer decision reviewable, while the policy-enforced update provides a credible secondary
+Onchain Finance & Trading story. No branch exploration moves money.
+
 The header and phone dock now collapse into accessible labelled sheets. Wallet SDK controls no longer occupy an unconstrained header slot. Notifications and multi-goal links appear only when saved data is configured; savings circles appear only when its contract is present. Actual testnet sign-in is reached from the demo page, so the consumer entry remains “Try the demo.”
 
 ### Design research applied

@@ -17,3 +17,4 @@ export * from "./repositories/users.ts";
 export * from "./repositories/mandates.ts";
 export * from "./repositories/activity.ts";
 export * from "./repositories/events.ts";
+export * from "./repositories/scenarios.ts";

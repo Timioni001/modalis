@@ -34,6 +34,9 @@ The main application is Node 22+ TypeScript, Next.js 16.3.8, React 19, pnpm 10.2
 7. Settings revoke the manager, pause/resume, adjust automation, choose display preferences and export/delete stored personal data.
 8. Gifting transfers test tokens into a recipient's wallet; only the recipient can fund their own plan.
 9. Savings circles enforce membership, payout order and deadline refunds in a separate contract.
+10. Modalis Twin branches a live goal into deterministic alternatives, compares fixed downside and
+    expected paths, persists the branch in scenario history, and turns only an explicitly reviewed
+    branch into an owner-signed mandate update.
 
 ## Reliability and security changes
 

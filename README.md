@@ -73,6 +73,12 @@ The primary track is **Consumer Products & Payments**, with policy-checked finan
 
 `/app/payments` supports sending demo dollars, generating and sharing payment-request links, and opening contract-backed savings circles. Requests specify the recipient, mUSD amount and Monad testnet network, then open a review screen. A link confers no authorization: only the sender's approved transaction transfers tokens. mUSD is valueless test money.
 
+`/app/scenarios` is **Modalis Twin**. It keeps the current plan beside an editable alternative,
+calculates deterministic downside/expected/upside paths, lets the person save a branch, and shows
+the exact owner-signed plan update before anything reaches Monad. Exploring and saving a branch
+never move funds. The flow and calculation assumptions are documented in
+[`docs/twin.md`](docs/twin.md).
+
 The phone header and dock collapse into labelled, keyboard-accessible sheets. The app reserves viewport space for its dock, so form fields and legal links remain above it. Optional destinations follow deployment capabilities. Motion honours reduced-motion preferences.
 
 ## Verification status
@@ -230,6 +236,7 @@ Full detail, including known limitations and a mainnet checklist, in
 | [`docs/security.md`](docs/security.md) | Authority model, the validation pipeline, limitations, mainnet checklist |
 | [`docs/bounty-matrix.md`](docs/bounty-matrix.md) | Each sponsor integration and exactly what is proven |
 | [`docs/demo.md`](docs/demo.md) | The three-minute script and answers to the obvious questions |
+| [`docs/twin.md`](docs/twin.md) | Modalis Twin flow, deterministic assumptions and approval boundaries |
 | [`integrations/kuru/README.md`](integrations/kuru/README.md) | ABI provenance and execution safety |
 | [`integrations/chainlink-cre/README.md`](integrations/chainlink-cre/README.md) | The risk workflow and its narrow scope |
 | [`integrations/envio/README.md`](integrations/envio/README.md) | Indexed entities and design notes |

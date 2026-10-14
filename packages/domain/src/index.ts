@@ -39,3 +39,4 @@ export * from "./exposure.ts";
 export * from "./services/notifications.ts";
 export * from "./automation.ts";
 export * from "./services/automation.ts";
+export * from "./twin.ts";
