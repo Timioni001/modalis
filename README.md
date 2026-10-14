@@ -2,6 +2,8 @@
 
 **A clear plan for every goal.**
 
+Modalis is a consumer savings and payments product powered by Monad.
+
 Tell Modalis what you are saving for. It builds a plan, you approve the limits, and it manages
 your money to them — and it cannot step outside them, because the limits are not enforced by
 Modalis.
@@ -10,30 +12,7 @@ Modalis.
 
 ---
 
-## Submission snapshot
-
-Modalis is a consumer savings and payments product for **Monad Testnet**. A person describes a
-goal, reviews a bounded plan, adds valueless demo money, and can send or request payments without
-giving Modalis withdrawal authority. **Modalis Twin** adds a safe branch of the same experience:
-change the deadline, contribution, withdrawal or risk preference; compare deterministic outcomes;
-then turn the chosen future into an owner-approved plan update.
-
-| | Current implementation |
-|---|---|
-| Primary Metropolis track | Consumer Products & Payments |
-| Technical fit | Monad onchain policy, Dynamic sign-in, Kuru adapter, Chainlink CRE risk signal, Envio activity index, Alchemy-compatible RPC |
-| Public demo | `https://modalis-six.vercel.app/demo` (account-free sample data) |
-| Authenticated product | `https://modalis-six.vercel.app/app` |
-| Twin workspace | `/app/scenarios` — save, duplicate, compare and reopen plan drafts |
-| Submission logo | [`apps/web/public/logo.png`](apps/web/public/logo.png) — 512 × 512 PNG, under 2 MB |
-| Source of truth | Monad contracts for policy, balances and receipts; Supabase is optional persistence for goals and history |
-| Safety boundary | Exploring a future never signs or moves funds; only an owner-approved, policy-valid action can write to Monad |
-
-The portal's current sponsor rules and deadline remain authoritative. The evidence and honest
-limitations for each optional integration are in [`docs/bounty-matrix.md`](docs/bounty-matrix.md)
-and [`docs/metropolis-research.md`](docs/metropolis-research.md).
-
-## Working demo path
+## Try Modalis
 
 Use this order when reviewing the product:
 
@@ -120,8 +99,8 @@ The second is the engineering. The first is the product. `packages/domain` is th
 them, and the only place where one becomes the other — see
 [`docs/domain.md`](docs/domain.md).
 
-> **Going live or submitting?** [docs/launch-checklist.md](docs/launch-checklist.md) is the
-> single page: every key to collect, the commands in order, and what the submission needs.
+> **Deploying Modalis?** [docs/deployment.md](docs/deployment.md) covers the Vercel settings,
+> environment variables and Monad testnet configuration.
 
 ## Quick start
 
@@ -150,7 +129,9 @@ pnpm contracts:deploy:testnet
 
 ## Demo and payments
 
-The primary track is **Consumer Products & Payments**, with policy-checked finance as a secondary fit. “Try the demo” opens `/demo`: an account-free interactive preview with clearly labelled sample data. Wallet sign-in loads only when entering the actual testnet flow.
+Modalis is a consumer savings and payments product powered by Monad Testnet. “Try the demo” opens
+`/demo`: an account-free interactive preview with clearly labelled sample data. Wallet sign-in loads
+only when entering the actual testnet flow.
 
 `/app/payments` supports sending demo dollars, generating and sharing payment-request links, and opening contract-backed savings circles. Requests specify the recipient, mUSD amount and Monad testnet network, then open a review screen. A link confers no authorization: only the sender's approved transaction transfers tokens. mUSD is valueless test money.
 
@@ -164,8 +145,8 @@ The phone header and dock collapse into labelled, keyboard-accessible sheets. Th
 
 ## Verification status
 
-Stated precisely, because a hackathon README is exactly where overclaiming happens. **Verified by
-execution** means a command in this repository runs it and it passes.
+Stated precisely so the product never overclaims. **Verified by execution** means a command in this
+repository runs it and it passes.
 
 ### Verified by execution
 
@@ -300,7 +281,9 @@ shapes, so no user interface ever has to know what a mandate or a basis point is
 keeps its own precise names — `PortfolioMandate`, `PortfolioVault`, `RebalanceExecutor` — because
 down there they are correct.
 
-Full detail in [`docs/architecture.md`](docs/architecture.md). The repair architecture, consumer-track fit and verification notes are in [`docs/rebuild-architecture.md`](docs/rebuild-architecture.md), [`docs/metropolis-research.md`](docs/metropolis-research.md) and [`docs/rebuild-verification.md`](docs/rebuild-verification.md).
+Full detail in [`docs/architecture.md`](docs/architecture.md). The repair architecture,
+integration notes and verification record are in [`docs/rebuild-architecture.md`](docs/rebuild-architecture.md),
+[`docs/metropolis-research.md`](docs/metropolis-research.md) and [`docs/rebuild-verification.md`](docs/rebuild-verification.md).
 
 ## Security model
 
@@ -364,7 +347,7 @@ pnpm risk-monitor:once   # evaluate watched portfolios once
 pnpm envio:validate      # Envio config against Envio's own schema
 ```
 
-## Publishing the submission
+## Promoting a deployment
 
 The implementation was built on the local `work` branch and published to the Vercel-connected
 preview branch `claude/awesome-gates-h1pxk0`. This repository currently has no remote `main`, so
@@ -408,9 +391,9 @@ verifies them and regenerates that list.
 
 ## How this was built
 
-Written with AI assistance (Anthropic's Claude, through Claude Code, and OpenAI Codex for this functional repair), disclosed here because the
-hackathon rules ask for it. Every design decision, every security boundary and every line was
-reviewed before it landed. The guarantees the product claims are not taken on trust: they are
+Written with AI assistance (Anthropic's Claude, through Claude Code, and OpenAI Codex for this
+functional repair), disclosed for transparency. Every design decision, every security boundary and
+every line was reviewed before it landed. The guarantees the product claims are not taken on trust: they are
 enforced by the Solidity contracts and proved by the test suites listed under
 [Verification status](#verification-status), which anyone can run.
 
