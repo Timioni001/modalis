@@ -236,7 +236,11 @@ function Onboarding() {
                       <TextField
                         id="own-words"
                         value={description}
-                        onChange={(e) => setDescription(e.target.value)}
+                        onFocus={() => set("goalKind", "custom")}
+                        onChange={(e) => {
+                          setDescription(e.target.value);
+                          if (e.target.value.trim()) set("goalKind", "custom");
+                        }}
                         placeholder="A deposit for a flat, in about five years"
                         maxLength={300}
                       />
