@@ -10,6 +10,7 @@
  * "Where would $X go?" answers from the same waterfall, so the preview and what happens agree.
  */
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import type { GoalCard, GoalsView } from "@modalis/domain";
@@ -63,6 +64,7 @@ const DOT: Record<string, string> = {
 
 function Goals() {
   const { refresh, address, status } = usePortfolio();
+  const searchParams = useSearchParams();
   const [view, setView] = useState<GoalsView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,6 +89,10 @@ function Goals() {
     void load(controller.signal);
     return () => controller.abort();
   }, [load, address, status?.prices?.ready]);
+
+  useEffect(() => {
+    if (view?.canManage && searchParams.get("add") === "1") setAdding(true);
+  }, [view?.canManage, searchParams]);
 
   async function move(index: number, by: -1 | 1) {
     if (!view) return;

@@ -11,7 +11,9 @@
  * this product does not promise performance, so charting it would be inventing a story.
  */
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
+import type { GoalsView } from "@modalis/domain";
 import {
   Badge,
   Button,
@@ -33,6 +35,7 @@ import { LocalAmount } from "@/components/local-amount";
 import { GoalReached } from "@/components/goal-reached";
 import { HealthCard } from "@/components/health-card";
 import { moneyLabel, monthYear, percent } from "@/lib/format";
+import { apiGet } from "@/lib/client-api";
 import type { Tone } from "@/components/ui";
 
 export default function OverviewPage() {
@@ -63,6 +66,7 @@ function Overview() {
         />
         <DemoPriceRecovery />
         <AssetQuantities />
+        <GoalsSummary />
         <div className="flex flex-wrap gap-3">
           <Button href="/app/payments">Open payments</Button>
           <Button variant="secondary" href="/app/plan">
@@ -221,6 +225,8 @@ function Overview() {
         </Notice>
       ) : null}
 
+      <GoalsSummary />
+
       {/* ===================================================== where is my money */}
       {!empty ? (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -366,6 +372,120 @@ function Overview() {
         </p>
       ) : null}
     </motion.div>
+  );
+}
+
+/** A compact entry point for the plural goals model. The overview keeps the current plan first,
+ * while this section makes additional goals discoverable without turning the home screen into a
+ * second goals dashboard. */
+function GoalsSummary() {
+  const { address, status } = usePortfolio();
+  const [view, setView] = useState<GoalsView | null>(null);
+
+  useEffect(() => {
+    if (!address) return;
+    const controller = new AbortController();
+    void apiGet<GoalsView>("/api/goals", controller.signal)
+      .then((next) => {
+        if (!controller.signal.aborted) setView(next);
+      })
+      .catch(() => {
+        // The home screen remains useful if the optional goals read is unavailable.
+      });
+    return () => controller.abort();
+  }, [address, status?.prices?.ready]);
+
+  if (!view) return null;
+  const rows = view.valuationAvailable === false
+    ? (view.definitions ?? []).map((goal) => ({
+        id: goal.id,
+        name: goal.name,
+        priority: goal.priority,
+        target: goal.target,
+        targetDate: goal.targetDate,
+        monthly: goal.monthly,
+        saved: null as string | null,
+        percentComplete: null as number | null,
+      }))
+    : view.goals.map((goal) => ({
+        id: goal.id,
+        name: goal.name,
+        priority: goal.priority,
+        target: goal.target,
+        targetDate: goal.targetDate,
+        monthly: goal.monthly,
+        saved: goal.saved.amount,
+        percentComplete: goal.percentComplete,
+      }));
+
+  return (
+    <Card>
+      <SectionTitle
+        hint="Your plan funds goals in this order. Adding one here never changes the approved plan by itself."
+        action={
+          <Button href="/app/goals?add=1" variant="quiet">
+            Add a goal
+          </Button>
+        }
+      >
+        Your goals
+      </SectionTitle>
+      <p className="max-w-2xl text-[14px] leading-relaxed text-ink-soft">
+        Keep one clear plan for several priorities. Move a goal up when it matters
+        sooner, or add another one without changing the money already in your plan.
+      </p>
+      {rows.length ? (
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          {rows.slice(0, 4).map((goal) => (
+            <li key={goal.id} className="rounded-2xl bg-sunken p-4">
+              <div className="flex items-start gap-3">
+                <span className="numeric flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-panel text-xs font-semibold text-panel-ink">
+                  {goal.priority}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate text-[15px] font-semibold text-ink">
+                    {goal.name}
+                  </h3>
+                  <p className="mt-1 text-[13px] text-ink-muted">
+                    Target {moneyLabel(goal.target, 0)} · {monthYear(goal.targetDate)}
+                  </p>
+                  {goal.saved !== null ? (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between gap-3 text-[12px] text-ink-muted">
+                        <span>{moneyLabel({ amount: goal.saved, currency: "USD" })} saved</span>
+                        <span>{Math.round(goal.percentComplete ?? 0)}%</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
+                        <div
+                          className="h-full rounded-full bg-ink"
+                          style={{ width: `${Math.min(100, Math.max(0, goal.percentComplete ?? 0))}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[12px] text-ink-muted">
+                      Planned monthly contribution {moneyLabel(goal.monthly, 0)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 rounded-2xl bg-sunken p-4 text-sm text-ink-soft">
+          Add another goal to decide where future contributions should go.
+        </p>
+      )}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button href="/app/goals" variant="secondary">
+          Manage goals
+        </Button>
+        {rows.length > 4 ? (
+          <span className="text-[13px] text-ink-muted">Showing the first four · manage all goals</span>
+        ) : null}
+      </div>
+    </Card>
   );
 }
 
