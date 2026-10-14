@@ -13,6 +13,7 @@ export async function POST(request: Request): Promise<Response> {
     await rateLimit(request, "twin:save", { max: 20, windowMs: 60_000 });
     const body = await readBody(request);
     const prompt = text(body.prompt, "a description of this future", { max: 240, required: true })!;
+    const requestedName = text(body.name, "a name for this plan", { max: 80 });
     const ctx = await domainContext();
     const snapshot = await loadTwinSnapshot(ctx, owner);
     const candidate = candidateFromInput(body.alternative);
@@ -26,7 +27,7 @@ export async function POST(request: Request): Promise<Response> {
       userId: user.id,
       goalId: snapshot.goalId,
       prompt,
-      inputs: { base: result.baseCandidate, alternative: result.alternativeCandidate },
+      inputs: { kind: "plan", name: requestedName || prompt, base: result.baseCandidate, alternative: result.alternativeCandidate },
       result: toJson(result),
     });
     return jsonResponse({ saved: Boolean(row), scenarioId: row?.id ?? null, savedFuture: row ? savedTwinFutureFromRow(row) : null, result, note: row ? undefined : "The future is calculated, but history could not be saved yet." }, { status: row ? 200 : 207 });

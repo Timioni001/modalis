@@ -226,6 +226,7 @@ function Overview() {
       ) : null}
 
       <GoalsSummary />
+      <PlansSummary />
 
       {/* ===================================================== where is my money */}
       {!empty ? (
@@ -484,6 +485,120 @@ function GoalsSummary() {
         {rows.length > 4 ? (
           <span className="text-[13px] text-ink-muted">Showing the first four · manage all goals</span>
         ) : null}
+      </div>
+    </Card>
+  );
+}
+
+type PlanList = {
+  active: {
+    id: string | null;
+    name: string;
+    target: { amount: string; currency: "USD" };
+    targetDate: string;
+    monthly: { amount: string; currency: "USD" };
+    version: number;
+    status: "active" | "paused" | "draft";
+  };
+  drafts: {
+    id: string;
+    name: string;
+    prompt: string;
+    createdAt: string;
+    candidate: { target: string; months: number; monthly: string; withdrawal: string; risk: string };
+    selected: boolean;
+  }[];
+  saved: boolean;
+};
+
+/** Plans are named alternatives around one active wallet policy. Only an owner-approved plan is
+ * live; the overview makes the distinction visible so saved drafts never look like invested money. */
+function PlansSummary() {
+  const { address, plan } = usePortfolio();
+  const [view, setView] = useState<PlanList | null>(null);
+
+  useEffect(() => {
+    if (!address) return;
+    const controller = new AbortController();
+    void apiGet<PlanList>("/api/plans", controller.signal)
+      .then((next) => {
+        if (!controller.signal.aborted) setView(next);
+      })
+      .catch(() => {
+        // The active plan still renders from PortfolioProvider when optional history is unavailable.
+      });
+    return () => controller.abort();
+  }, [address]);
+
+  const active = view?.active ?? (plan
+    ? {
+        id: plan.goal.id,
+        name: plan.goal.name,
+        target: plan.goal.target,
+        targetDate: plan.goal.targetDate,
+        monthly: plan.goal.contribution.amount,
+        version: plan.version,
+        status: plan.status,
+      }
+    : null);
+  if (!active) return null;
+
+  return (
+    <Card>
+      <SectionTitle
+        hint="Your wallet can have one active policy at a time. Keep other plans here as drafts, then approve the one you want to make live."
+        action={
+          <Button href="/app/scenarios" variant="quiet">
+            Create a plan
+          </Button>
+        }
+      >
+        Your plans
+      </SectionTitle>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl bg-panel p-4 text-panel-ink">
+          <div className="flex items-center justify-between gap-3">
+            <span className="eyebrow text-panel-soft">Active plan</span>
+            <Badge tone={active.status === "active" ? "ok" : "warn"}>
+              {active.status === "active" ? "Live" : "Paused"}
+            </Badge>
+          </div>
+          <h3 className="mt-3 text-[17px] font-semibold">{active.name}</h3>
+          <p className="mt-1 text-[13px] text-panel-soft">
+            {moneyLabel(active.target, 0)} by {monthYear(active.targetDate)} · Version {active.version}
+          </p>
+          <Button className="mt-4" href="/app/plan" variant="secondary">
+            View active plan
+          </Button>
+        </div>
+        {view?.drafts.slice(0, 3).map((draft) => (
+          <div key={draft.id} className="rounded-2xl bg-sunken p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="eyebrow text-ink-muted">Saved draft</span>
+              <Badge tone={draft.selected ? "ok" : "default"}>
+                {draft.selected ? "Approved" : "Draft"}
+              </Badge>
+            </div>
+            <h3 className="mt-3 truncate text-[17px] font-semibold text-ink">{draft.name}</h3>
+            <p className="mt-1 text-[13px] text-ink-muted">
+              {moneyLabel({ amount: draft.candidate.target, currency: "USD" }, 0)} in {draft.candidate.months} months · {draft.candidate.risk}
+            </p>
+            <Button className="mt-4" href={`/app/scenarios?draft=${encodeURIComponent(draft.id)}`} variant="quiet">
+              Open in Twin
+            </Button>
+          </div>
+        ))}
+      </div>
+      {view && !view.saved ? (
+        <p className="mt-4 text-xs text-ink-muted">
+          Plan drafts are calculated in this browser, but history needs the deployment database to persist.
+        </p>
+      ) : null}
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button href="/app/scenarios" variant="secondary">
+          Explore another plan
+        </Button>
+        <span className="text-[13px] text-ink-muted">Nothing changes until you approve it.</span>
       </div>
     </Card>
   );

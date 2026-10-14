@@ -38,6 +38,7 @@ export type TwinSnapshot = {
 
 export type SavedTwinFuture = {
   id: string;
+  name: string;
   prompt: string;
   createdAt: string;
   candidate: TwinCandidate;
@@ -133,11 +134,13 @@ export function savedTwinFutureFromRow(row: ScenarioRow): SavedTwinFuture | null
   const inputs = row.inputs as Record<string, unknown>;
   try {
     const candidate = candidateFromInput(inputs.alternative);
+    const rawName = typeof inputs.name === "string" ? inputs.name.trim() : "";
     const result = row.result && typeof row.result === "object" && !Array.isArray(row.result)
       ? (row.result as Record<string, unknown>)
       : null;
     return {
       id: row.id,
+      name: (rawName || row.prompt || "Saved plan").slice(0, 80),
       prompt: row.prompt,
       createdAt: row.created_at,
       candidate,
