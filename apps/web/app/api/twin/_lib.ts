@@ -1,4 +1,5 @@
 import { readPlanState, type PlanState } from "@modalis/chain";
+import type { ScenarioRow } from "@modalis/db";
 import {
   getGoal,
   getPlan,
@@ -29,6 +30,18 @@ export type TwinSnapshot = {
   base: TwinScenarioInput;
   plan: Awaited<ReturnType<typeof getPlan>>;
   state: PlanState;
+  /** False when the oracle cannot currently value the live portfolio. */
+  valuationAvailable: boolean;
+  /** Human-readable explanation shown beside the simulation. */
+  balanceNote: string | null;
+};
+
+export type SavedTwinFuture = {
+  id: string;
+  prompt: string;
+  createdAt: string;
+  candidate: TwinCandidate;
+  selected: boolean;
 };
 
 function decimal(value: unknown, field: string, allowZero = false): string {
@@ -83,12 +96,25 @@ export function candidateFromInputValue(input: TwinScenarioInput): TwinCandidate
 }
 
 export async function loadTwinSnapshot(ctx: DomainContext, owner: Address): Promise<TwinSnapshot> {
-  const [goal, plan, state] = await Promise.all([
-    getGoal(ctx, owner),
+  // Reading a plan and its rules does not need portfolio prices. Keep Twin usable while an
+  // oracle quote is stale, then make the limitation explicit instead of replacing the whole
+  // experience with a generic error page.
+  const [plan, state] = await Promise.all([
     getPlan(ctx, owner),
     readPlanState(ctx.client, ctx.deployment, owner),
   ]);
-  const startingE18 = usdStringToE18(goal.saved.amount);
+  let startingE18 = usdStringToE18(plan.goal.startingAmount.amount);
+  let valuationAvailable = false;
+  let balanceNote: string | null = "Live portfolio prices are unavailable. Twin is using the saved starting amount for this read-only comparison; no balance or transaction is invented.";
+  try {
+    const goal = await getGoal(ctx, owner);
+    startingE18 = usdStringToE18(goal.saved.amount);
+    valuationAvailable = true;
+    balanceNote = null;
+  } catch {
+    // Stale prices and a temporarily unavailable valuation should not prevent editing a future.
+    // The chain-backed plan above remains the source of truth for any approval.
+  }
   const base: TwinScenarioInput = {
     startingE18,
     targetE18: usdStringToE18(plan.goal.target.amount),
@@ -97,7 +123,29 @@ export async function loadTwinSnapshot(ctx: DomainContext, owner: Address): Prom
     withdrawalE18: 0n,
     risk: plan.riskLevel.level,
   };
-  return { owner, goalId: plan.goal.id, base, plan, state };
+  return { owner, goalId: plan.goal.id, base, plan, state, valuationAvailable, balanceNote };
+}
+
+/** Converts persisted history into the small shape the consumer UI needs. Invalid old rows are
+ * ignored rather than allowed to break the Twin page. */
+export function savedTwinFutureFromRow(row: ScenarioRow): SavedTwinFuture | null {
+  if (!row.inputs || typeof row.inputs !== "object" || Array.isArray(row.inputs)) return null;
+  const inputs = row.inputs as Record<string, unknown>;
+  try {
+    const candidate = candidateFromInput(inputs.alternative);
+    const result = row.result && typeof row.result === "object" && !Array.isArray(row.result)
+      ? (row.result as Record<string, unknown>)
+      : null;
+    return {
+      id: row.id,
+      prompt: row.prompt,
+      createdAt: row.created_at,
+      candidate,
+      selected: result?.selected === true,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function projectedResponse(snapshot: TwinSnapshot, alternative: TwinScenarioInput) {
@@ -163,7 +211,7 @@ export function checkTwinReceiptParams(
   if (allocations.length !== snapshot.state.positions.length || allocations.some((item, index) => {
     const expected = snapshot.state.positions[index];
     return item.token.toLowerCase() !== expected.token.toLowerCase() || Number(item.targetBps) !== expected.targetBps || Number(item.minBps) !== expected.minBps || Number(item.maxBps) !== expected.maxBps;
-  })) throw new Error("That receipt does not match the allocation you reviewed.");
+  })) throw new DomainError("twin_receipt_mismatch", "That receipt does not match the allocation you reviewed.", 400);
 }
 
 export function outcomeFor(input: TwinScenarioInput): TwinOutcome {

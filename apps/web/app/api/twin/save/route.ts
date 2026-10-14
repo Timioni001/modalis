@@ -2,7 +2,7 @@ import { createScenario, serverClient, upsertUser } from "@modalis/db";
 import { domainContext, jsonResponse, readBody, rateLimit, requireOwner, route } from "@/lib/api";
 import { text } from "@/lib/validate";
 import { toJson } from "@/lib/serialize";
-import { candidateFromInput, inputFromCandidate, loadTwinSnapshot, projectedResponse } from "../_lib";
+import { candidateFromInput, inputFromCandidate, loadTwinSnapshot, projectedResponse, savedTwinFutureFromRow } from "../_lib";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,6 @@ export async function POST(request: Request): Promise<Response> {
       inputs: { base: result.baseCandidate, alternative: result.alternativeCandidate },
       result: toJson(result),
     });
-    return jsonResponse({ saved: Boolean(row), scenarioId: row?.id ?? null, result, note: row ? undefined : "The future is calculated, but history could not be saved yet." }, { status: row ? 200 : 207 });
+    return jsonResponse({ saved: Boolean(row), scenarioId: row?.id ?? null, savedFuture: row ? savedTwinFutureFromRow(row) : null, result, note: row ? undefined : "The future is calculated, but history could not be saved yet." }, { status: row ? 200 : 207 });
   });
 }

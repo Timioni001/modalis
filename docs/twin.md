@@ -2,17 +2,19 @@
 
 Modalis Twin is the read-only branch of the product. It answers “what if I changed my deadline,
 target, contribution, withdrawal or risk preference?” against the live portfolio balance, without
-writing to Monad. A person can save a branch, compare it with the current plan, then review one
-owner-signed mandate update and choose it.
+writing to Monad. A person can save as many branches as they need, compare each with the current
+plan, then review one owner-signed mandate update and choose it.
 
 ## Flow
 
-1. `GET /api/twin` reads the live balance, approved plan and target allocation, then creates a
-   starter alternative.
+1. `GET /api/twin` reads the approved plan and target allocation, then creates a starter
+   alternative. It tries to read the live balance; if a price quote is stale, it keeps the
+   exploration available and labels the comparison as using the saved starting amount.
 2. `POST /api/twin/simulate` recalculates the alternative on the server. The browser never sends a
    trusted result back for financial decisions.
 3. `POST /api/twin/save` stores the branch in the existing `scenarios` table. Persistence is
-   optional and never replaces chain state.
+   optional and never replaces chain state. Saved branches are returned by `GET /api/twin`, so
+   the UI can reopen and compare multiple futures without recreating them.
 4. `POST /api/twin/prepare` derives the exact `setMandate` parameters and existing allocation
    ranges. It refuses a risk profile that the current allocation cannot satisfy, before a wallet
    prompt appears.
@@ -46,6 +48,8 @@ pnpm --filter @modalis/web build
 ```
 
 Open `/app/scenarios` after signing in to a plan. If the current oracle is stale, the app reports
-that live balance-dependent calculations are unavailable instead of substituting a fabricated
-balance. The exact Ubuntu WSL setup and Vercel deployment steps remain in
+the limitation and uses the plan's saved starting amount for read-only exploration; it never
+fabricates a live balance. One approved Monad policy can fund several goals in priority order.
+Use `/app/goals` to add, reorder and review those goals; Twin branches remain separate from goal
+bookkeeping until an owner explicitly approves a plan update. The exact Ubuntu WSL setup and Vercel deployment steps remain in
 [`wsl-commands.md`](wsl-commands.md) and [`deployment.md`](deployment.md).

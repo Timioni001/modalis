@@ -34,7 +34,8 @@ type MoneyView = { amount: string; currency: "USD" };
 type Outcome = { expected: MoneyView; downside: MoneyView; upside: MoneyView; expectedShortfall: MoneyView; downsideShortfall: MoneyView; requiredMonthly: MoneyView; confidencePct: number; reachesOnExpectedPath: boolean; assumptions: string[] };
 type Comparison = { expectedDelta: MoneyView; downsideDelta: MoneyView; requiredMonthlyDelta: MoneyView };
 type TwinResult = { base: Outcome; alternative: Outcome; comparison: Comparison; baseCandidate: Candidate; alternativeCandidate: Candidate; assumption: string };
-type TwinData = TwinResult & { goal: { name: string; target: MoneyView }; planVersion: number };
+type SavedFuture = { id: string; prompt: string; createdAt: string; candidate: Candidate; selected: boolean };
+type TwinData = TwinResult & { goal: { name: string; target: MoneyView }; planVersion: number; savedFutures: SavedFuture[]; valuationAvailable: boolean; balanceNote: string | null };
 type Approval = { params: Record<string, string | number>; allocations: { token: string; targetBps: number; minBps: number; maxBps: number }[] };
 type PrepareResult = { approval: Approval; scenarioId: string | null; preview: { current: Record<string, string | number>; proposed: Record<string, string | number> }; note: string };
 
@@ -53,6 +54,7 @@ function Twin() {
   const [data, setData] = useState<TwinData | null>(null);
   const [alternative, setAlternative] = useState<Candidate | null>(null);
   const [result, setResult] = useState<TwinResult | null>(null);
+  const [savedFutures, setSavedFutures] = useState<SavedFuture[]>([]);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<PrepareResult | null>(null);
   const [busy, setBusy] = useState<"loading" | "simulating" | "saving" | "preparing" | "signing" | null>("loading");
@@ -61,7 +63,7 @@ function Twin() {
 
   const load = useCallback(async () => {
     setBusy("loading"); setError(null);
-    try { const response = await apiGet<TwinData>("/api/twin"); setData(response); setAlternative(response.alternativeCandidate); setResult(response); }
+    try { const response = await apiGet<TwinData>("/api/twin"); setData(response); setSavedFutures(response.savedFutures ?? []); setAlternative(response.alternativeCandidate); setScenarioId(null); setResult(response); }
     catch (err) { setError(err instanceof ApiError ? err.message : "We couldn't load your futures."); }
     finally { setBusy(null); }
   }, []);
@@ -74,9 +76,21 @@ function Twin() {
     finally { setBusy(null); }
   }, [alternative]);
 
+  const openSaved = useCallback(async (future: SavedFuture) => {
+    setAlternative(future.candidate); setScenarioId(future.id); setPrepared(null); setSuccess(null); setBusy("simulating"); setError(null);
+    try { setResult(await apiPost<TwinResult>("/api/twin/simulate", { alternative: future.candidate })); }
+    catch (err) { setError(err instanceof ApiError ? err.message : "We couldn't open that future."); }
+    finally { setBusy(null); }
+  }, []);
+
+  const createAnother = useCallback(() => {
+    if (!data) return;
+    setAlternative(data.alternativeCandidate); setScenarioId(null); setPrepared(null); setResult(data); setError(null); setSuccess(null);
+  }, [data]);
+
   const save = useCallback(async () => {
     if (!alternative || !result) return; setBusy("saving"); setError(null);
-    try { const response = await apiPost<{ saved: boolean; scenarioId?: string | null; note?: string }>("/api/twin/save", { prompt: `${alternative.target} dollars in ${alternative.months} months with a ${alternative.risk} approach`, alternative }); setScenarioId(response.scenarioId ?? null); setSuccess(response.saved ? "Future saved to your history." : (response.note ?? "Future calculated; history is temporarily unavailable.")); }
+    try { const response = await apiPost<{ saved: boolean; scenarioId?: string | null; savedFuture?: SavedFuture | null; note?: string }>("/api/twin/save", { prompt: `${alternative.target} dollars in ${alternative.months} months with a ${alternative.risk} approach`, alternative }); setScenarioId(response.scenarioId ?? null); if (response.savedFuture) setSavedFutures((current) => [response.savedFuture!, ...current.filter((future) => future.id !== response.savedFuture!.id)]); setSuccess(response.saved ? "Future saved to your history." : (response.note ?? "Future calculated; history is temporarily unavailable.")); }
     catch (err) { setError(err instanceof ApiError ? err.message : "We couldn't save that future."); }
     finally { setBusy(null); }
   }, [alternative, result]);
@@ -112,14 +126,17 @@ function Twin() {
   ];
 
   return <div className="space-y-5 pb-12">
-    <PageHeader title="Modalis Twin" lede="Try a different future beside your current plan. Every number updates from deterministic rules, and exploring never moves your money." action={<Badge tone="accent">Sandbox · plan v{data.planVersion}</Badge>} />
+    <PageHeader title="Modalis Twin" lede="Try a different future beside your current plan. Every number updates from deterministic rules, and exploring never moves your money." action={<Button href="/app/goals" variant="secondary">Manage goals</Button>} />
     {error ? <Notice tone="warn" title="We couldn't complete that step" action={<Button variant="secondary" onClick={() => setError(null)}>Dismiss</Button>}>{error}</Notice> : null}
     {success ? <Notice tone="ok" title="All set">{success}</Notice> : null}
+    {!data.valuationAvailable ? <Notice tone="warn" title="Live balance is temporarily unavailable">{data.balanceNote ?? "Twin is using the saved starting amount until portfolio prices refresh. Your plan and funds are unchanged."}</Notice> : null}
 
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="grid gap-4 lg:grid-cols-2">
       <Card className="border border-line" lift><div className="flex items-center justify-between gap-3"><div><Label>Future one</Label><h2 className="display mt-1 text-2xl font-semibold text-ink">Your live plan</h2></div><Badge tone="ok">Live</Badge></div><p className="mt-3 text-sm leading-relaxed text-ink-soft">The chain-backed plan you already approved. Twin does not edit it while you explore.</p><div className="mt-5 grid grid-cols-2 gap-4"><Stat label="Goal" value={displayMoney({ amount: data.baseCandidate.target, currency: "USD" })} size="sm" /><Stat label="Monthly" value={displayMoney({ amount: data.baseCandidate.monthly, currency: "USD" })} size="sm" /><Stat label="Time left" value={`${data.baseCandidate.months} mo`} size="sm" /><Stat label="Risk" value={data.baseCandidate.risk[0].toUpperCase() + data.baseCandidate.risk.slice(1)} size="sm" /></div></Card>
       <Card className="border-2 border-ink" lift><div className="flex items-center justify-between gap-3"><div><Label>Future two</Label><h2 className="display mt-1 text-2xl font-semibold text-ink">Try another path</h2></div><Badge tone="default">Editable</Badge></div><p className="mt-3 text-sm leading-relaxed text-ink-soft">Change the deadline, what you add, a planned withdrawal, or the guardrails.</p><div className="mt-5 grid gap-4 sm:grid-cols-2">{fields.slice(0, 2).map((field) => <Field key={field.label} label={field.label} htmlFor={`twin-${field.label}`}><MoneyField id={`twin-${field.label}`} value={field.value} onChange={field.set} max={100_000_000} /></Field>)}<Field label="Time until the goal" htmlFor="twin-months" hint="1 to 600 months"><TextField id="twin-months" type="number" min={1} max={600} inputMode="numeric" value={alternative.months} onChange={(event) => setAlternative({ ...alternative, months: Math.max(1, Math.min(600, Number(event.target.value) || 1)) })} /></Field>{fields.slice(2).map((field) => <Field key={field.label} label={field.label} htmlFor={`twin-${field.label}`} hint="Simulation only"><MoneyField id={`twin-${field.label}`} value={field.value} onChange={field.set} max={100_000_000} /></Field>)}</div><div className="mt-4"><Label>Risk preference</Label><div className="mt-2"><Choices name="twin-risk" value={alternative.risk} onChange={(risk) => setAlternative({ ...alternative, risk })} options={[{ value: "cautious", label: "Cautious", hint: "More available cash" }, { value: "balanced", label: "Balanced", hint: "A middle path" }, { value: "adventurous", label: "Adventurous", hint: "More movement" }]} /></div></div><div className="mt-5 flex flex-wrap gap-2"><Button onClick={() => void simulate()} busy={busy === "simulating"}>Update comparison</Button><Button variant="secondary" onClick={() => void save()} busy={busy === "saving"}>Save this future</Button></div></Card>
     </motion.div>
+
+    <Card className="bg-sunken shadow-none"><SectionTitle hint="Saved branches are read-only until you choose one and approve its proposed update.">Your saved futures</SectionTitle>{savedFutures.length === 0 ? <p className="text-sm leading-relaxed text-ink-soft">Save a branch to compare it again later. You can create as many alternatives as you need without changing your live plan.</p> : <Rows className="mt-2">{savedFutures.map((future) => <Row key={future.id} className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold text-ink">{future.prompt}</p><p className="mt-1 text-xs text-ink-muted">Saved {future.createdAt.slice(0, 10)} · {future.selected ? "Approved" : "Exploring"}</p></div><Button variant="secondary" onClick={() => void openSaved(future)} busy={busy === "simulating" && scenarioId === future.id}>Open</Button></Row>)}</Rows>}<div className="mt-4 flex flex-wrap items-center gap-3"><Button variant="secondary" onClick={createAnother}>Create another future</Button><Button href="/app/goals" variant="quiet">Add or reorder goals</Button></div></Card>
 
     <Card><SectionTitle hint="The live balance is the same starting point for both paths. The only changes are the assumptions you can see above.">Side-by-side outcome</SectionTitle><div className="grid gap-3 sm:grid-cols-2"><OutcomeCard title="Your live plan" outcome={result.base} /><OutcomeCard title="The future you are exploring" outcome={result.alternative} accent /></div><Rows className="mt-4"><Row className="flex items-center justify-between gap-4"><span className="text-sm text-ink-muted">Expected balance difference</span><strong className={toneFor(result.comparison.expectedDelta)}>{deltaLabel(result.comparison.expectedDelta)}</strong></Row><Row className="flex items-center justify-between gap-4"><span className="text-sm text-ink-muted">Downside balance difference</span><strong className={toneFor(result.comparison.downsideDelta)}>{deltaLabel(result.comparison.downsideDelta)}</strong></Row><Row className="flex items-center justify-between gap-4"><span className="text-sm text-ink-muted">Required monthly difference without growth</span><strong className={toneForNeg(result.comparison.requiredMonthlyDelta)}>{deltaLabel(result.comparison.requiredMonthlyDelta)}</strong></Row></Rows></Card>
 

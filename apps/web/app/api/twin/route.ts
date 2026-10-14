@@ -1,7 +1,7 @@
 import { findUserByWallet, listScenarios } from "@modalis/db";
 import type { ScenarioRow } from "@modalis/db";
 import { domainContext, jsonResponse, requireOwner, route } from "@/lib/api";
-import { loadTwinSnapshot, projectedResponse, candidateFromInputValue } from "./_lib";
+import { loadTwinSnapshot, projectedResponse, candidateFromInputValue, savedTwinFutureFromRow } from "./_lib";
 import { simulateTwin } from "@modalis/domain";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,19 @@ export async function GET(request: Request): Promise<Response> {
       const user = await findUserByWallet(ctx.db, owner);
       if (user) history = await listScenarios(ctx.db, user.id, snapshot.goalId, 12);
     }
+    const savedFutures = history.flatMap((row) => {
+      const saved = savedTwinFutureFromRow(row);
+      return saved ? [saved] : [];
+    });
     return jsonResponse({
       ...result,
       planVersion: snapshot.plan.version,
       goal: snapshot.plan.goal,
       history,
+      savedFutures,
       liveBalance: snapshot.base.startingE18,
+      valuationAvailable: snapshot.valuationAvailable,
+      balanceNote: snapshot.balanceNote,
       liveCandidate: candidateFromInputValue(snapshot.base),
       lastCheckedBlock: snapshot.state.blockNumber,
       defaultAlternative: {
