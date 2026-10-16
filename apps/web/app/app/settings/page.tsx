@@ -11,15 +11,34 @@ import { LowDataToggle } from "@/components/device-prefs";
 import { YourData } from "@/components/your-data";
 import { chooseCurrency, useLocalCurrency } from "@/components/local-amount";
 import { useCallback, useState } from "react";
-import { emergencyWithdraw, setMandateActive, setManager } from "@modalis/chain";
+import {
+  emergencyWithdraw,
+  setMandateActive,
+  setManager,
+} from "@modalis/chain";
 import type { Address, Hex } from "viem";
-import { Badge, Button, Card, KeyValue, Notice, PageHeader, SectionTitle } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  KeyValue,
+  Notice,
+  PageHeader,
+  SectionTitle,
+} from "@/components/ui";
 import { ThemeChooser } from "@/components/theme-toggle";
 import { ReceiptLink } from "@/components/receipt-link";
 import { AutomationControl } from "@/components/automation-control";
 import { usePortfolio } from "@/components/portfolio-provider";
+import { WalletButton } from "@/components/wallet-button";
 import { useWallet, useWalletConfig } from "@/components/wallet-context";
-import { moneyLabel, percent, shortAddress, usdFromDecimal } from "@/lib/format";
+import { confirmOnChain } from "@/lib/chain-client";
+import {
+  moneyLabel,
+  percent,
+  shortAddress,
+  usdFromDecimal,
+} from "@/lib/format";
 
 export default function SettingsPage() {
   return (
@@ -31,10 +50,14 @@ export default function SettingsPage() {
 
 const ZERO = "0x0000000000000000000000000000000000000000" as Address;
 
-type Chain = { chainId: number; contracts: Record<string, Address>; tokens: Record<string, Address> };
+type Chain = {
+  chainId: number;
+  contracts: Record<string, Address>;
+  tokens: Record<string, Address>;
+};
 
 function Settings() {
-  const { chainId, networkName } = useWalletConfig();
+  const { chainId, networkName, rpcUrl } = useWalletConfig();
   const { address, loggedIn, configured, getWalletClient } = useWallet();
   const { plan, money, status, refresh } = usePortfolio();
 
@@ -45,28 +68,40 @@ function Settings() {
   const act = useCallback(
     async (
       label: string,
-      fn: (wallet: Awaited<ReturnType<typeof getWalletClient>>, chain: Chain) => Promise<Hex>,
+      fn: (
+        wallet: Awaited<ReturnType<typeof getWalletClient>>,
+        chain: Chain,
+      ) => Promise<Hex>,
     ) => {
       setBusy(label);
       setError(null);
       try {
         const wallet = await getWalletClient();
-        const contracts = (status?.technical?.contracts ?? {}) as Record<string, Address>;
-        if (!contracts.portfolioVault) throw new Error("Modalis isn't set up on this network yet.");
+        const contracts = (status?.technical?.contracts ?? {}) as Record<
+          string,
+          Address
+        >;
+        if (!contracts.portfolioVault)
+          throw new Error("Modalis isn't set up on this network yet.");
         const hash = await fn(wallet, {
           chainId,
           contracts,
           tokens: (status?.technical?.tokens ?? {}) as Record<string, Address>,
         });
+        await confirmOnChain(hash, { chainId, rpcUrl });
         setReceipts((r) => [...r, { label, hash }]);
         await refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : `We couldn't ${label.toLowerCase()}.`);
+        setError(
+          err instanceof Error
+            ? err.message
+            : `We couldn't ${label.toLowerCase()}.`,
+        );
       } finally {
         setBusy(null);
       }
     },
-    [getWalletClient, chainId, refresh, status],
+    [getWalletClient, chainId, rpcUrl, refresh, status],
   );
 
   const managerAddress = status?.technical?.managerAddress ?? null;
@@ -75,27 +110,39 @@ function Settings() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Settings" lede="What you have allowed, and how to take it back." />
+      <PageHeader
+        title="Settings"
+        lede="What you have allowed, and how to take it back."
+      />
 
       {/* ------------------------------------------------------- your account */}
       <Card>
         <SectionTitle>Your account</SectionTitle>
+        <div className="mb-4">
+          <WalletButton signIn />
+        </div>
         <dl>
           <KeyValue label="Signed in">{loggedIn ? "Yes" : "No"}</KeyValue>
-          <KeyValue label="Account">{address ? shortAddress(address) : "—"}</KeyValue>
-          <KeyValue label="Sign-in">{configured ? "Set up" : "Not set up"}</KeyValue>
+          <KeyValue label="Account">
+            {address ? shortAddress(address) : "—"}
+          </KeyValue>
+          <KeyValue label="Sign-in">
+            {configured ? "Set up" : "Not set up"}
+          </KeyValue>
           <KeyValue label="Network">
             {networkName} ({chainId})
           </KeyValue>
         </dl>
         <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-          Your account is yours. Modalis never holds the keys to it, and only this account is
-          recognised as the owner of your money.
+          Your account is yours. Modalis never holds the keys to it, and only
+          this account is recognised as the owner of your money.
         </p>
       </Card>
 
       <Card>
-        <SectionTitle hint="Saved on this device only.">Appearance</SectionTitle>
+        <SectionTitle hint="Saved on this device only.">
+          Appearance
+        </SectionTitle>
         <ThemeChooser />
         <div className="mt-4">
           <LowDataToggle />
@@ -110,7 +157,9 @@ function Settings() {
       </Card>
 
       <Card>
-        <SectionTitle hint="Take a copy, or have it removed.">Your data</SectionTitle>
+        <SectionTitle hint="Take a copy, or have it removed.">
+          Your data
+        </SectionTitle>
         <YourData />
       </Card>
 
@@ -128,11 +177,16 @@ function Settings() {
           {agent ? (
             <KeyValue label="Who makes adjustments">
               <span title={agent.address}>
-                {agent.kind === "dynamic" ? "A Dynamic server wallet" : "A Modalis key"} ({shortAddress(agent.address)})
+                {agent.kind === "dynamic"
+                  ? "A Dynamic server wallet"
+                  : "A Modalis key"}{" "}
+                ({shortAddress(agent.address)})
               </span>
             </KeyValue>
           ) : null}
-          <KeyValue label="Your plan">{plan ? planStateLabel(plan.status) : "Not set up yet"}</KeyValue>
+          <KeyValue label="Your plan">
+            {plan ? planStateLabel(plan.status) : "Not set up yet"}
+          </KeyValue>
         </dl>
 
         <div className="mt-5 flex flex-wrap gap-3">
@@ -140,16 +194,24 @@ function Settings() {
             <Button
               variant="secondary"
               disabled={busy !== null || !loggedIn}
-              onClick={() => act("Stop allowing adjustments", (w, c) => setManager(w, c, ZERO))}
+              onClick={() =>
+                act("Stop allowing adjustments", (w, c) =>
+                  setManager(w, c, ZERO),
+                )
+              }
             >
-              {busy === "Stop allowing adjustments" ? "Revoking…" : "Revoke adjustments"}
+              {busy === "Stop allowing adjustments"
+                ? "Revoking…"
+                : "Revoke adjustments"}
             </Button>
           ) : managerAddress ? (
             <Button
               variant="secondary"
               disabled={busy !== null || !loggedIn}
               onClick={() =>
-                act("Allow adjustments", (w, c) => setManager(w, c, managerAddress as Address))
+                act("Allow adjustments", (w, c) =>
+                  setManager(w, c, managerAddress as Address),
+                )
               }
             >
               {busy === "Allow adjustments" ? "Saving…" : "Allow adjustments"}
@@ -161,8 +223,9 @@ function Settings() {
               variant="secondary"
               disabled={busy !== null || !loggedIn}
               onClick={() =>
-                act(plan.status === "paused" ? "Resume my plan" : "Pause my plan", (w, c) =>
-                  setMandateActive(w, c, plan.status === "paused"),
+                act(
+                  plan.status === "paused" ? "Resume my plan" : "Pause my plan",
+                  (w, c) => setMandateActive(w, c, plan.status === "paused"),
                 )
               }
             >
@@ -172,15 +235,20 @@ function Settings() {
         </div>
 
         <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-          When you allow adjustments, you sign one permission naming a single account
-          {agent?.kind === "dynamic" ? ", a server wallet run through Dynamic," : ""} that may rebalance your
-          plan. Your plan contract lets it do exactly one thing: move money between your holdings, inside
-          your limits. It can never take money out, change a limit, or act for anyone else, and Revoke
-          takes the permission back straight away.
+          When you allow adjustments, you sign one permission naming a single
+          account
+          {agent?.kind === "dynamic"
+            ? ", a server wallet run through Dynamic,"
+            : ""}{" "}
+          that may rebalance your plan. Your plan contract lets it do exactly
+          one thing: move money between your holdings, inside your limits. It
+          can never take money out, change a limit, or act for anyone else, and
+          Revoke takes the permission back straight away.
         </p>
         <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-          Pausing your plan stops all adjustments. Taking money out keeps working while it is
-          paused, by design &mdash; a pause must never trap your money.
+          Pausing your plan stops all adjustments. Taking money out keeps
+          working while it is paused, by design &mdash; a pause must never trap
+          your money.
         </p>
       </Card>
 
@@ -189,11 +257,15 @@ function Settings() {
       {/* ---------------------------------------------------------- your plan */}
       {plan ? (
         <Card>
-          <SectionTitle hint={`You have changed this plan ${plan.version} time${plan.version === 1 ? "" : "s"}.`}>
+          <SectionTitle
+            hint={`You have changed this plan ${plan.version} time${plan.version === 1 ? "" : "s"}.`}
+          >
             Your plan
           </SectionTitle>
           <dl>
-            <KeyValue label="Your goal">{usdFromDecimal(plan.goal.target.amount, 0)}</KeyValue>
+            <KeyValue label="Your goal">
+              {usdFromDecimal(plan.goal.target.amount, 0)}
+            </KeyValue>
             <KeyValue label="How much you're comfortable losing">
               {percent(plan.rules.comfortableLosingPercent)}
             </KeyValue>
@@ -213,8 +285,9 @@ function Settings() {
             </Button>
           </div>
           <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-            Changing your plan replaces the old one. Any adjustment Modalis had already worked out
-            against the old limits stops being valid, so nothing out of date can go through.
+            Changing your plan replaces the old one. Any adjustment Modalis had
+            already worked out against the old limits stops being valid, so
+            nothing out of date can go through.
           </p>
         </Card>
       ) : null}
@@ -235,13 +308,18 @@ function Settings() {
         <Button
           variant="danger"
           disabled={busy !== null || !loggedIn}
-          onClick={() => act("Take all my money out", (w, c) => emergencyWithdraw(w, c))}
+          onClick={() =>
+            act("Take all my money out", (w, c) => emergencyWithdraw(w, c))
+          }
         >
-          {busy === "Take all my money out" ? "Taking it out…" : "Take all my money out"}
+          {busy === "Take all my money out"
+            ? "Taking it out…"
+            : "Take all my money out"}
         </Button>
         <p className="mt-4 text-xs leading-relaxed text-ink-muted">
-          This works even if your plan is paused, and nobody but you can do it. It is the reason
-          giving Modalis a plan is not the same as giving it your money.
+          This works even if your plan is paused, and nobody but you can do it.
+          It is the reason giving Modalis a plan is not the same as giving it
+          your money.
         </p>
       </Card>
 
@@ -262,7 +340,11 @@ function Settings() {
 }
 
 function planStateLabel(state: "draft" | "active" | "paused"): string {
-  return state === "active" ? "Running" : state === "paused" ? "Paused" : "Not approved yet";
+  return state === "active"
+    ? "Running"
+    : state === "paused"
+      ? "Paused"
+      : "Not approved yet";
 }
 
 const LOCAL_CURRENCIES: [string, string][] = [
@@ -291,7 +373,9 @@ function CurrencyChooser() {
           aria-pressed={code === value}
           onClick={() => chooseCurrency(value || null)}
           className={`min-h-[40px] rounded-full px-4 text-[13.5px] font-semibold transition-colors ${
-            code === value ? "bg-panel text-panel-ink" : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
+            code === value
+              ? "bg-panel text-panel-ink"
+              : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
           }`}
         >
           {label}

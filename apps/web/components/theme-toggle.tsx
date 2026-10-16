@@ -3,16 +3,17 @@
 /**
  * Light / dark switch.
  *
- * The choice is stored in this browser only (it is a display preference, nothing more). With no
- * stored choice the page follows the device, and keeps following it if the device changes.
- * `THEME_SCRIPT` runs before the first paint so a dark-mode visitor never sees a white flash.
+ * The choice is stored in this browser only (it is a display preference, nothing more). New
+ * visitors start in light mode; choosing "Match my device" keeps following the device if it
+ * changes. `THEME_SCRIPT` runs before the first paint so an explicit dark choice never flashes
+ * white.
  */
 import { useCallback, useEffect, useState } from "react";
 
 export type ThemeChoice = "light" | "dark" | "system";
 const KEY = "modalis-theme";
 
-export const THEME_SCRIPT = `(function(){try{var c=localStorage.getItem("${KEY}");var d=c==="dark"||(c!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light";}catch(e){}})();`;
+export const THEME_SCRIPT = `(function(){try{var c=localStorage.getItem("${KEY}");var d=c==="dark"||(c==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light";}catch(e){document.documentElement.dataset.theme="light";}})();`;
 
 function systemDark() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -24,14 +25,14 @@ function apply(choice: ThemeChoice) {
 }
 
 export function useTheme() {
-  const [choice, setChoice] = useState<ThemeChoice>("system");
+  const [choice, setChoice] = useState<ThemeChoice>("light");
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    let stored: ThemeChoice = "system";
+    let stored: ThemeChoice = "light";
     try {
       const v = localStorage.getItem(KEY);
-      if (v === "light" || v === "dark") stored = v;
+      if (v === "light" || v === "dark" || v === "system") stored = v;
     } catch {}
     setChoice(stored);
     setDark(document.documentElement.dataset.theme === "dark");
@@ -42,7 +43,7 @@ export function useTheme() {
       try {
         current = localStorage.getItem(KEY);
       } catch {}
-      if (current !== "light" && current !== "dark") {
+      if (current === "system") {
         apply("system");
         setDark(media.matches);
       }
@@ -53,8 +54,7 @@ export function useTheme() {
 
   const choose = useCallback((next: ThemeChoice) => {
     try {
-      if (next === "system") localStorage.removeItem(KEY);
-      else localStorage.setItem(KEY, next);
+      localStorage.setItem(KEY, next);
     } catch {}
     apply(next);
     setChoice(next);

@@ -321,3 +321,26 @@ test("peeking at a token is never an access decision", async () => {
   // ...and the verifying path still refuses it.
   await assert.rejects(() => verifyToken(forged, config), (err: unknown) => err instanceof AuthError);
 });
+
+test("a production deployment cannot enable the development identity bypass", () => {
+  assert.equal(authConfigFromEnv({ NODE_ENV: "production", MODALIS_DEV_AUTH: "true", NEXT_PUBLIC_MONAD_CHAIN_ID: "10143" }).allowDevAuth, false);
+});
+
+test("an active wallet is selected only from the token's verified credentials", async () => {
+  const token = await signedToken({ verified_credentials: [
+    { address: OWNER, format: "blockchain" }, { address: SOMEONE_ELSE, format: "blockchain" },
+  ] });
+  assert.equal((await verifyToken(token, config, SOMEONE_ELSE)).walletAddress, SOMEONE_ELSE);
+  await assert.rejects(() => verifyToken(token, config, "0x0000000000000000000000000000000000000001"), (error: unknown) => error instanceof AuthError);
+});
+test("a signed token without an expiration cannot establish a session", async () => {
+  const token = await new SignJWT({ wallet_address: OWNER })
+    .setProtectedHeader({ alg: "RS256", kid: "test-key" }).sign(signingKey);
+  await assert.rejects(() => verifyToken(token, config), (error: unknown) => error instanceof AuthError);
+});
+
+test("selecting mainnet without an explicit chain id also refuses development auth", () => {
+  const config = authConfigFromEnv({ MODALIS_NETWORK: "mainnet", MODALIS_DEV_AUTH: "true" });
+  assert.equal(config.chainId, 143);
+  assert.equal(config.allowDevAuth, false);
+});

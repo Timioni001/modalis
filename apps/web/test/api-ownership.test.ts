@@ -43,6 +43,8 @@ const PUBLIC_ROUTES: Record<string, string> = {
   "proof/[address]/route.ts":
     "The shareable proof page. Returns only what Monad already makes public for that address (its " +
     "on-chain plan, balances and events), nothing from the database, and changes nothing.",
+  "waitlist/route.ts":
+    "Public early-access signup. It stores a validated email only and never acts on a wallet or plan.",
 };
 
 /** Patterns that would mean an account came from the caller rather than from a verified session. */

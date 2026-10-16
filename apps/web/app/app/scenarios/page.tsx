@@ -1,188 +1,169 @@
 "use client";
 
-/**
- * "What if?" — answered against the person's real goal.
- *
- * The questions are a closed set on purpose. A free-text box invites questions this engine cannot
- * answer honestly — "what if the market goes up 20%?" has no answer that isn't a guess — so the
- * product only offers the questions it can answer from money the person controls.
- *
- * Nothing here changes a plan. Changing one needs their approval and their signature.
- */
+/** Modalis Twin: explore two futures, then turn the chosen one into an owner-signed plan update. */
 import { useCallback, useEffect, useState } from "react";
-import type { Scenario, ScenarioResult } from "@modalis/domain";
+import { motion } from "motion/react";
+import { setMandate, type MandateParams } from "@modalis/chain";
 import {
+  Badge,
   Button,
   Card,
-  Failure,
+  Choices,
+  Field,
+  Label,
   Loading,
   Notice,
   PageHeader,
-  Rows,
   Row,
+  Rows,
   SectionTitle,
+  Stat,
+  TextField,
+  MoneyField,
 } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";
-import { StressTest } from "@/components/stress-test";
-import { AffordCheck } from "@/components/afford-check";
-import { apiPost, ApiError } from "@/lib/client-api";
+import { useWallet, useWalletConfig } from "@/components/wallet-context";
+import { apiGet, apiPost, ApiError } from "@/lib/client-api";
+import { confirmOnChain } from "@/lib/chain-client";
+import { walletActionMessage } from "@/lib/wallet-error";
+import type { Address } from "viem";
+import type { SystemStatus } from "@/lib/api-types";
 
-type ScenarioSet = {
-  available: Scenario[];
-  result: ScenarioResult | null;
-  assumption: string;
-};
+type Candidate = { target: string; months: number; monthly: string; withdrawal: string; risk: "cautious" | "balanced" | "adventurous" };
+type MoneyView = { amount: string; currency: "USD" };
+type Outcome = { expected: MoneyView; downside: MoneyView; upside: MoneyView; expectedShortfall: MoneyView; downsideShortfall: MoneyView; requiredMonthly: MoneyView; confidencePct: number; reachesOnExpectedPath: boolean; assumptions: string[] };
+type Comparison = { expectedDelta: MoneyView; downsideDelta: MoneyView; requiredMonthlyDelta: MoneyView };
+type TwinResult = { base: Outcome; alternative: Outcome; comparison: Comparison; baseCandidate: Candidate; alternativeCandidate: Candidate; assumption: string };
+type SavedFuture = { id: string; name: string; prompt: string; createdAt: string; candidate: Candidate; selected: boolean };
+type TwinData = TwinResult & { goal: { name: string; target: MoneyView }; planVersion: number; savedFutures: SavedFuture[]; valuationAvailable: boolean; balanceNote: string | null };
+type Approval = { params: Record<string, string | number>; allocations: { token: string; targetBps: number; minBps: number; maxBps: number }[] };
+type PrepareResult = { approval: Approval; scenarioId: string | null; preview: { current: Record<string, string | number>; proposed: Record<string, string | number> }; note: string };
 
-export default function ScenariosPage() {
-  return (
-    <PortfolioGate>
-      <Scenarios />
-    </PortfolioGate>
-  );
+function toMandateParams(value: Approval["params"]): MandateParams {
+  return { targetValue: BigInt(value.targetValue), targetDate: BigInt(value.targetDate), maxDrawdownBps: Number(value.maxDrawdownBps), minLiquidityBps: Number(value.minLiquidityBps), rebalanceThresholdBps: Number(value.rebalanceThresholdBps), maxSingleAssetBps: Number(value.maxSingleAssetBps), maxSlippageBps: Number(value.maxSlippageBps) };
 }
+function amount(value: number): string { return Number.isFinite(value) ? value.toFixed(2) : "0.00"; }
+function displayMoney(money: MoneyView): string { const value = Number(money.amount); return Number.isFinite(value) ? `$${value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}` : `$${money.amount}`; }
+function deltaLabel(money: MoneyView): string { const value = Number(money.amount); if (!Number.isFinite(value) || value === 0) return "$0"; return `${value > 0 ? "+" : "−"}${displayMoney({ amount: Math.abs(value).toFixed(2), currency: "USD" })}`; }
 
-function Scenarios() {
-  const [set, setSet] = useState<ScenarioSet | null>(null);
-  const [asked, setAsked] = useState<Scenario | null>(null);
-  const [result, setResult] = useState<ScenarioResult | null>(null);
+export default function ScenariosPage() { return <PortfolioGate><Twin /></PortfolioGate>; }
+
+function Twin() {
+  const { configured, chainId, rpcUrl } = useWalletConfig();
+  const { loggedIn, getWalletClient } = useWallet();
+  const [data, setData] = useState<TwinData | null>(null);
+  const [alternative, setAlternative] = useState<Candidate | null>(null);
+  const [planName, setPlanName] = useState("");
+  const [result, setResult] = useState<TwinResult | null>(null);
+  const [savedFutures, setSavedFutures] = useState<SavedFuture[]>([]);
+  const [scenarioId, setScenarioId] = useState<string | null>(null);
+  const [prepared, setPrepared] = useState<PrepareResult | null>(null);
+  const [busy, setBusy] = useState<"loading" | "simulating" | "saving" | "preparing" | "signing" | null>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
-    apiPost<ScenarioSet>("/api/goal/scenarios", {})
-      .then((d) => alive && setSet(d))
-      .catch((err: unknown) => {
-        if (!alive) return;
-        setError(err instanceof ApiError ? err.message : "We couldn't load your goal.");
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const ask = useCallback(async (scenario: Scenario) => {
-    setBusy(true);
-    setError(null);
-    setAsked(scenario);
+  const load = useCallback(async () => {
+    setBusy("loading"); setError(null);
     try {
-      const answered = await apiPost<ScenarioSet>("/api/goal/scenarios", {
-        kind: scenario.kind,
-        ...(scenario.amount !== undefined ? { amount: String(scenario.amount) } : {}),
-        ...(scenario.months !== undefined ? { months: scenario.months } : {}),
-      });
-      setResult(answered.result);
-    } catch (err) {
-      setResult(null);
-      setError(err instanceof ApiError ? err.message : "We couldn't work that out.");
-    } finally {
-      setBusy(false);
+      const response = await apiGet<TwinData>("/api/twin");
+      const requestedId = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("draft");
+      const requested = requestedId ? response.savedFutures?.find((future) => future.id === requestedId) : undefined;
+      setData(response); setSavedFutures(response.savedFutures ?? []); setAlternative(requested?.candidate ?? response.alternativeCandidate); setPlanName(requested?.name ?? ""); setScenarioId(requested?.id ?? null);
+      setResult(requested ? await apiPost<TwinResult>("/api/twin/simulate", { alternative: requested.candidate }) : response);
     }
+    catch (err) { setError(err instanceof ApiError ? err.message : "We couldn't load your futures."); }
+    finally { setBusy(null); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const simulate = useCallback(async () => {
+    if (!alternative) return; setBusy("simulating"); setError(null); setPrepared(null); setSuccess(null);
+    try { setResult(await apiPost<TwinResult>("/api/twin/simulate", { alternative })); }
+    catch (err) { setError(err instanceof ApiError ? err.message : "We couldn't compare those futures."); }
+    finally { setBusy(null); }
+  }, [alternative]);
+
+  const openSaved = useCallback(async (future: SavedFuture) => {
+    setAlternative(future.candidate); setPlanName(future.name); setScenarioId(future.id); setPrepared(null); setSuccess(null); setBusy("simulating"); setError(null);
+    try { setResult(await apiPost<TwinResult>("/api/twin/simulate", { alternative: future.candidate })); }
+    catch (err) { setError(err instanceof ApiError ? err.message : "We couldn't open that future."); }
+    finally { setBusy(null); }
   }, []);
 
-  if (!set && !error) return <Loading label="Loading your goal" />;
+  const duplicateSaved = useCallback(async (future: SavedFuture) => {
+    await openSaved(future);
+    // The copied branch is intentionally detached from the original history row. Saving it will
+    // create a new scenario, while opening it keeps the original id for a later approval.
+    setScenarioId(null);
+    setPlanName((current) => current ? `${current} copy` : "Copy of plan");
+  }, [openSaved]);
 
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        title="What if?"
-        lede="Change one thing and see what it would do to your goal. Nothing here touches your real plan."
-      />
+  const createAnother = useCallback(() => {
+    if (!data) return;
+    setAlternative(data.alternativeCandidate); setPlanName(""); setScenarioId(null); setPrepared(null); setResult(data); setError(null); setSuccess(null);
+  }, [data]);
 
-      {error ? (
-        <Failure
-          title="We couldn't answer that"
-          meaning="Your plan and your money are unchanged — this screen only does arithmetic."
-          next="Try again, or pick a different question."
-        />
-      ) : null}
+  const save = useCallback(async () => {
+    if (!alternative || !result) return; setBusy("saving"); setError(null);
+    try { const response = await apiPost<{ saved: boolean; scenarioId?: string | null; savedFuture?: SavedFuture | null; note?: string }>("/api/twin/save", { name: planName.trim() || undefined, prompt: `${alternative.target} dollars in ${alternative.months} months with a ${alternative.risk} approach`, alternative }); setScenarioId(response.scenarioId ?? null); if (response.savedFuture) setSavedFutures((current) => [response.savedFuture!, ...current.filter((future) => future.id !== response.savedFuture!.id)]); setSuccess(response.saved ? "Plan saved to your alternatives." : (response.note ?? "Plan calculated; history is temporarily unavailable.")); }
+    catch (err) { setError(err instanceof ApiError ? err.message : "We couldn't save that future."); }
+    finally { setBusy(null); }
+  }, [alternative, result]);
 
-      {set ? (
-        <Card>
-          <SectionTitle>Pick a question</SectionTitle>
-          <div className="flex flex-wrap gap-2">
-            {set.available.map((scenario) => {
-              const active = asked?.kind === scenario.kind;
-              return (
-                <button
-                  key={scenario.kind}
-                  type="button"
-                  onClick={() => ask(scenario)}
-                  disabled={busy}
-                  aria-pressed={active}
-                  className={`min-h-[46px] rounded-full px-5 text-[14px] font-semibold transition-colors disabled:opacity-60 ${
-                    active
-                      ? "bg-panel text-panel-ink"
-                      : "bg-sunken text-ink-soft hover:bg-line hover:text-ink"
-                  }`}
-                >
-                  {scenario.question}
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-      ) : null}
+  const prepare = useCallback(async () => {
+    if (!alternative) return; setBusy("preparing"); setError(null); setSuccess(null);
+    try { setPrepared(await apiPost<PrepareResult>("/api/twin/prepare", { alternative, scenarioId })); }
+    catch (err) { setError(err instanceof ApiError ? err.message : "We couldn't prepare that plan update."); }
+    finally { setBusy(null); }
+  }, [alternative, scenarioId]);
 
-      <StressTest />
-      <AffordCheck />
+  const approve = useCallback(async () => {
+    if (!alternative || !prepared || !loggedIn) return; setBusy("signing"); setError(null);
+    try {
+      const wallet = await getWalletClient(); const status = await apiGet<SystemStatus>("/api/status");
+      const contracts = (status.technical?.contracts ?? {}) as Record<string, Address>;
+      if (!contracts.portfolioMandate) throw new Error("Modalis isn't set up on this network yet.");
+      const hash = await setMandate(wallet, { chainId, contracts, tokens: (status.technical?.tokens ?? {}) as Record<string, Address> }, toMandateParams(prepared.approval.params), prepared.approval.allocations.map((a) => ({ token: a.token as Address, targetBps: a.targetBps, minBps: a.minBps, maxBps: a.maxBps })));
+      const confirmed = await confirmOnChain(hash, { chainId, rpcUrl });
+      await apiPost("/api/twin/approve", { alternative, scenarioId, setTxHash: hash });
+      setSuccess(`Plan updated on Monad. Confirmed in ${Math.round(confirmed.ms / 100) / 10}s.`); setPrepared(null); await load();
+    } catch (err) { setError(walletActionMessage(err, "We couldn't approve that future. Nothing was changed.")); }
+    finally { setBusy(null); }
+  }, [alternative, prepared, loggedIn, getWalletClient, chainId, rpcUrl, scenarioId, load]);
 
-      {busy && !result ? <Loading label="Working it out" /> : null}
+  if (busy === "loading" && !data) return <Loading label="Loading your current plan" />;
+  if (!data || !alternative || !result) return <div className="space-y-4"><PageHeader title="Modalis Twin" lede="Explore another future without touching your real plan." />{error ? <Notice tone="warn" title="Twin is unavailable" action={<Button variant="secondary" onClick={() => void load()}>Try again</Button>}>{error}</Notice> : null}</div>;
 
-      {result ? (
-        <>
-          {/* The answer, as a sentence, before any numbers. */}
-          <section className="rounded-[28px] bg-panel p-6 text-panel-ink shadow-[var(--shadow-lift)] sm:p-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-[13px] font-semibold uppercase tracking-[0.09em] text-panel-soft">
-                The answer
-              </h2>
-              {result.fixesTheGoal ? (
-                <span className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink">
-                  That fixes it
-                </span>
-              ) : null}
-            </div>
-            <p
-              aria-live="polite"
-              className="mt-4 text-[20px] leading-relaxed sm:text-[23px]"
-            >
-              {result.answer}
-            </p>
-          </section>
+  const fields = [
+    { label: "Target amount", value: Number(alternative.target), set: (value: number) => setAlternative({ ...alternative, target: amount(value) }) },
+    { label: "Monthly contribution", value: Number(alternative.monthly), set: (value: number) => setAlternative({ ...alternative, monthly: amount(value) }) },
+    { label: "Planned withdrawal", value: Number(alternative.withdrawal), set: (value: number) => setAlternative({ ...alternative, withdrawal: amount(value) }) },
+  ];
 
-          {result.differences.length > 0 ? (
-            <Card>
-              <SectionTitle>What moves</SectionTitle>
-              <Rows>
-                {result.differences.map((d) => (
-                  <Row key={d.label} className="flex items-baseline justify-between gap-4">
-                    <span className="text-sm text-ink-muted">{d.label}</span>
-                    <span className="numeric text-sm">
-                      <span className="text-ink-muted line-through">{d.before}</span>
-                      <span aria-hidden className="mx-2 text-ink-muted">
-                        &rarr;
-                      </span>
-                      <span className="font-semibold text-ink">{d.after}</span>
-                      <span className="sr-only">changes to {d.after}</span>
-                    </span>
-                  </Row>
-                ))}
-              </Rows>
-            </Card>
-          ) : null}
+  return <div className="space-y-5 pb-12">
+    <PageHeader title="Modalis Twin" lede="Try a different future beside your current plan. Every number updates from deterministic rules, and exploring never moves your money." action={<Button href="/app/goals" variant="secondary">Manage goals</Button>} />
+    {error ? <Notice tone="warn" title="We couldn't complete that step" action={<Button variant="secondary" onClick={() => setError(null)}>Dismiss</Button>}>{error}</Notice> : null}
+    {success ? <Notice tone="ok" title="All set">{success}</Notice> : null}
+    {!data.valuationAvailable ? <Notice tone="warn" title="Live balance is temporarily unavailable">{data.balanceNote ?? "Twin is using the saved starting amount until portfolio prices refresh. Your plan and funds are unchanged."}</Notice> : null}
 
-          <Notice tone="default" title="How to read these numbers">
-            {set?.assumption}
-          </Notice>
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="grid gap-4 lg:grid-cols-2">
+      <Card className="border border-line" lift><div className="flex items-center justify-between gap-3"><div><Label>Future one</Label><h2 className="display mt-1 text-2xl font-semibold text-ink">Your live plan</h2></div><Badge tone="ok">Live</Badge></div><p className="mt-3 text-sm leading-relaxed text-ink-soft">The chain-backed plan you already approved. Twin does not edit it while you explore.</p><div className="mt-5 grid grid-cols-2 gap-4"><Stat label="Goal" value={displayMoney({ amount: data.baseCandidate.target, currency: "USD" })} size="sm" /><Stat label="Monthly" value={displayMoney({ amount: data.baseCandidate.monthly, currency: "USD" })} size="sm" /><Stat label="Time left" value={`${data.baseCandidate.months} mo`} size="sm" /><Stat label="Risk" value={data.baseCandidate.risk[0].toUpperCase() + data.baseCandidate.risk.slice(1)} size="sm" /></div></Card>
+      <Card className="border-2 border-ink" lift><div className="flex items-center justify-between gap-3"><div><Label>Future two</Label><h2 className="display mt-1 text-2xl font-semibold text-ink">Try another path</h2></div><Badge tone="default">Editable</Badge></div><p className="mt-3 text-sm leading-relaxed text-ink-soft">Change the deadline, what you add, a planned withdrawal, or the guardrails.</p><div className="mt-5"><Field label="Name this plan" htmlFor="twin-plan-name" hint="Optional — helps you find it later"><TextField id="twin-plan-name" value={planName} maxLength={80} placeholder="For example, house in three years" onChange={(event) => setPlanName(event.target.value)} /></Field></div><div className="mt-5 grid gap-4 sm:grid-cols-2">{fields.slice(0, 2).map((field) => <Field key={field.label} label={field.label} htmlFor={`twin-${field.label}`}><MoneyField id={`twin-${field.label}`} value={field.value} onChange={field.set} max={100_000_000} /></Field>)}<Field label="Time until the goal" htmlFor="twin-months" hint="1 to 600 months"><TextField id="twin-months" type="number" min={1} max={600} inputMode="numeric" value={alternative.months} onChange={(event) => setAlternative({ ...alternative, months: Math.max(1, Math.min(600, Number(event.target.value) || 1)) })} /></Field>{fields.slice(2).map((field) => <Field key={field.label} label={field.label} htmlFor={`twin-${field.label}`} hint="Simulation only"><MoneyField id={`twin-${field.label}`} value={field.value} onChange={field.set} max={100_000_000} /></Field>)}</div><div className="mt-4"><Label>Risk preference</Label><div className="mt-2"><Choices name="twin-risk" value={alternative.risk} onChange={(risk) => setAlternative({ ...alternative, risk })} options={[{ value: "cautious", label: "Cautious", hint: "More available cash" }, { value: "balanced", label: "Balanced", hint: "A middle path" }, { value: "adventurous", label: "Adventurous", hint: "More movement" }]} /></div></div><div className="mt-5 flex flex-wrap gap-2"><Button onClick={() => void simulate()} busy={busy === "simulating"}>Update comparison</Button><Button variant="secondary" onClick={() => void save()} busy={busy === "saving"}>Save as a plan</Button></div></Card>
+    </motion.div>
 
-          {result.fixesTheGoal ? (
-            <div>
-              <Button href="/onboarding">Make this my plan</Button>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-    </div>
-  );
+    <Card className="bg-sunken shadow-none"><SectionTitle hint="Saved plans are drafts. Only the plan you approve with your wallet becomes active on Monad.">Your saved plans</SectionTitle>{savedFutures.length === 0 ? <p className="text-sm leading-relaxed text-ink-soft">Save a plan to compare it again later. You can create, duplicate and keep several alternatives without changing your live plan.</p> : <Rows className="mt-2">{savedFutures.map((future) => <Row key={future.id} className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold text-ink">{future.name}</p><p className="mt-1 text-xs text-ink-muted">{future.prompt} · Saved {future.createdAt.slice(0, 10)} · {future.selected ? "Approved" : "Draft"}</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void openSaved(future)} busy={busy === "simulating" && scenarioId === future.id}>Open</Button><Button variant="quiet" onClick={() => void duplicateSaved(future)} disabled={busy === "simulating"}>Duplicate</Button></div></Row>)}</Rows>}<div className="mt-4 flex flex-wrap items-center gap-3"><Button variant="secondary" onClick={createAnother}>Create another plan</Button><Button href="/app/goals" variant="quiet">Add or reorder goals</Button></div></Card>
+
+    <Card><SectionTitle hint="The live balance is the same starting point for both paths. The only changes are the assumptions you can see above.">Side-by-side outcome</SectionTitle><div className="grid gap-3 sm:grid-cols-2"><OutcomeCard title="Your live plan" outcome={result.base} /><OutcomeCard title="The future you are exploring" outcome={result.alternative} accent /></div><Rows className="mt-4"><Row className="flex items-center justify-between gap-4"><span className="text-sm text-ink-muted">Expected balance difference</span><strong className={toneFor(result.comparison.expectedDelta)}>{deltaLabel(result.comparison.expectedDelta)}</strong></Row><Row className="flex items-center justify-between gap-4"><span className="text-sm text-ink-muted">Downside balance difference</span><strong className={toneFor(result.comparison.downsideDelta)}>{deltaLabel(result.comparison.downsideDelta)}</strong></Row><Row className="flex items-center justify-between gap-4"><span className="text-sm text-ink-muted">Required monthly difference without growth</span><strong className={toneForNeg(result.comparison.requiredMonthlyDelta)}>{deltaLabel(result.comparison.requiredMonthlyDelta)}</strong></Row></Rows></Card>
+
+    <Card className="bg-sunken shadow-none"><SectionTitle hint="These settings become the boundaries Modalis cannot cross after you approve them.">Turn the chosen future into a plan</SectionTitle><p className="text-sm leading-relaxed text-ink-soft">Twin prepares one owner-signed update to your Monad plan. It keeps the existing allocation ranges, changes the target and date, and applies the risk guardrails you chose. No deposit, withdrawal, or trade is part of this action.</p>{prepared ? <div className="mt-5 rounded-2xl bg-surface p-4 shadow-[var(--shadow-card)]"><div className="flex flex-wrap items-center justify-between gap-3"><div><Label>Review before signing</Label><p className="mt-1 font-semibold text-ink">Target {displayMoney({ amount: alternative.target, currency: "USD" })} in {alternative.months} months</p></div><Badge tone="warn">Wallet approval required</Badge></div><p className="mt-3 text-sm text-ink-soft">{prepared.note}</p><div className="mt-4 flex flex-wrap gap-2"><Button onClick={() => void approve()} disabled={!configured || !loggedIn} busy={busy === "signing"}>{loggedIn ? "Approve on Monad" : "Sign in to approve"}</Button><Button variant="secondary" onClick={() => setPrepared(null)}>Keep exploring</Button></div></div> : <Button onClick={() => void prepare()} busy={busy === "preparing"}>Review plan update</Button>}</Card>
+
+    <Notice tone="default" title="How Twin calculates this">{result.assumption} {result.alternative.assumptions[2]}</Notice>
+    <Card padded={false}><details className="group p-5 sm:p-6"><summary className="cursor-pointer list-none font-semibold text-ink">Show calculation assumptions <span className="float-right text-ink-muted transition-transform group-open:rotate-180">⌄</span></summary><ul className="mt-4 space-y-2 text-sm leading-relaxed text-ink-soft">{result.alternative.assumptions.map((line) => <li key={line}>· {line}</li>)}</ul></details></Card>
+  </div>;
 }
+
+function OutcomeCard({ title, outcome, accent = false }: { title: string; outcome: Outcome; accent?: boolean }) {
+  return <div className={`rounded-2xl p-5 ${accent ? "bg-panel text-panel-ink" : "bg-sunken text-ink"}`}><div className={`text-sm font-semibold ${accent ? "text-panel-soft" : "text-ink-muted"}`}>{title}</div><div className="numeric mt-3 text-3xl font-semibold">{displayMoney(outcome.expected)}</div><div className={`mt-1 text-sm ${accent ? "text-panel-soft" : "text-ink-soft"}`}>expected balance</div><dl className="mt-5 space-y-3 text-sm"><div className="flex justify-between gap-3"><dt className={accent ? "text-panel-soft" : "text-ink-muted"}>Downside path</dt><dd className="numeric font-semibold">{displayMoney(outcome.downside)}</dd></div><div className="flex justify-between gap-3"><dt className={accent ? "text-panel-soft" : "text-ink-muted"}>Required each month</dt><dd className="numeric font-semibold">{displayMoney(outcome.requiredMonthly)}</dd></div><div className="flex justify-between gap-3"><dt className={accent ? "text-panel-soft" : "text-ink-muted"}>Goal confidence</dt><dd className="font-semibold">{outcome.confidencePct}%</dd></div></dl>{outcome.reachesOnExpectedPath ? <Badge tone="ok" className="mt-5">Reaches goal on expected path</Badge> : <Badge tone="warn" className="mt-5">Shortfall on expected path</Badge>}</div>;
+}
+function toneFor(money: MoneyView): string { return Number(money.amount) >= 0 ? "text-ok" : "text-breach"; }
+function toneForNeg(money: MoneyView): string { return Number(money.amount) <= 0 ? "text-ok" : "text-warn"; }

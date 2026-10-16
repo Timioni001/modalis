@@ -18,7 +18,8 @@ let cached: { key: string; client: PublicClient } | null = null;
 export function browserClient(chainId: number, rpcUrl?: string): PublicClient {
   const key = `${chainId}:${rpcUrl ?? ""}`;
   if (cached?.key === key) return cached.client;
-  const client = createMonadPublicClient({ chainId, httpUrl: rpcUrl });
+  const loopback = rpcUrl ? ["localhost", "127.0.0.1", "[::1]"].includes(new URL(rpcUrl).hostname) : false;
+  const client = createMonadPublicClient({ chainId, httpUrl: rpcUrl, multicall: !loopback });
   cached = { key, client };
   return client;
 }

@@ -129,6 +129,12 @@ Apply every file in `supabase/migrations/` in order with `pnpm db:migrate` (`SUP
 `0002` adds goal priority, plan-change reasons, events, notifications and automation settings. The
 three new tables are read-only to signed-in users; only the server writes them.
 
+The public early-access form uses `supabase/migrations/0005_waitlist.sql`. If the Vercel site shows
+“The early-access list is being connected,” open the Supabase dashboard for the same project, open
+**SQL Editor**, and run that migration once. It creates the private `waitlist_signups` table and a
+unique email index; the browser never receives access to the table. No Vercel redeploy is required
+after the migration. Keep `SUPABASE_SERVICE_ROLE_KEY` server-only.
+
 The risk monitor now runs an adjustment on its own only for people who chose "Do it for me" in
 Settings, and only once that choice has passed its 24-hour wait. Its operator switch alone is no
 longer enough.

@@ -9,10 +9,24 @@
  * Everything is read live on each refresh. A stale balance in a money product is worse than a
  * spinner, so nothing here is cached as truth.
  */
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useWallet } from "./wallet-context";
-import { ApiError, apiGet } from "@/lib/client-api";
-import type { Adjustment, GoalView, MoneyView, Plan, Progress } from "@modalis/domain";
+import { ApiError, apiGet, apiPost } from "@/lib/client-api";
+import type {
+  Adjustment,
+  GoalView,
+  MoneyView,
+  Plan,
+  Progress,
+} from "@modalis/domain";
 import type { SystemStatus } from "@/lib/api-types";
 
 type PlanStatusView = {
@@ -61,6 +75,7 @@ const Ctx = createContext<ContextValue>({
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
   const { address, loggedIn, configured } = useWallet();
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [goal, setGoal] = useState<GoalView | null>(null);
@@ -72,11 +87,33 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const activeRequest = useRef<AbortController | null>(null);
+  const recoveryAttempts = useRef(new Set<string>());
+  const clearPlan = useCallback(() => {
+    setPlan(null);
+    setGoal(null);
+    setMoney(null);
+    setProgress(null);
+    setPlanStatus(null);
+    setAdjustment(null);
+    setNeedsPlan(false);
+  }, []);
   const refresh = useCallback(async () => {
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    const signal = controller.signal;
+    setLoading(true);
+    setLoadedFor(address);
     setError(null);
+    let currentStatus: SystemStatus;
     try {
-      setStatus(await apiGet<SystemStatus>("/api/status"));
+      currentStatus = await apiGet<SystemStatus>("/api/status?fresh=1", signal);
+      if (signal.aborted) return;
+      setStatus(currentStatus);
     } catch {
+      if (signal.aborted) return;
+      clearPlan();
       setError("We can't reach Modalis right now.");
       setLoading(false);
       return;
@@ -95,10 +132,26 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { plan: live } = await apiGet<{ plan: Plan }>("/api/plan");
+      const { plan: live } = await apiGet<{ plan: Plan }>("/api/plan", signal);
+      if (signal.aborted) return;
+      setLoadedFor(address);
       setPlan(live);
       setNeedsPlan(false);
+      const key = `${address}:${Math.floor(Date.now() / 60_000)}`;
+      if (
+        currentStatus.prices?.ready === false &&
+        currentStatus.prices.recovery?.canRefresh &&
+        !recoveryAttempts.current.has(key)
+      ) {
+        recoveryAttempts.current.clear();
+        recoveryAttempts.current.add(key);
+        await apiPost("/api/demo/prices", {}).catch(() => undefined);
+        if (signal.aborted) return;
+        setStatus(await apiGet<SystemStatus>("/api/status?fresh=1", signal));
+      }
     } catch (err) {
+      if (signal.aborted) return;
+      setLoadedFor(address);
       // "No plan yet" is a normal state for a new person, not an error to show.
       if (err instanceof ApiError && err.code === "no_plan") {
         setNeedsPlan(true);
@@ -111,6 +164,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
+      clearPlan();
       setError(err instanceof Error ? err.message : "Something went wrong.");
       setLoading(false);
       return;
@@ -118,26 +172,44 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
     // Each of these is useful on its own, so one failing should not blank the others.
     const [m, p, s, a, g] = await Promise.allSettled([
-      apiGet<{ money: MoneyView }>("/api/money"),
-      apiGet<{ progress: Progress }>("/api/progress"),
-      apiGet<PlanStatusView>("/api/plan/status"),
-      apiGet<{ adjustment: Adjustment }>("/api/adjustment"),
-      apiGet<GoalView>("/api/goal"),
+      apiGet<{ money: MoneyView }>("/api/money", signal),
+      apiGet<{ progress: Progress }>("/api/progress", signal),
+      apiGet<PlanStatusView>("/api/plan/status", signal),
+      apiGet<{ adjustment: Adjustment }>("/api/adjustment", signal),
+      apiGet<GoalView>("/api/goal", signal),
     ]);
-    if (m.status === "fulfilled") setMoney(m.value.money);
-    if (p.status === "fulfilled") setProgress(p.value.progress);
-    if (s.status === "fulfilled") setPlanStatus(s.value);
-    if (a.status === "fulfilled") setAdjustment(a.value.adjustment);
-    if (g.status === "fulfilled") setGoal(g.value);
+    if (signal.aborted) return;
+    setMoney(m.status === "fulfilled" ? m.value.money : null);
+    setProgress(p.status === "fulfilled" ? p.value.progress : null);
+    setPlanStatus(s.status === "fulfilled" ? s.value : null);
+    setAdjustment(a.status === "fulfilled" ? a.value.adjustment : null);
+    setGoal(g.status === "fulfilled" ? g.value : null);
+    const failed = [m, p, s, a, g].filter(
+      (result) => result.status === "rejected",
+    );
+    if (failed.length) {
+      const first = failed.find(
+        (result) =>
+          result.status === "rejected" && result.reason instanceof ApiError,
+      );
+      setError(
+        first?.status === "rejected"
+          ? first.reason.message
+          : "Some current figures couldn't be loaded. Try refreshing before taking action.",
+      );
+    }
 
     setLoading(false);
-  }, [address, loggedIn]);
+  }, [address, loggedIn, clearPlan]);
 
   useEffect(() => {
+    clearPlan();
     setLoading(true);
     void refresh();
-  }, [refresh]);
+    return () => activeRequest.current?.abort();
+  }, [refresh, clearPlan]);
 
+  const sameAccount = loggedIn && loadedFor === address;
   return (
     <Ctx.Provider
       value={{
@@ -145,15 +217,15 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         signedIn: loggedIn,
         walletConfigured: configured,
         status,
-        plan,
-        goal,
-        money,
-        progress,
-        planStatus,
-        adjustment,
-        needsPlan,
-        loading,
-        error,
+        plan: sameAccount ? plan : null,
+        goal: sameAccount ? goal : null,
+        money: sameAccount ? money : null,
+        progress: sameAccount ? progress : null,
+        planStatus: sameAccount ? planStatus : null,
+        adjustment: sameAccount ? adjustment : null,
+        needsPlan: sameAccount && needsPlan,
+        loading: loading || (loggedIn && Boolean(address) && !sameAccount),
+        error: sameAccount ? error : null,
         refresh,
       }}
     >

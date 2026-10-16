@@ -101,7 +101,7 @@ Two traps, both of which look like they are working when they are not:
 
 ```bash
 cd ~/modalis
-git pull origin claude/awesome-gates-h1pxk0
+git pull
 cp scripts/golive.env.example .env.golive   # first time only
 nano .env.golive                            # paste in everything from Part 1
 

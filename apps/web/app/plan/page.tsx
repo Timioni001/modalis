@@ -12,7 +12,11 @@
  */
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { setManager as setManagerOnChain, setMandate, type MandateParams } from "@modalis/chain";
+import {
+  setManager as setManagerOnChain,
+  setMandate,
+  type MandateParams,
+} from "@modalis/chain";
 import type { Plan } from "@modalis/domain";
 import type { Address, Hex } from "viem";
 import { motion } from "motion/react";
@@ -35,7 +39,9 @@ import { loadAnswers } from "@/lib/goal-answers";
 import { apiGet, apiPost } from "@/lib/client-api";
 import { monthsToHuman, percent, usdFromDecimal } from "@/lib/format";
 import { ReceiptLink } from "@/components/receipt-link";
+import { SavingsPreferencesSummary } from "@/components/savings-preferences";
 import type { SystemStatus } from "@/lib/api-types";
+import { walletActionMessage } from "@/lib/wallet-error";
 
 /**
  * What the person's wallet signs to make the plan real.
@@ -46,7 +52,12 @@ import type { SystemStatus } from "@/lib/api-types";
  */
 type Approval = {
   params: Record<keyof MandateParams, string | number>;
-  allocations: { token: string; targetBps: number; minBps: number; maxBps: number }[];
+  allocations: {
+    token: string;
+    targetBps: number;
+    minBps: number;
+    maxBps: number;
+  }[];
 };
 
 type DraftResponse = {
@@ -67,15 +78,39 @@ function toMandateParams(params: Approval["params"]): MandateParams {
   };
 }
 
+type GoalSaveResponse = { saved: boolean; note?: string };
+
+/** A just-confirmed transaction can reach the chain before the database connection is ready. */
+async function saveGoalDetails(
+  answers: unknown,
+  goalName: string,
+  setTxHash: Hex,
+): Promise<GoalSaveResponse> {
+  const payload = { answers, goalName, setTxHash };
+  const first = await apiPost<GoalSaveResponse>("/api/plan/approve", payload);
+  if (first.saved) return first;
+
+  // One short, idempotent retry absorbs a cold database/API connection without asking someone
+  // to sign their plan again. The endpoint upserts the same goal and mandate version.
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const retry = await apiPost<GoalSaveResponse>("/api/plan/approve", payload);
+  return retry.saved ? retry : first;
+}
+
 export default function PlanPage() {
   const router = useRouter();
   const { configured, chainId, rpcUrl } = useWalletConfig();
   const { loggedIn, address, getWalletClient } = useWallet();
 
   const [data, setData] = useState<DraftResponse | null>(null);
+  const [goalSaved, setGoalSaved] = useState<boolean | null>(null);
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "signing" | "done">("idle");
-  const [receipts, setReceipts] = useState<{ label: string; hash: Hex; ms?: number }[]>([]);
+  const [receipts, setReceipts] = useState<
+    { label: string; hash: Hex; ms?: number }[]
+  >([]);
 
   // --- Build the plan from the answers the person gave.
   useEffect(() => {
@@ -89,7 +124,11 @@ export default function PlanPage() {
       .then((json) => alive && setData(json))
       .catch((err: unknown) => {
         if (!alive) return;
-        setError(err instanceof Error ? err.message : "We couldn't build a plan from those answers.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "We couldn't build a plan from those answers.",
+        );
       });
     return () => {
       alive = false;
@@ -104,8 +143,12 @@ export default function PlanPage() {
     try {
       const wallet = await getWalletClient();
       const status = await apiGet<SystemStatus>("/api/status");
-      const contracts = (status.technical?.contracts ?? {}) as Record<string, Address>;
-      if (!contracts.portfolioMandate) throw new Error("Modalis isn't set up on this network yet.");
+      const contracts = (status.technical?.contracts ?? {}) as Record<
+        string,
+        Address
+      >;
+      if (!contracts.portfolioMandate)
+        throw new Error("Modalis isn't set up on this network yet.");
 
       const deployment = {
         chainId,
@@ -125,29 +168,63 @@ export default function PlanPage() {
         })),
       );
       const planConfirmed = await confirmOnChain(planHash, { chainId, rpcUrl });
-      setReceipts((r) => [...r, { label: "Plan approved", hash: planHash, ms: planConfirmed.ms }]);
+      setReceipts((r) => [
+        ...r,
+        { label: "Plan approved", hash: planHash, ms: planConfirmed.ms },
+      ]);
 
       // Let Modalis RECOMMEND adjustments. This grants no power to withdraw and no power to
       // change the rules; both are refused for anyone but the owner, by the rules themselves.
       const manager = status.technical?.managerAddress;
       if (manager) {
-        const managerHash = await setManagerOnChain(wallet, deployment, manager as Address);
-        const managerConfirmed = await confirmOnChain(managerHash, { chainId, rpcUrl });
-        setReceipts((r) => [...r, { label: "Adjustments allowed", hash: managerHash, ms: managerConfirmed.ms }]);
+        try {
+          const managerHash = await setManagerOnChain(
+            wallet,
+            deployment,
+            manager as Address,
+          );
+          const managerConfirmed = await confirmOnChain(managerHash, {
+            chainId,
+            rpcUrl,
+          });
+          setReceipts((r) => [
+            ...r,
+            {
+              label: "Adjustments allowed",
+              hash: managerHash,
+              ms: managerConfirmed.ms,
+            },
+          ]);
+        } catch {
+          setSaveNote(
+            "Your plan is approved. Adjustments weren't enabled; you can enable them in Settings.",
+          );
+        }
       }
 
-      // Save the goal alongside the plan. Optional: skipping it loses the goal's name and
-      // history, never the plan, which lives where Modalis cannot rewrite it.
-      await apiPost("/api/plan/approve", {
-        answers,
-        goalName: data.plan.goal.name,
-        setTxHash: planHash,
-      }).catch(() => undefined);
+      try {
+        const saved = await saveGoalDetails(
+          answers,
+          data.plan.goal.name,
+          planHash,
+        );
+        setGoalSaved(Boolean(saved.saved));
+        if (!saved.saved)
+          setSaveNote(
+            saved.note ??
+              "Your plan is live, but your goal details could not be saved.",
+          );
+      } catch {
+        setGoalSaved(false);
+        setSaveNote(
+          "Your plan is live, but your goal details could not be saved. You can retry below.",
+        );
+      }
 
       setState("done");
     } catch (err) {
       setState("idle");
-      setError(err instanceof Error ? err.message : "We couldn't approve your plan.");
+      setError(walletActionMessage(err, "We couldn't approve your plan. Nothing was changed."));
     }
   }, [data, getWalletClient, chainId, rpcUrl]);
 
@@ -158,7 +235,10 @@ export default function PlanPage() {
           {error}
         </Notice>
         <div className="mt-6">
-          <Button variant="secondary" onClick={() => router.push("/onboarding")}>
+          <Button
+            variant="secondary"
+            onClick={() => router.push("/onboarding")}
+          >
             Back to the questions
           </Button>
         </div>
@@ -190,7 +270,9 @@ export default function PlanPage() {
         <h1 className="display mt-5 text-[32px] font-semibold text-ink sm:text-[42px]">
           This is how Modalis will manage your money.
         </h1>
-        <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-soft">{plan.summary}</p>
+        <p className="mt-4 max-w-xl text-[17px] leading-relaxed text-ink-soft">
+          {plan.summary}
+        </p>
       </motion.div>
 
       {data.understoodAs ? (
@@ -235,6 +317,15 @@ export default function PlanPage() {
       </section>
 
       {/* --------------------------------------------------------- the limits */}
+      {goal.savings ? (
+        <Card className="mt-4">
+          <SectionTitle hint="Review these separately from the rules your wallet signs.">
+            Your savings preferences
+          </SectionTitle>
+          <SavingsPreferencesSummary savings={goal.savings} />
+        </Card>
+      ) : null}
+
       <Card className="mt-4">
         <SectionTitle hint="Modalis can only act inside these. Anything outside them is refused — not by Modalis, but by the rules themselves.">
           The limits you are setting
@@ -262,11 +353,16 @@ export default function PlanPage() {
         </SectionTitle>
         <Rows>
           {plan.howMoneyIsSpread.map((holding) => (
-            <Row key={holding.id} className="flex items-center justify-between gap-4">
+            <Row
+              key={holding.id}
+              className="flex items-center justify-between gap-4"
+            >
               <div>
                 <span className="font-semibold text-ink">{holding.name}</span>
                 {holding.isAvailableCash ? (
-                  <span className="ml-2 text-xs text-ink-muted">stays available to withdraw</span>
+                  <span className="ml-2 text-xs text-ink-muted">
+                    stays available to withdraw
+                  </span>
                 ) : null}
               </div>
               <div className="text-right">
@@ -274,8 +370,8 @@ export default function PlanPage() {
                   {percent(holding.sharePercent)}
                 </div>
                 <div className="numeric text-xs text-ink-muted">
-                  can move between {percent(holding.allowedRange.minPercent)} and{" "}
-                  {percent(holding.allowedRange.maxPercent)}
+                  can move between {percent(holding.allowedRange.minPercent)}{" "}
+                  and {percent(holding.allowedRange.maxPercent)}
                 </div>
               </div>
             </Row>
@@ -303,6 +399,52 @@ export default function PlanPage() {
 
       {/* ------------------------------------------------------------ approve */}
       <div className="mt-8 space-y-4">
+        {saveNote ? (
+          <Notice
+            tone="warn"
+            title="Your plan is live"
+            action={
+              state === "done" && goalSaved === false ? (
+                <Button
+                  variant="secondary"
+                  busy={savingDetails}
+                  onClick={async () => {
+                    const answers = loadAnswers();
+                    const receipt = receipts.find(
+                      (item) => item.label === "Plan approved",
+                    );
+                    if (!answers || !receipt) return;
+                    setSavingDetails(true);
+                    try {
+                      const result = await saveGoalDetails(
+                        answers,
+                        data.plan.goal.name,
+                        receipt.hash,
+                      );
+                      setGoalSaved(Boolean(result.saved));
+                      setSaveNote(
+                        result.saved
+                          ? null
+                          : (result.note ??
+                              "Your goal details could not be saved yet."),
+                      );
+                    } catch {
+                      setSaveNote(
+                        "Your plan is live. Saving goal details still failed; try again shortly.",
+                      );
+                    } finally {
+                      setSavingDetails(false);
+                    }
+                  }}
+                >
+                  Save goal details
+                </Button>
+              ) : undefined
+            }
+          >
+            {saveNote}
+          </Notice>
+        ) : null}
         {state === "done" ? (
           <motion.section
             initial={{ opacity: 0, scale: 0.97 }}
@@ -311,15 +453,28 @@ export default function PlanPage() {
             className="relative overflow-hidden rounded-[28px] bg-panel p-7 text-panel-ink shadow-[var(--shadow-float)]"
           >
             {/* The one place in the product that celebrates: a plan going live. */}
-            <Meteors number={14} color="#c8f250" trailColor="rgba(200,242,80,0.5)" className="pointer-events-none absolute inset-0" />
+            <Meteors
+              number={14}
+              color="#c8f250"
+              trailColor="rgba(200,242,80,0.5)"
+              className="pointer-events-none absolute inset-0"
+            />
             <motion.span
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.12, duration: 0.4, ease: [0.34, 1.4, 0.64, 1] }}
+              transition={{
+                delay: 0.12,
+                duration: 0.4,
+                ease: [0.34, 1.4, 0.64, 1],
+              }}
               aria-hidden
               className="flex h-12 w-12 items-center justify-center rounded-full bg-accent"
             >
-              <svg viewBox="0 0 20 20" className="h-6 w-6 text-accent-ink" fill="none">
+              <svg
+                viewBox="0 0 20 20"
+                className="h-6 w-6 text-accent-ink"
+                fill="none"
+              >
                 <path
                   d="M4.5 10.5l3.6 3.6L15.5 6.5"
                   stroke="currentColor"
@@ -333,13 +488,14 @@ export default function PlanPage() {
               Your plan is live.
             </h2>
             <p className="mt-3 max-w-md text-[15px] leading-relaxed text-panel-soft">
-              Your limits are now on record where Modalis has no authority to change them. Add
-              money and it starts managing it to this plan.
+              Your limits are now on record where Modalis has no authority to
+              change them. Add money and it starts managing it to this plan.
             </p>
             <ul className="mt-6 space-y-2 text-[13px] text-panel-soft">
               {receipts.map((r) => (
                 <li key={r.hash} className="flex flex-wrap items-center gap-2">
-                  {r.label}: <ReceiptLink reference={r.hash} /> <ConfirmedIn ms={r.ms} />
+                  {r.label}: <ReceiptLink reference={r.hash} />{" "}
+                  <ConfirmedIn ms={r.ms} />
                 </li>
               ))}
             </ul>
@@ -349,32 +505,46 @@ export default function PlanPage() {
         {error ? <Notice tone="breach">{error}</Notice> : null}
 
         {!configured ? (
-          <Notice tone="warn" title="Signing in isn't set up on this deployment">
+          <Notice
+            tone="warn"
+            title="Signing in isn't set up on this deployment"
+          >
             Your plan is ready, but approving it needs an account to sign with.
           </Notice>
         ) : !loggedIn ? (
           <Notice tone="accent" title="Sign in to approve this plan">
-            Use <strong>Continue with email</strong> at the top of the page. Modalis will create an
-            account that only you control.
+            Use <strong>Continue with email</strong> at the top of the page.
+            Modalis will create an account that only you control.
           </Notice>
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
           {state === "done" ? (
-            <Button onClick={() => router.push("/app/add-money")}>Add money</Button>
+            <Button onClick={() => router.push("/app/add-money")}>
+              Add money
+            </Button>
           ) : (
-            <Button onClick={approve} disabled={!loggedIn || state === "signing"}>
-              {state === "signing" ? "Waiting for you to confirm…" : "Approve this plan"}
+            <Button
+              onClick={approve}
+              disabled={!loggedIn || state === "signing"}
+            >
+              {state === "signing"
+                ? "Waiting for you to confirm…"
+                : "Approve this plan"}
             </Button>
           )}
-          <Button variant="secondary" onClick={() => router.push("/onboarding")}>
+          <Button
+            variant="secondary"
+            onClick={() => router.push("/onboarding")}
+          >
             Change my answers
           </Button>
         </div>
 
         {address ? (
           <p className="text-xs text-ink-muted">
-            Approving as {address}. Only this account can change this plan or take the money out.
+            Approving as {address}. Only this account can change this plan or
+            take the money out.
           </p>
         ) : null}
       </div>
@@ -383,5 +553,9 @@ export default function PlanPage() {
 }
 
 function riskLabel(level: Plan["riskLevel"]["level"]): string {
-  return level === "cautious" ? "Cautious" : level === "balanced" ? "Balanced" : "Adventurous";
+  return level === "cautious"
+    ? "Cautious"
+    : level === "balanced"
+      ? "Balanced"
+      : "Adventurous";
 }

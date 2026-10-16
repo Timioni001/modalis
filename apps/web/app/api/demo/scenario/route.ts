@@ -16,7 +16,7 @@ import {
 } from "@modalis/risk-monitor";
 import { readPortfolio, requireToken } from "@modalis/chain";
 import { toReceipt } from "@modalis/domain";
-import { domainContext, jsonResponse, requireOwner, route } from "@/lib/api";
+import { domainContext, jsonResponse, requireOwner, rateLimit, route } from "@/lib/api";
 import { getOracleWallet, getServerContext, isDemoMode } from "@/lib/server";
 import { errorResponse } from "@/lib/serialize";
 
@@ -27,6 +27,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!isDemoMode()) return errorResponse("This is only available on a demo deployment.", 403);
 
     const owner = await requireOwner(request);
+    await rateLimit(request, "demo:scenario", { max: 10, windowMs: 60_000 });
     const body = (await request.json().catch(() => ({}))) as { scenario?: string };
     const id = body.scenario ?? "off_target";
 

@@ -9,7 +9,7 @@
  * leak started here.
  */
 import { ASSETS } from "./assets.ts";
-import type { OnchainMandate, PortfolioState, OnchainPosition } from "@modalis/chain";
+import type { OnchainMandate, PortfolioState, PlanState, OnchainPosition } from "@modalis/chain";
 import type { RiskAssessment, Violation } from "@modalis/portfolio";
 import type { MandateDraft, RiskProfile } from "@modalis/ai";
 import {
@@ -269,7 +269,7 @@ export function toPlanHealth(risk: RiskAssessment): "on_plan" | "drifting" | "of
 // ----------------------------------------------------------------------- plan
 
 export function planFromChain(
-  state: PortfolioState,
+  state: PlanState,
   goal: Goal,
   riskLevel: RiskLevel,
   options: { planId?: string | null; adjustmentsEnabled: boolean; approvedAt?: string } ,
@@ -348,6 +348,7 @@ export function toGoal(input: {
   kind: Goal["kind"];
   name: string;
   description?: string;
+  savings?: Goal["savings"];
   targetE18: bigint;
   targetDateUnix: number;
   startingAmountE18: bigint;
@@ -360,6 +361,7 @@ export function toGoal(input: {
     kind: input.kind,
     name: input.name,
     description: input.description,
+    ...(input.savings ? { savings: input.savings } : {}),
     target: moneyFromE18(input.targetE18, 0),
     targetDate: new Date(input.targetDateUnix * 1000).toISOString(),
     monthsRemaining: monthsUntil(input.targetDateUnix, input.now),

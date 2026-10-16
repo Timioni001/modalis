@@ -7,13 +7,27 @@
  */
 import type { ModalisClient } from "../client.ts";
 import { tolerate } from "../errors.ts";
-import type { GoalInsert, GoalRow, GoalType, InterviewSessionRow, Json, LiquidityNeed, UserRow } from "../types.generated.ts";
+import type {
+  GoalInsert,
+  GoalRow,
+  GoalType,
+  InterviewSessionRow,
+  Json,
+  LiquidityNeed,
+  UserRow,
+} from "../types.generated.ts";
 
-export const normaliseWallet = (address: string): string => address.toLowerCase();
+export const normaliseWallet = (address: string): string =>
+  address.toLowerCase();
 
 export async function upsertUser(
   db: ModalisClient,
-  input: { walletAddress: string; chainId: number; dynamicUserId?: string; email?: string },
+  input: {
+    walletAddress: string;
+    chainId: number;
+    dynamicUserId?: string;
+    email?: string;
+  },
 ): Promise<UserRow | null> {
   return tolerate("upsertUser", async () => {
     const { data, error } = await db
@@ -22,7 +36,9 @@ export async function upsertUser(
         {
           wallet_address: normaliseWallet(input.walletAddress),
           chain_id: input.chainId,
-          ...(input.dynamicUserId ? { dynamic_user_id: input.dynamicUserId } : {}),
+          ...(input.dynamicUserId
+            ? { dynamic_user_id: input.dynamicUserId }
+            : {}),
           ...(input.email ? { email: input.email } : {}),
         },
         { onConflict: "wallet_address" },
@@ -62,37 +78,67 @@ export type GoalInput = {
   /** 1 is funded first. Omitted: after every existing goal. */
   priority?: number;
   liquidityNeed?: LiquidityNeed;
+  savingsPreferences?: GoalRow["savings_preferences"];
 };
 
-export async function createGoal(db: ModalisClient, input: GoalInput): Promise<GoalRow | null> {
+export async function createGoal(
+  db: ModalisClient,
+  input: GoalInput,
+): Promise<GoalRow | null> {
   // A new goal goes to the back of the queue unless a priority was given.
   const priority = input.priority ?? (await nextPriority(db, input.userId));
   return tolerate("createGoal", async () => {
-    const { data, error } = await db
-      .from("goals")
-      .insert({
-        user_id: input.userId,
-        type: input.type,
-        name: input.name,
-        status: "active",
-        // numeric columns go over the wire as strings so no float rounding is introduced.
-        target_value: String(input.targetValue),
-        target_date: input.targetDate,
-        initial_amount: String(input.initialAmount),
-        contribution_amount: String(input.contributionAmount),
-        contribution_cadence: input.contributionCadence,
-        priority,
-        liquidity_need: input.liquidityNeed ?? "some",
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+    const row: GoalInsert = {
+      user_id: input.userId,
+      type: input.type,
+      name: input.name,
+      status: "active",
+      // numeric columns go over the wire as strings so no float rounding is introduced.
+      target_value: String(input.targetValue),
+      target_date: input.targetDate,
+      initial_amount: String(input.initialAmount),
+      contribution_amount: String(input.contributionAmount),
+      contribution_cadence: input.contributionCadence,
+      priority,
+      liquidity_need: input.liquidityNeed ?? "some",
+      ...(input.savingsPreferences !== undefined
+        ? { savings_preferences: input.savingsPreferences }
+        : {}),
+    };
+    let result = await db.from("goals").insert(row).select().single();
+    // Deployments can be upgraded one migration at a time. If the API schema cache is
+    // temporarily behind the application, remove only the newer column named by Supabase and
+    // retry. The core goal fields have existed since 0001 and remain required.
+    let payload: GoalInsert = row;
+    for (let attempt = 0; result.error && attempt < 3; attempt++) {
+      const column = missingGoalColumn(result.error);
+      if (!column || !(column in payload)) break;
+      const { [column]: unused, ...legacy } = payload as GoalInsert & Record<string, unknown>;
+      payload = legacy as GoalInsert;
+      result = await db.from("goals").insert(payload).select().single();
+    }
+    if (result.error) throw result.error;
+    return result.data;
   });
 }
 
+function missingGoalColumn(error: {
+  code?: string;
+  message?: string;
+}): string | null {
+  if (!["42703", "PGRST204"].includes(error.code ?? "")) return null;
+  const message = error.message ?? "";
+  for (const column of ["savings_preferences", "liquidity_need", "priority"]) {
+    if (message.includes(column)) return column;
+  }
+  return null;
+}
+
 /** The user's current goal, newest first. */
-export async function latestGoal(db: ModalisClient, userId: string): Promise<GoalRow | null> {
+export async function latestGoal(
+  db: ModalisClient,
+  userId: string,
+): Promise<GoalRow | null> {
   return tolerate("latestGoal", async () => {
     const { data, error } = await db
       .from("goals")
@@ -147,12 +193,12 @@ export async function saveInterview(
 export async function latestInterview(
   db: ModalisClient,
   userId: string,
+  goalId?: string,
 ): Promise<InterviewSessionRow | null> {
   return tolerate("latestInterview", async () => {
-    const { data, error } = await db
-      .from("interview_sessions")
-      .select()
-      .eq("user_id", userId)
+    let query = db.from("interview_sessions").select().eq("user_id", userId);
+    if (goalId) query = query.eq("goal_id", goalId);
+    const { data, error } = await query
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -167,7 +213,10 @@ export async function latestInterview(
 // service role, which bypasses RLS — so the filter here IS the ownership check, not a
 // redundancy. A goal id alone never selects a row.
 
-async function nextPriority(db: ModalisClient, userId: string): Promise<number> {
+async function nextPriority(
+  db: ModalisClient,
+  userId: string,
+): Promise<number> {
   const { data } = await db
     .from("goals")
     .select("priority")
@@ -179,7 +228,10 @@ async function nextPriority(db: ModalisClient, userId: string): Promise<number> 
 }
 
 /** The person's live goals, in the order they are funded. */
-export async function listGoals(db: ModalisClient, userId: string): Promise<GoalRow[]> {
+export async function listGoals(
+  db: ModalisClient,
+  userId: string,
+): Promise<GoalRow[]> {
   const rows = await tolerate("listGoals", async () => {
     const { data, error } = await db
       .from("goals")
@@ -195,12 +247,15 @@ export async function listGoals(db: ModalisClient, userId: string): Promise<Goal
 }
 
 export type GoalPatch = Partial<{
+  type: GoalType;
+  initialAmount: number;
   name: string;
   targetValue: number;
   targetDate: string;
   contributionAmount: number;
   contributionCadence: "weekly" | "monthly" | "quarterly";
   liquidityNeed: LiquidityNeed;
+  savingsPreferences: GoalRow["savings_preferences"];
   status: "active" | "achieved" | "archived";
 }>;
 
@@ -212,22 +267,47 @@ export async function updateGoal(
 ): Promise<GoalRow | null> {
   return tolerate("updateGoal", async () => {
     const row: Partial<GoalInsert> = {};
+    if (patch.type !== undefined) row.type = patch.type;
+    if (patch.initialAmount !== undefined)
+      row.initial_amount = String(patch.initialAmount);
     if (patch.name !== undefined) row.name = patch.name;
-    if (patch.targetValue !== undefined) row.target_value = String(patch.targetValue);
+    if (patch.targetValue !== undefined)
+      row.target_value = String(patch.targetValue);
     if (patch.targetDate !== undefined) row.target_date = patch.targetDate;
-    if (patch.contributionAmount !== undefined) row.contribution_amount = String(patch.contributionAmount);
-    if (patch.contributionCadence !== undefined) row.contribution_cadence = patch.contributionCadence;
-    if (patch.liquidityNeed !== undefined) row.liquidity_need = patch.liquidityNeed;
+    if (patch.contributionAmount !== undefined)
+      row.contribution_amount = String(patch.contributionAmount);
+    if (patch.contributionCadence !== undefined)
+      row.contribution_cadence = patch.contributionCadence;
+    if (patch.liquidityNeed !== undefined)
+      row.liquidity_need = patch.liquidityNeed;
+    if (patch.savingsPreferences !== undefined)
+      row.savings_preferences = patch.savingsPreferences;
     if (patch.status !== undefined) row.status = patch.status;
-    const { data, error } = await db
+    let result = await db
       .from("goals")
       .update(row)
       .eq("id", goalId)
       .eq("user_id", userId)
       .select()
       .maybeSingle();
-    if (error) throw error;
-    return data;
+    let payload: Partial<GoalInsert> = row;
+    for (let attempt = 0; result.error && attempt < 3; attempt++) {
+      const column = missingGoalColumn(result.error);
+      if (!column || !(column in payload)) break;
+      const { [column]: unused, ...legacy } = payload as Partial<GoalInsert> & Record<string, unknown>;
+      payload = legacy as Partial<GoalInsert>;
+      // An edit containing only a column from a newer migration still verifies ownership and
+      // updates the row timestamp on older schemas.
+      result = await db
+        .from("goals")
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq("id", goalId)
+        .eq("user_id", userId)
+        .select()
+        .maybeSingle();
+    }
+    if (result.error) throw result.error;
+    return result.data;
   });
 }
 

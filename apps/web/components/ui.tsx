@@ -176,10 +176,12 @@ export function Badge({
   tone = "default",
   children,
   dot = false,
+  className = "",
 }: {
   tone?: Tone;
   children: ReactNode;
   dot?: boolean;
+  className?: string;
 }) {
   const styles: Record<Tone, string> = {
     default: "bg-sunken text-ink-soft",
@@ -197,7 +199,7 @@ export function Badge({
   };
   return (
     <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${styles[tone]}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold ${styles[tone]} ${className}`}
     >
       {dot ? <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dots[tone]}`} /> : null}
       {children}
@@ -329,7 +331,7 @@ export function Field({
 }
 
 const FIELD_BASE =
-  "w-full rounded-2xl bg-surface px-4 text-[15px] text-ink shadow-[var(--shadow-card)] " +
+  "min-w-0 w-full rounded-2xl bg-surface px-4 text-[16px] text-ink shadow-[var(--shadow-card)] " +
   "outline-none transition-shadow placeholder:text-ink-muted " +
   "focus:shadow-[0_0_0_2px_var(--color-ink)]";
 
@@ -526,10 +528,10 @@ export function Notice({
     <div
       role={urgent ? "alert" : "status"}
       aria-live={urgent ? "assertive" : "polite"}
-      className={`rounded-2xl p-4 text-sm ${styles[tone]}`}
+      className={`min-w-0 max-w-full rounded-2xl p-4 text-sm ${styles[tone]}`}
     >
       {title ? <div className={`mb-1 font-semibold ${TONE_TEXT[tone]}`}>{title}</div> : null}
-      <div className="text-ink-soft [&_a]:font-medium [&_a]:text-ink [&_a]:underline [&_a]:underline-offset-2">
+      <div className="min-w-0 break-words text-ink-soft [overflow-wrap:anywhere] [&_a]:font-medium [&_a]:text-ink [&_a]:underline [&_a]:underline-offset-2">
         {children}
       </div>
       {action ? <div className="mt-3.5">{action}</div> : null}

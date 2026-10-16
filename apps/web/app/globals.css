@@ -2,6 +2,15 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* One mobile scroll area, including Safari's visual viewport changes. */
+@media (max-width: 1023px) {
+  body[data-app-shell="true"] {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
 @custom-variant dark (&:is([data-theme="dark"] *));
 
 /*
@@ -51,16 +60,21 @@
   --color-breach: #b91c1c;
   --color-breach-soft: #fdf0f0;
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-display: var(--font-display-face), var(--font-geist-sans), ui-sans-serif, system-ui,
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-display:
+    var(--font-display-face), var(--font-geist-sans), ui-sans-serif, system-ui,
     sans-serif;
   --font-serif: var(--font-serif-face), "Times New Roman", serif;
 
   /* Soft, close shadows. A card should look like paper on a desk, not like it is levitating. */
-  --shadow-card: 0 1px 2px rgb(16 16 20 / 0.04), 0 4px 16px -4px rgb(16 16 20 / 0.06);
-  --shadow-lift: 0 2px 4px rgb(16 16 20 / 0.05), 0 12px 32px -8px rgb(16 16 20 / 0.12);
+  --shadow-card:
+    0 1px 2px rgb(16 16 20 / 0.04), 0 4px 16px -4px rgb(16 16 20 / 0.06);
+  --shadow-lift:
+    0 2px 4px rgb(16 16 20 / 0.05), 0 12px 32px -8px rgb(16 16 20 / 0.12);
   --shadow-float: 0 8px 40px -8px rgb(16 16 20 / 0.18);
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
@@ -72,7 +86,8 @@
  * become raised dark cards, and the black panel becomes the one light surface.
  */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  /* Kept as a named opt-in state for older cached markup; new visitors default to light. */
+  :root[data-theme="system"] {
     --color-ink: #f7f7f8;
     --color-ink-soft: #a9a9b2;
     --color-ink-muted: #8e8e97; /* 4.8:1 or better on every dark surface */
@@ -96,7 +111,8 @@
     --color-breach: #f87171;
     --color-breach-soft: #2a1313;
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px -4px rgb(0 0 0 / 0.4);
-    --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px -8px rgb(0 0 0 / 0.5);
+    --shadow-lift:
+      0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px -8px rgb(0 0 0 / 0.5);
     --shadow-float: 0 8px 40px -8px rgb(0 0 0 / 0.6);
   }
 }
@@ -129,7 +145,6 @@
   --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 32px -8px rgb(0 0 0 / 0.5);
   --shadow-float: 0 8px 40px -8px rgb(0 0 0 / 0.6);
 }
-
 
 html {
   -webkit-text-size-adjust: 100%;
@@ -263,7 +278,9 @@ select.field {
   height: 24px;
   border-radius: 999px;
   background: var(--color-panel);
-  box-shadow: var(--shadow-card), 0 0 0 2px var(--color-surface);
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 2px var(--color-surface);
 }
 .range::-moz-range-track {
   height: 6px;
@@ -276,7 +293,9 @@ select.field {
   height: 24px;
   border-radius: 999px;
   background: var(--color-panel);
-  box-shadow: var(--shadow-card), 0 0 0 2px var(--color-surface);
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 2px var(--color-surface);
 }
 .range:focus-visible {
   outline-offset: 4px;
@@ -311,7 +330,12 @@ select.field {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, var(--color-line-strong), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-line-strong),
+    transparent
+  );
   animation: shimmer 1.4s var(--ease-out-soft) infinite;
 }
 
@@ -408,7 +432,12 @@ select.field {
   z-index: -1;
   pointer-events: none;
   /* Full strength behind the headline, gone by the time the product card starts. */
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 50%, transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 50%,
+    transparent 100%
+  );
   mask-image: linear-gradient(to bottom, #000 0%, #000 50%, transparent 100%);
 }
 
@@ -441,4 +470,30 @@ select.field {
   animation: none !important;
   transition: none !important;
   scroll-behavior: auto !important;
+}
+
+/* Portal sheets animate as a single surface; controls remain stable under the user's finger. */
+.nav-backdrop {
+  transition: opacity 180ms ease;
+}
+.nav-sheet {
+  transition:
+    opacity 200ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-backdrop[data-starting-style],
+.nav-backdrop[data-ending-style] {
+  opacity: 0;
+}
+.nav-sheet[data-starting-style],
+.nav-sheet[data-ending-style] {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-sheet,
+  .nav-backdrop {
+    transition: none;
+    transform: none;
+  }
 }

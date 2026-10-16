@@ -47,13 +47,13 @@ chains:
       - url: ${MONAD_TESTNET_RPC_URL}
     contracts:
       - name: PortfolioMandate
-        address: ${NEXT_PUBLIC_PORTFOLIO_MANDATE_ADDRESS}
+        address: "${NEXT_PUBLIC_PORTFOLIO_MANDATE_ADDRESS}"
       - name: PortfolioVault
-        address: ${NEXT_PUBLIC_PORTFOLIO_VAULT_ADDRESS}
+        address: "${NEXT_PUBLIC_PORTFOLIO_VAULT_ADDRESS}"
       - name: RebalanceExecutor
-        address: ${NEXT_PUBLIC_REBALANCE_EXECUTOR_ADDRESS}
+        address: "${NEXT_PUBLIC_REBALANCE_EXECUTOR_ADDRESS}"
       - name: RiskSignalReceiver
-        address: ${NEXT_PUBLIC_RISK_SIGNAL_RECEIVER_ADDRESS}
+        address: "${NEXT_PUBLIC_RISK_SIGNAL_RECEIVER_ADDRESS}"
 
 # A rebalance that gets reorged away must not stay in the portfolio's history.
 rollback_on_reorg: true

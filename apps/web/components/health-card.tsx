@@ -8,7 +8,7 @@
  * can never disagree.
  */
 import Link from "next/link";
-import { assessHealth, type HealthState } from "@modalis/domain";
+import { assessHealth, type HealthState } from "@modalis/domain/client";
 import { usePortfolio } from "./portfolio-provider";
 
 const DOT: Record<HealthState, string> = {

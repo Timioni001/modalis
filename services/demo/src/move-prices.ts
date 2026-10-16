@@ -30,6 +30,10 @@ import {
 import { DEMO_START_PRICES_E18, driftStep, resetScenario, runScenario } from "@modalis/risk-monitor";
 import type { Address } from "viem";
 
+const envPath = resolve(import.meta.dirname, "../../../.env");
+if (existsSync(envPath)) process.loadEnvFile(envPath);
+const REFRESH_ONLY = process.argv.includes("--refresh");
+
 const CHAIN_ID = Number(process.env.CHAIN_ID ?? process.env.NEXT_PUBLIC_MONAD_CHAIN_ID ?? 10143);
 const RPC_URL =
   process.env.MODALIS_RPC_URL || process.env.MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz";
@@ -49,6 +53,7 @@ async function main() {
   if (CHAIN_ID === 143) throw new Error("Demo prices never run on Monad mainnet.");
   if (!KEY) throw new Error("Set ORACLE_UPDATER_PRIVATE_KEY or DEPLOYER_PRIVATE_KEY (the demo oracle's owner).");
 
+  if (!Number.isFinite(INTERVAL_SECONDS) || INTERVAL_SECONDS < 10 || INTERVAL_SECONDS > 43_200) throw new Error("PRICE_INTERVAL_SECONDS must be between 10 and 43200.");
   const deployment = loadDeployment();
   const oracle = requireContract(deployment, "priceOracle");
   const rpc = { chainId: CHAIN_ID, httpUrl: RPC_URL };
@@ -85,14 +90,17 @@ async function main() {
         functionName: "quotes",
         args: [m.token],
       })) as readonly [bigint, bigint];
-      steps.push({ symbol: m.symbol, token: m.token, priceE18: driftStep(current || m.start, m.start) });
+      steps.push({ symbol: m.symbol, token: m.token, priceE18: REFRESH_ONLY ? (current || m.start) : driftStep(current || m.start, m.start) });
     }
     // Cash stays at $1, but is rewritten too so it never goes stale.
-    if (tokens.mUSD) steps.push({ symbol: "mUSD", token: tokens.mUSD, priceE18: 10n ** 18n });
+    if (tokens.mUSD) {
+      const [cash] = await client.readContract({ address: oracle, abi: MockPriceOracleAbi, functionName: "quotes", args: [tokens.mUSD] });
+      steps.push({ symbol: "mUSD", token: tokens.mUSD, priceE18: REFRESH_ONLY ? (cash || 10n ** 18n) : 10n ** 18n });
+    }
     await runScenario(wallet, client, deployment, {
       id: "drift",
-      title: "Simulated market drift",
-      description: "Synthetic prices: a small bounded random walk.",
+      title: REFRESH_ONLY ? "Refresh demo quotes" : "Simulated market drift",
+      description: REFRESH_ONLY ? "Synthetic quotes refreshed without changing their values." : "Synthetic prices: a small bounded random walk.",
       steps,
     });
     const line = steps

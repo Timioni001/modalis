@@ -13,12 +13,15 @@
  */
 export * from "./terms.ts";
 export * from "./models.ts";
+export * from "./goal-input.ts";
+export * from "./savings-preferences.ts";
 export * from "./translate.ts";
 export * from "./context.ts";
 export * from "./projection.ts";
 export * from "./services/goal.ts";
 export * from "./services/plans.ts";
 export * from "./services/money.ts";
+export * from "./services/direct-saving.ts";
 export * from "./services/progress.ts";
 export * from "./services/adjustments.ts";
 export * from "./services/activity.ts";
@@ -36,3 +39,4 @@ export * from "./exposure.ts";
 export * from "./services/notifications.ts";
 export * from "./automation.ts";
 export * from "./services/automation.ts";
+export * from "./twin.ts";

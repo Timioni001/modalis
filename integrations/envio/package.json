@@ -8,10 +8,11 @@
     "dev": "envio dev",
     "start": "envio start",
     "deploy": "envio deploy",
-    "validate": "python3 scripts/validate-config.py"
+    "validate": "python3 scripts/validate-config.py",
+    "typecheck": "envio codegen --config config.hosted.yaml && tsc --noEmit"
   },
   "dependencies": {
-    "envio": "^3.12.1"
+    "envio": "3.12.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

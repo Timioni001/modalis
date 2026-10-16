@@ -77,6 +77,13 @@ export type GoalRow = {
   contribution_cadence: string;
   priority: number;
   liquidity_need: LiquidityNeed;
+  /** Migration 0004. Personal savings settings, not permissions on the vault. */
+  savings_preferences?: {
+    minimumContribution: string;
+    minimumRetrievalDays: number;
+    customDetails?: string;
+    startedAt?: string;
+  } | null;
   created_at: string;
   updated_at: string;
 };
@@ -94,6 +101,7 @@ export type GoalInsert = {
   contribution_cadence?: string;
   priority?: number;
   liquidity_need?: LiquidityNeed;
+  savings_preferences?: GoalRow["savings_preferences"];
   created_at?: string;
   updated_at?: string;
 };
@@ -475,6 +483,20 @@ export type UserInsert = {
   updated_at?: string;
 };
 
+export type WaitlistSignupRow = {
+  id: string;
+  email: string;
+  source: string;
+  created_at: string;
+};
+
+export type WaitlistSignupInsert = {
+  id?: string;
+  email: string;
+  source?: string;
+  created_at?: string;
+};
+
 /** Every table, for the typed supabase-js client. */
 export type Database = {
   public: {
@@ -496,6 +518,7 @@ export type Database = {
       scenarios: { Row: ScenarioRow; Insert: ScenarioInsert; Update: Partial<ScenarioInsert>; Relationships: [] };
       transactions: { Row: TransactionRow; Insert: TransactionInsert; Update: Partial<TransactionInsert>; Relationships: [] };
       users: { Row: UserRow; Insert: UserInsert; Update: Partial<UserInsert>; Relationships: [] };
+      waitlist_signups: { Row: WaitlistSignupRow; Insert: WaitlistSignupInsert; Update: Partial<WaitlistSignupInsert>; Relationships: [] };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

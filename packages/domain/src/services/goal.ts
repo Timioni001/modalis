@@ -12,10 +12,21 @@
  */
 import { readPortfolio } from "@modalis/chain";
 import { getAddress, type Address } from "viem";
-import { activeMandate, findUserByWallet, latestGoal, listGoals, type GoalRow } from "@modalis/db";
+import {
+  activeMandate,
+  findUserByWallet,
+  latestGoal,
+  listGoals,
+  type GoalRow,
+} from "@modalis/db";
 import { DomainError, type DomainContext } from "../context.ts";
 import { monthsUntil, toGoal } from "../translate.ts";
-import { moneyFromE18, moneyInSentence, type Goal, type Money } from "../models.ts";
+import {
+  moneyFromE18,
+  moneyInSentence,
+  type Goal,
+  type Money,
+} from "../models.ts";
 import { allocateAcrossGoals, type GoalSpec } from "../goals.ts";
 import {
   defaultScenarios,
@@ -30,6 +41,7 @@ import {
 } from "../projection.ts";
 
 const E18 = 10n ** 18n;
+import { savedSavings } from "./savings.ts";
 
 /** A goal plus the answer to "am I going to get there?". */
 export type GoalView = {
@@ -48,13 +60,19 @@ export type GoalView = {
 };
 
 /** A stored cadence, narrowed. An unrecognised value reads as monthly rather than throwing. */
-function cadenceOf(value: string | null | undefined): "weekly" | "monthly" | "quarterly" {
+function cadenceOf(
+  value: string | null | undefined,
+): "weekly" | "monthly" | "quarterly" {
   return value === "weekly" || value === "quarterly" ? value : "monthly";
 }
 
 /** A stored goal row, as the goal engine's input. */
 export function specFromRow(row: GoalRow): GoalSpec {
-  const cadence = row.contribution_cadence === "weekly" || row.contribution_cadence === "quarterly" ? row.contribution_cadence : "monthly";
+  const cadence =
+    row.contribution_cadence === "weekly" ||
+    row.contribution_cadence === "quarterly"
+      ? row.contribution_cadence
+      : "monthly";
   return {
     id: row.id,
     name: row.name,
@@ -69,7 +87,10 @@ export function specFromRow(row: GoalRow): GoalSpec {
 }
 
 /** Monthly equivalent of a contribution at whatever cadence it was given. */
-export function monthlyFrom(amount: number, cadence: "weekly" | "monthly" | "quarterly"): number {
+export function monthlyFrom(
+  amount: number,
+  cadence: "weekly" | "monthly" | "quarterly",
+): number {
   if (cadence === "weekly") return (amount * 52) / 12;
   if (cadence === "quarterly") return amount / 3;
   return amount;
@@ -92,7 +113,12 @@ export async function monthlyContributionE18(
   if (!user) return 0n;
   const goal = await latestGoal(ctx.db, user.id);
   if (!goal) return 0n;
-  return usdToE18(monthlyFrom(Number(goal.contribution_amount), cadenceOf(goal.contribution_cadence)));
+  return usdToE18(
+    monthlyFrom(
+      Number(goal.contribution_amount),
+      cadenceOf(goal.contribution_cadence),
+    ),
+  );
 }
 
 /** The inputs a projection needs, assembled from the chain and the database. */
@@ -100,11 +126,19 @@ async function inputsFor(
   ctx: DomainContext,
   owner: Address,
   now: Date,
-): Promise<{ inputs: ProjectionInputs; goal: Goal; contributionUnknown: boolean }> {
+): Promise<{
+  inputs: ProjectionInputs;
+  goal: Goal;
+  contributionUnknown: boolean;
+}> {
   const who = getAddress(owner);
   const state = await readPortfolio(ctx.client, ctx.deployment, who);
   if (!state.hasMandate) {
-    throw new DomainError("no_plan", "You don't have a plan yet, so there's no goal to show.", 404);
+    throw new DomainError(
+      "no_plan",
+      "You don't have a plan yet, so there's no goal to show.",
+      404,
+    );
   }
 
   const monthlyE18 = await monthlyContributionE18(ctx, who);
@@ -126,16 +160,27 @@ async function inputsFor(
   if (ctx.db) {
     const user = await findUserByWallet(ctx.db, who);
     const [rows, mandate] = user
-      ? await Promise.all([listGoals(ctx.db, user.id), activeMandate(ctx.db, user.id)])
+      ? await Promise.all([
+          listGoals(ctx.db, user.id),
+          activeMandate(ctx.db, user.id),
+        ])
       : [[] as GoalRow[], null];
-    const stored = rows.find((r) => r.id === mandate?.goal_id) ?? (user ? await latestGoal(ctx.db, user.id) : null);
+    const stored =
+      rows.find((r) => r.id === mandate?.goal_id) ??
+      (user ? await latestGoal(ctx.db, user.id) : null);
 
     if (stored && rows.length > 1) {
       // Several goals share the portfolio: this goal owns its waterfall share, not all of it.
       const specs: GoalSpec[] = rows.map((r) =>
-        r.id === stored.id ? { ...specFromRow(r), targetE18: state.mandate.targetValue } : specFromRow(r),
+        r.id === stored.id
+          ? { ...specFromRow(r), targetE18: state.mandate.targetValue }
+          : specFromRow(r),
       );
-      const share = allocateAcrossGoals(state.totalValueE18, specs, now).shares.find((x) => x.goal.id === stored.id);
+      const share = allocateAcrossGoals(
+        state.totalValueE18,
+        specs,
+        now,
+      ).shares.find((x) => x.goal.id === stored.id);
       if (share) savedE18 = share.earmarkedE18;
     }
 
@@ -145,9 +190,16 @@ async function inputsFor(
         id: stored.id,
         kind: stored.type ?? goal.kind,
         name: stored.name ?? goal.name,
-        startingAmount: moneyFromE18(usdToE18(Number(stored.initial_amount ?? 0)), 0),
+        startingAmount: moneyFromE18(
+          usdToE18(Number(stored.initial_amount ?? 0)),
+          0,
+        ),
+        savings: await savedSavings(ctx.db, user!.id, stored),
         contribution: {
-          amount: moneyFromE18(usdToE18(Number(stored.contribution_amount ?? 0)), 0),
+          amount: moneyFromE18(
+            usdToE18(Number(stored.contribution_amount ?? 0)),
+            0,
+          ),
           cadence: cadenceOf(stored.contribution_cadence),
         },
       };
@@ -172,7 +224,11 @@ export async function getGoal(
   owner: Address,
   now = new Date(),
 ): Promise<GoalView> {
-  const { inputs, goal, contributionUnknown } = await inputsFor(ctx, owner, now);
+  const { inputs, goal, contributionUnknown } = await inputsFor(
+    ctx,
+    owner,
+    now,
+  );
   const projection = project(inputs);
 
   return {
@@ -235,6 +291,7 @@ function summaryFor(
 // ------------------------------------------------------------------- scenarios
 
 export type ScenarioSet = {
+  source?: "live" | "manual";
   /** The questions, scaled to this person's own numbers. */
   available: Scenario[];
   /** The one that was asked, answered. Null when none was. */
@@ -258,12 +315,36 @@ export async function getScenarios(
   owner: Address,
   ask?: Scenario,
   now = new Date(),
+  manualBaseAmount?: string,
 ): Promise<ScenarioSet> {
-  const { inputs } = await inputsFor(ctx, owner, now);
+  let inputs: ProjectionInputs;
+  if (manualBaseAmount !== undefined) {
+    const { getPlan } = await import("./plans.ts");
+    const { usdStringToE18 } = await import("./money.ts");
+    const base = usdStringToE18(manualBaseAmount);
+    if (base > 100_000_000n * E18)
+      throw new DomainError(
+        "bad_amount",
+        "Choose an amount below $100 million.",
+      );
+    const plan = await getPlan(ctx, owner, undefined, now);
+    inputs = {
+      savedE18: base,
+      targetE18: usdStringToE18(plan.goal.target.amount),
+      monthlyE18: usdStringToE18(plan.goal.contribution.amount.amount),
+      monthsRemaining: plan.goal.monthsRemaining,
+    };
+  } else {
+    ({ inputs } = await inputsFor(ctx, owner, now));
+  }
   return {
     available: defaultScenarios(inputs),
     result: ask ? runScenario(inputs, ask) : null,
-    assumption: ASSUMPTION,
+    assumption:
+      manualBaseAmount === undefined
+        ? ASSUMPTION
+        : "This calculation uses the starting amount you entered and your saved plan. It is not a live balance. It assumes no growth, fees or withdrawals beyond the change selected.",
+    source: manualBaseAmount === undefined ? "live" : "manual",
   };
 }
 

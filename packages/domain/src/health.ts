@@ -13,7 +13,7 @@
  */
 import { moneyInSentence, type Money, type PlanRules } from "./models.ts";
 import type { GoalHealth } from "./projection.ts";
-import { glideStage } from "@modalis/ai";
+import { glideStage } from "@modalis/ai/glide";
 
 export type HealthState = "healthy" | "watch" | "action_required" | "restricted";
 

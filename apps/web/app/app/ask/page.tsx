@@ -18,7 +18,7 @@ import {
   type Answer,
   type Facts,
   type Intent,
-} from "@modalis/domain";
+} from "@modalis/domain/client";
 import { Chat, ChatComposer, ChatHeader, ChatMessages, type ChatMessageItem } from "@/components/shadcn/chat";
 import { PageHeader } from "@/components/ui";
 import { PortfolioGate } from "@/components/portfolio-gate";

@@ -19,20 +19,28 @@ const DOT: Record<NotificationView["kind"], string> = {
 
 export function NotificationBell({ align = "right" }: { align?: "right" | "left" }) {
   // The nav sits outside the portfolio provider, so sign-in comes from the wallet itself.
-  const { loggedIn: signedIn } = useWallet();
+  const { loggedIn: signedIn, address } = useWallet();
   const [data, setData] = useState<{ notifications: NotificationView[]; unread: number; saved: boolean } | null>(null);
+  const [dataOwner, setDataOwner] = useState<string | null>(null);
+  const accountRef = useRef(address);
+  accountRef.current = address;
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
-      setData(await apiGet("/api/notifications"));
+      const result = await apiGet<{ notifications: NotificationView[]; unread: number; saved: boolean }>("/api/notifications");
+      if (accountRef.current !== address) return;
+      setDataOwner(address);
+      setData(result);
     } catch {
-      setData(null);
+      if (accountRef.current === address) setData(null);
     }
-  }, []);
+  }, [address]);
 
   useEffect(() => {
+    setData(null);
+    setOpen(false);
     if (!signedIn) return;
     void load();
     const t = setInterval(load, 60_000);
@@ -61,7 +69,7 @@ export function NotificationBell({ align = "right" }: { align?: "right" | "left"
     }
   }
 
-  if (!data?.saved) return null;
+  if (!signedIn || dataOwner !== address || !data?.saved) return null;
 
   return (
     <div ref={box} className="relative">
@@ -90,7 +98,7 @@ export function NotificationBell({ align = "right" }: { align?: "right" | "left"
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.16 }}
-            className={`absolute top-12 z-50 w-[min(360px,calc(100vw-32px))] rounded-[24px] bg-surface p-2 shadow-[var(--shadow-float)] ${align === "right" ? "right-0" : "left-0"}`}
+            className={`fixed inset-x-4 top-20 z-50 lg:absolute lg:inset-x-auto lg:top-12 lg:w-[360px] rounded-[24px] bg-surface p-2 shadow-[var(--shadow-float)] ${align === "right" ? "lg:right-0" : "lg:left-0"}`}
           >
             <div className="px-3 pb-1 pt-2 text-[13px] font-semibold text-ink">Notifications</div>
             {data.notifications.length === 0 ? (

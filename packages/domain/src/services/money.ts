@@ -10,6 +10,8 @@
  * could do is suggest a bad funding plan, which the person would have to sign.
  */
 import { routeContribution } from "../contributions.ts";
+import { getPlan } from "./plans.ts";
+import { meetsMinimumContribution } from "../savings-preferences.ts";
 import {
   AssetRegistryAbi,
   MockERC20Abi,
@@ -76,6 +78,15 @@ export async function buildFundingPlan(
   }
   if (state.positions.length === 0) {
     throw new DomainError("no_plan", "Your plan has no investments in it yet.", 409);
+  }
+
+  // A complete contribution is checked once; its smaller per-token legs are not separate deposits.
+  // This is an app preference, not a permission added to the vault contract.
+  if (ctx.db) {
+    const minimum = (await getPlan(ctx, who)).goal.savings?.minimumContribution;
+    if (minimum && !meetsMinimumContribution(request.amount, minimum)) {
+      throw new DomainError("below_minimum_contribution", `Your chosen minimum contribution is $${minimum}. Add at least that amount, or change your savings preferences.`, 422);
+    }
   }
 
   const steps: FundingStep[] = [];

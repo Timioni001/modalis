@@ -12,7 +12,6 @@
  * signed in — in which case protected calls fail with a clear message rather than acting
  * anonymously.
  */
-import { getAuthToken } from "@dynamic-labs/sdk-react-core";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -25,17 +24,27 @@ export class ApiError extends Error {
   }
 }
 
+let selectedWallet: string | null = null;
+/** A selection hint only: the server accepts it only if the signed token proves ownership. */
+export function selectApiWallet(address: string | null): void { selectedWallet = address; }
+
 async function authHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   try {
-    const token = getAuthToken();
-    if (token) headers.authorization = `Bearer ${token}`;
+    const local = process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_WALLET;
+    const token = !local && process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
+      ? (await import("@dynamic-labs/sdk-react-core")).getAuthToken()
+      : undefined;
+    if (token) {
+      headers.authorization = `Bearer ${token}`;
+      if (selectedWallet) headers["x-modalis-wallet"] = selectedWallet;
+    }
   } catch {
     // Not signed in, or Dynamic is not configured. Protected routes will say so.
   }
   // Local development without Dynamic: the server only honours this when MODALIS_DEV_AUTH is on
   // and it is never accepted on the live network.
-  const devWallet = process.env.NEXT_PUBLIC_DEV_WALLET;
+  const devWallet = process.env.NODE_ENV !== "production" ? process.env.NEXT_PUBLIC_DEV_WALLET : undefined;
   if (devWallet) headers["x-modalis-dev-wallet"] = devWallet;
   return headers;
 }
@@ -52,14 +61,25 @@ async function parse<T>(response: Response): Promise<T> {
   return body as T;
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  return parse<T>(await fetch(path, { headers: await authHeaders() }));
+export async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
+  try {
+    return await parse<T>(await fetch(path, {
+      headers: await authHeaders(), cache: "no-store",
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(process.env.NODE_ENV === "development" ? 90_000 : 20_000)]) : AbortSignal.timeout(process.env.NODE_ENV === "development" ? 90_000 : 20_000),
+    }));
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      throw new ApiError("Loading took too long. Check your connection and try again.", 504, "request_timeout");
+    }
+    throw error;
+  }
 }
 
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   return parse<T>(
     await fetch(path, {
       method: "POST",
+      signal: AbortSignal.timeout(60_000),
       headers: await authHeaders(),
       body: JSON.stringify(body ?? {}),
     }),

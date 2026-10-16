@@ -37,7 +37,7 @@ info "pnpm"
 if ! command -v pnpm >/dev/null 2>&1; then
   warn "installing pnpm via corepack"
   corepack enable
-  corepack prepare pnpm@latest --activate
+  corepack prepare pnpm@10.28.0 --activate
 fi
 ok "pnpm $(pnpm -v)"
 
@@ -73,7 +73,7 @@ fi
 
 # ------------------------------------------------------------ JS dependencies
 info "Workspace dependencies"
-pnpm install
+pnpm install --frozen-lockfile
 ok "installed"
 
 # ----------------------------------------------------------------- contracts

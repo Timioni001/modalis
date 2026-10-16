@@ -11,16 +11,16 @@
     "setup": "bash scripts/setup.sh",
     "verify": "bash scripts/verify.sh",
     "demo": "bash scripts/demo-local.sh",
-    "dev": "pnpm --filter @modalis/web dev",
-    "build": "pnpm --filter @modalis/web build",
-    "start": "pnpm --filter @modalis/web start",
+    "dev": "node scripts/web.mjs dev",
+    "build": "node scripts/web.mjs build",
+    "start": "node scripts/web.mjs start",
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test -vv",
     "contracts:deploy:local": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url http://127.0.0.1:8545 --broadcast",
     "contracts:deploy:testnet": "cd contracts && forge script script/Deploy.s.sol:Deploy --rpc-url monad_testnet --broadcast",
     "contracts:sync-abis": "pnpm --filter @modalis/chain sync-abis",
     "test": "pnpm -r --filter './packages/*' --filter @modalis/web test",
-    "typecheck": "pnpm -r typecheck",
+    "typecheck": "pnpm -r --no-sort typecheck",
     "risk-monitor": "pnpm --filter @modalis/risk-monitor start",
     "risk-monitor:once": "pnpm --filter @modalis/risk-monitor once",
     "loop": "pnpm --filter @modalis/demo loop",
@@ -35,6 +35,7 @@
     "db:check": "bash supabase/scripts/db-local.sh check",
     "db:down": "bash supabase/scripts/db-local.sh down",
     "db:integration": "bash scripts/db-integration.sh",
-    "db:types": "pnpm --filter @modalis/db gen-types"
+    "db:types": "pnpm --filter @modalis/db gen-types",
+    "test:e2e": "pnpm --filter @modalis/web test:e2e"
   }
 }

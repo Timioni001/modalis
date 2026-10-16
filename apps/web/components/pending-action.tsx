@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { Badge, Button, Card, Notice } from "./ui";
 import { ReceiptLink } from "./receipt-link";
 import { usePortfolio } from "./portfolio-provider";
-import { apiPost } from "@/lib/client-api";
+import { apiPostOnce } from "@/lib/client-api";
 import type { Adjustment } from "@modalis/domain";
 
 export function PendingAction() {
@@ -39,7 +39,7 @@ export function PendingAction() {
     setSubmitting(true);
     setFailure(null);
     try {
-      const { adjustment: done } = await apiPost<{ adjustment: Adjustment }>(
+      const { adjustment: done } = await apiPostOnce<{ adjustment: Adjustment }>(
         "/api/adjustment/execute",
       );
       setResult(done);

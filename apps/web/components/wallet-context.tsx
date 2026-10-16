@@ -19,6 +19,7 @@ import type { Address, WalletClient } from "viem";
 export type WalletState = {
   /** False when NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID is absent. */
   configured: boolean;
+  localDevelopment?: boolean;
   chainId: number;
   networkName: string;
   explorerUrl?: string;
