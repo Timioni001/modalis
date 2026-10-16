@@ -135,7 +135,7 @@ function Onboarding() {
         <a
           href="/"
           aria-label="Leave — nothing is saved"
-          className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-ink-muted/80 text-surface transition-colors hover:bg-ink"
+          className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-ink-muted/80 text-surface transition-colors hover:bg-ink"
         >
           <svg aria-hidden viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

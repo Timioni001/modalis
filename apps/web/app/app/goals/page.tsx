@@ -250,7 +250,7 @@ function MoveButton({ label, disabled, onClick, up = false }: { label: string; d
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-sunken hover:text-ink disabled:opacity-25 disabled:hover:bg-transparent"
+      className="flex h-11 w-11 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-sunken hover:text-ink disabled:opacity-25 disabled:hover:bg-transparent"
     >
       <svg aria-hidden viewBox="0 0 16 16" className={`h-4 w-4 ${up ? "" : "rotate-180"}`} fill="none">
         <path d="M4 10l4-4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />

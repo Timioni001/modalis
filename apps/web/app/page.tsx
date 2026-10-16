@@ -125,12 +125,14 @@ export default function LandingPage() {
             {LIMITS.map((limit) => (
               <div
                 key={limit.label}
-                className="rounded-[24px] bg-canvas p-6"
+                className="flex flex-col rounded-[24px] bg-canvas p-6"
               >
-                <div className="numeric text-[34px] font-semibold leading-none text-ink">
-                  {limit.value}
-                </div>
+                {/* DOM order is term, figure, explanation, so a screen reader hears
+                    "Maximum loss, 15%". The figure is moved first visually only. */}
                 <dt className="mt-4 font-semibold text-ink">{limit.label}</dt>
+                <dd className="numeric order-first text-[34px] font-semibold leading-none text-ink">
+                  {limit.value}
+                </dd>
                 <dd className="mt-1 text-[14px] text-ink-muted">{limit.body}</dd>
               </div>
             ))}

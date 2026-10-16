@@ -109,7 +109,7 @@ function Ask() {
                 key={s.intent}
                 type="button"
                 onClick={() => ask(s.intent, s.question)}
-                className="min-h-[38px] flex-none rounded-full bg-sunken px-3.5 text-[13px] font-medium text-ink-soft transition-colors hover:bg-line hover:text-ink"
+                className="min-h-[44px] flex-none rounded-full bg-sunken px-3.5 text-[13px] font-medium text-ink-soft transition-colors hover:bg-line hover:text-ink"
               >
                 {s.question}
               </button>

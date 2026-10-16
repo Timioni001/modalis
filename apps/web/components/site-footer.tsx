@@ -145,7 +145,7 @@ export function SiteFooter() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="-mx-2 flex min-h-[38px] items-center rounded-full px-2 text-[15px] text-ink-soft transition-colors hover:text-ink"
+                      className="-mx-2 flex min-h-[44px] items-center rounded-full px-2 text-[15px] text-ink-soft transition-colors hover:text-ink"
                     >
                       {link.label}
                     </Link>
@@ -183,7 +183,7 @@ export function SiteFooter() {
                     href={tool.href}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex min-h-[38px] items-center gap-2 rounded-full bg-canvas px-4 text-[13.5px] text-ink-soft transition-colors hover:text-ink"
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-canvas px-4 text-[13.5px] text-ink-soft transition-colors hover:text-ink"
                   >
                     <span className="font-semibold text-ink">{tool.name}</span>
                     <span className="hidden sm:inline">{tool.role}</span>
@@ -220,13 +220,27 @@ export function SiteFooter() {
 
       {/* The full stop. Cropped on purpose — a wordmark that fits looks like a logo, one that
           runs off the edge looks like the end of the document. */}
-      <div
+      {/* Drawn as SVG, not text: it is decoration (WCAG exempts it), and as live text it was
+          read by contrast checkers and could be picked up by find-in-page. */}
+      <svg
         aria-hidden
-        className="display select-none px-5 text-center text-[23vw] font-semibold leading-[0.72] tracking-[-0.04em] text-ink/[0.07]"
-        style={{ marginBottom: "-0.14em" }}
+        focusable="false"
+        viewBox="0 0 100 18.5"
+        className="block w-full select-none px-5 text-ink"
       >
-        Modalis
-      </div>
+        <text
+          x="50"
+          y="19.4"
+          textAnchor="middle"
+          fontSize="23"
+          fill="currentColor"
+          fillOpacity="0.07"
+          className="display"
+          style={{ fontWeight: 600, letterSpacing: "-0.04em" }}
+        >
+          Modalis
+        </text>
+      </svg>
     </footer>
   );
 }

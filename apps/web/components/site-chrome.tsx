@@ -126,13 +126,13 @@ function AppFootnote() {
           return is promised, and the demo investments are not real assets.
         </p>
         <nav className="flex gap-4" aria-label="Legal">
-          <a className="hover:text-ink" href="/legal/risk">
+          <a className="-mx-2 inline-flex min-h-[44px] items-center px-2 hover:text-ink" href="/legal/risk">
             Risks
           </a>
-          <a className="hover:text-ink" href="/legal/terms">
+          <a className="-mx-2 inline-flex min-h-[44px] items-center px-2 hover:text-ink" href="/legal/terms">
             Terms
           </a>
-          <a className="hover:text-ink" href="/legal/privacy">
+          <a className="-mx-2 inline-flex min-h-[44px] items-center px-2 hover:text-ink" href="/legal/privacy">
             Privacy
           </a>
         </nav>

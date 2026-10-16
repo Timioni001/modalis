@@ -22,7 +22,7 @@
   /* Text */
   --color-ink: #0e0e10;
   --color-ink-soft: #52525b;
-  --color-ink-muted: #8b8b94;
+  --color-ink-muted: #696972; /* 4.6:1 or better on every light surface (WCAG AA) */
 
   /* Surfaces. The canvas is grey so white cards can lift off it without a heavy shadow. */
   --color-canvas: #f4f4f5;
@@ -75,7 +75,7 @@
   :root:not([data-theme="light"]) {
     --color-ink: #f7f7f8;
     --color-ink-soft: #a9a9b2;
-    --color-ink-muted: #7b7b84;
+    --color-ink-muted: #8e8e97; /* 4.8:1 or better on every dark surface */
     --color-canvas: #0b0b0d;
     --color-surface: #141416;
     --color-sunken: #1a1a1d;
@@ -105,7 +105,7 @@
 :root[data-theme="dark"] {
   --color-ink: #f7f7f8;
   --color-ink-soft: #a9a9b2;
-  --color-ink-muted: #7b7b84;
+  --color-ink-muted: #8e8e97;
   --color-canvas: #0b0b0d;
   --color-surface: #141416;
   --color-sunken: #1a1a1d;
@@ -246,7 +246,7 @@ select.field {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
-  height: 24px;
+  height: 44px; /* the whole 44px row is the touch target; the track stays 6px */
   background: transparent;
   cursor: pointer;
 }
@@ -258,9 +258,9 @@ select.field {
 .range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  margin-top: -7px;
-  width: 20px;
-  height: 20px;
+  margin-top: -9px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   background: var(--color-panel);
   box-shadow: var(--shadow-card), 0 0 0 2px var(--color-surface);
@@ -272,8 +272,8 @@ select.field {
 }
 .range::-moz-range-thumb {
   border: 0;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   background: var(--color-panel);
   box-shadow: var(--shadow-card), 0 0 0 2px var(--color-surface);

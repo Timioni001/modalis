@@ -161,7 +161,7 @@ export default function TourPage() {
         </div>
         <ol className="space-y-px overflow-hidden rounded-2xl bg-line">
           {steps.map((step, i) => (
-            <li key={step.title} className={`bg-surface px-4 py-5 ${step.locked && !step.done ? "opacity-60" : ""}`}>
+            <li key={step.title} className={`px-4 py-5 ${step.locked && !step.done ? "bg-sunken" : "bg-surface"}`}>
               <div className="flex items-start gap-3">
                 <span
                   aria-hidden

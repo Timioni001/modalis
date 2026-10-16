@@ -15,7 +15,8 @@
  */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { ModalisLogo } from "./brand";
 import { WalletButton } from "./wallet-button";
 import { NotificationBell } from "./notification-bell";
@@ -33,6 +34,7 @@ const TABS: Tab[] = [
 const MORE: Tab[] = [
   { href: "/app/goals", label: "Goals", icon: GoalsIcon },
   { href: "/app/circles", label: "Savings circles", icon: CirclesIcon },
+  { href: "/app/gift", label: "Send to a goal", icon: GiftIcon },
   { href: "/app/scenarios", label: "What if", icon: WhatIfIcon },
   { href: "/app/ask", label: "Ask Modalis", icon: AskIcon },
   { href: "/app/tour", label: "2-minute tour", icon: TourIcon },
@@ -40,6 +42,9 @@ const MORE: Tab[] = [
 
 export function AppNav() {
   const pathname = usePathname() ?? "/app";
+  const [menu, setMenu] = useState(false);
+  // Any navigation closes the menu, including the browser's back button.
+  useEffect(() => setMenu(false), [pathname]);
   const isActive = (href: string) =>
     href === "/app" ? pathname === "/app" : pathname.startsWith(href);
 
@@ -90,45 +95,39 @@ export function AppNav() {
       </aside>
 
       {/* ------------------------------------------------------------ phone top bar */}
+      {/*
+        Logo, notifications, account, and one labelled Menu button. It used to carry three
+        unlabelled icons (goals, what-if, settings) — people had to guess what they were, and half
+        the app (add money, withdraw, circles, the tour) had no visible way in at all.
+      */}
       <header className="sticky top-0 z-40 px-4 pt-4 lg:hidden">
-        <div className="mx-auto flex max-w-5xl items-center gap-2 overflow-hidden rounded-full bg-surface/90 px-3 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
-          <Link href="/app" className="flex min-h-[44px] items-center px-1 text-ink" aria-label="Modalis">
+        <div className="mx-auto flex max-w-5xl items-center gap-1 overflow-hidden rounded-full bg-surface/90 px-2 py-1.5 shadow-[var(--shadow-card)] backdrop-blur-xl">
+          <Link href="/app" className="flex min-h-[44px] items-center px-2 text-ink" aria-label="Modalis, overview">
             <ModalisLogo size={24} />
           </Link>
-          <div className="ml-auto flex min-w-0 items-center gap-0.5">
+          <div className="ml-auto flex min-w-0 items-center gap-1">
             <NotificationBell />
-            <Link
-              href="/app/goals"
-              aria-label="Goals"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft hover:bg-sunken"
-            >
-              <GoalsIcon />
-            </Link>
-            <Link
-              href="/app/scenarios"
-              aria-label="What if"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft hover:bg-sunken"
-            >
-              <WhatIfIcon />
-            </Link>
-            <Link
-              href="/app/settings"
-              aria-label="Settings"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-soft hover:bg-sunken"
-            >
-              <SettingsIcon />
-            </Link>
             <WalletButton compact />
+            <button
+              type="button"
+              onClick={() => setMenu(true)}
+              aria-haspopup="dialog"
+              aria-expanded={menu}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-sunken px-4 text-[14px] font-semibold text-ink"
+            >
+              <svg aria-hidden width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3.5 6h13M3.5 10h13M3.5 14h13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+              Menu
+            </button>
           </div>
         </div>
       </header>
 
+      <AnimatePresence>{menu ? <PhoneMenu onClose={() => setMenu(false)} isActive={isActive} /> : null}</AnimatePresence>
+
       {/* ------------------------------------------------------------ phone dock */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-3 px-4 pb-[max(14px,env(safe-area-inset-bottom))] lg:hidden">
-        <nav
-          aria-label="Your money"
-          className="flex items-center gap-0.5 rounded-full bg-panel p-1.5 shadow-[var(--shadow-float)]"
-        >
+      {/* Every tab shows its name, not just the current one: an icon alone is a guess. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-center gap-2 px-3 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden">
+        <nav aria-label="Main" className="flex items-center gap-0.5 rounded-[26px] bg-panel p-1.5 shadow-[var(--shadow-float)]">
           {TABS.map((tab) => {
             const active = isActive(tab.href);
             const Icon = tab.icon;
@@ -137,38 +136,125 @@ export function AppNav() {
                 key={tab.href}
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                aria-label={tab.label}
-                className={`relative flex h-12 items-center justify-center rounded-full transition-colors ${
-                  active ? "px-4 text-ink" : "w-12 text-panel-soft hover:text-panel-ink"
+                className={`relative flex h-[58px] min-w-[64px] flex-col items-center justify-center gap-1 rounded-[20px] px-2 transition-colors ${
+                  active ? "text-ink" : "text-panel-soft hover:text-panel-ink"
                 }`}
               >
                 {active ? (
                   <motion.span
                     layoutId="dock-active"
                     aria-hidden
-                    className="absolute inset-0 rounded-full bg-surface"
+                    className="absolute inset-0 rounded-[20px] bg-surface"
                     transition={{ type: "spring", stiffness: 420, damping: 36 }}
                   />
                 ) : null}
-                <span className="relative flex items-center gap-2">
-                  <Icon active={active} />
-                  {active ? <span className="text-[13.5px] font-semibold">{tab.label}</span> : null}
-                </span>
+                <span className="relative"><Icon active={active} /></span>
+                <span className="relative text-[11.5px] font-semibold leading-none">{tab.label}</span>
               </Link>
             );
           })}
         </nav>
-
         <Link
           href="/app/ask"
-          aria-label="Ask Modalis"
           aria-current={pathname.startsWith("/app/ask") ? "page" : undefined}
-          className="flex h-[60px] w-[60px] flex-none items-center justify-center rounded-full bg-panel text-panel-ink shadow-[var(--shadow-float)] transition-transform active:scale-95"
+          className="flex h-[70px] w-[64px] flex-none flex-col items-center justify-center gap-1 rounded-[26px] bg-panel text-panel-ink shadow-[var(--shadow-float)] transition-transform active:scale-95"
         >
           <AskIcon />
+          <span className="text-[11.5px] font-semibold leading-none">Ask</span>
         </Link>
       </div>
     </>
+  );
+}
+
+/**
+ * Every destination by name, on one sheet. A real dialog: announced as one, focus moves in and is
+ * kept there, Escape and the backdrop close it, and focus returns to the Menu button afterwards.
+ */
+function PhoneMenu({ onClose, isActive }: { onClose: () => void; isActive: (href: string) => boolean }) {
+  const sheet = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    sheet.current?.querySelector<HTMLElement>("a,button")?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key !== "Tab" || !sheet.current) return;
+      const items = [...sheet.current.querySelectorAll<HTMLElement>("a,button")];
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; opener?.focus(); };
+  }, [onClose]);
+
+  const groups: { title: string; items: Tab[] }[] = [
+    { title: "Your money", items: [
+      { href: "/app/add-money", label: "Add money", icon: PlusIcon as Tab["icon"] },
+      ...TABS,
+      { href: "/app/withdraw", label: "Take money out", icon: MoneyIcon },
+    ] },
+    { title: "Understand", items: MORE },
+    { title: "You", items: [{ href: "/app/settings", label: "Settings", icon: SettingsIcon }] },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden">
+      <motion.button
+        type="button"
+        aria-label="Close menu"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      />
+      <motion.div
+        ref={sheet}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        className="absolute inset-x-3 top-3 max-h-[calc(100dvh-24px)] overflow-y-auto rounded-[28px] bg-surface p-3 shadow-[var(--shadow-float)]"
+        initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <div className="flex items-center justify-between px-2 pb-1">
+          <span className="text-[15px] font-semibold text-ink">Menu</span>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button type="button" onClick={onClose} aria-label="Close menu" className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink hover:bg-sunken">
+              <svg aria-hidden width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+            </button>
+          </div>
+        </div>
+        {groups.map((g) => (
+          <nav key={g.title} aria-label={g.title} className="mt-2">
+            <div className="eyebrow px-3 pb-1 pt-2 text-ink-muted">{g.title}</div>
+            <ul>
+              {g.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                const primary = item.href === "/app/add-money";
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex min-h-[48px] items-center gap-3 rounded-[18px] px-3 text-[15.5px] font-medium ${
+                        primary ? "bg-accent text-accent-ink" : active ? "bg-panel text-panel-ink" : "text-ink hover:bg-sunken"
+                      }`}
+                    >
+                      <Icon active={active} />
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        ))}
+      </motion.div>
+    </div>
   );
 }
 
@@ -289,6 +375,15 @@ function AskIcon({ active }: IconProps) {
     <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden>
       <path d="M11 2.6 18.3 6.8v8.4L11 19.4 3.7 15.2V6.8z" {...stroke(active)} />
       <path d="M11 6.6l1.2 3.2 3.2 1.2-3.2 1.2L11 15.4l-1.2-3.2L6.6 11l3.2-1.2z" {...stroke(active)} strokeWidth={1.4} />
+    </svg>
+  );
+}
+
+function GiftIcon({ active }: IconProps) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <rect x="3" y="8" width="14" height="9" rx="2" stroke="currentColor" strokeWidth={active ? 2 : 1.6} />
+      <path d="M2.5 8h15M10 8v9M10 8c-1.6-3.4-5.2-3-4.4-.8.5 1.2 2.6.8 4.4.8Zm0 0c1.6-3.4 5.2-3 4.4-.8-.5 1.2-2.6.8-4.4.8Z" stroke="currentColor" strokeWidth={active ? 2 : 1.6} strokeLinejoin="round" />
     </svg>
   );
 }

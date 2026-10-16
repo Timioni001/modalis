@@ -60,7 +60,7 @@ export function LowDataToggle() {
       </span>
       <input
         type="checkbox"
-        className="h-5 w-5 accent-[var(--color-ink)]"
+        className="h-6 w-6 flex-none accent-[var(--color-ink)]"
         checked={on}
         onChange={(e) => {
           setLowData(e.target.checked);
