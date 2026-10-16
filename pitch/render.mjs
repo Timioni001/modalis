@@ -2,6 +2,7 @@
 //
 //   node pitch/render.mjs                 # full video -> pitch/modalis-pitch.mp4
 //   node pitch/render.mjs --stills 3,15   # PNG stills at those seconds -> pitch/stills/
+//   node pitch/render.mjs --page social/launch.html --size 1080x1080 --out social/out/launch.mp4
 //
 // Every frame is render(t) for an exact t, so the output is identical on every run.
 // Resolve Playwright from the project, or from a global install.
@@ -14,23 +15,28 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const FPS = 30;
 const args = process.argv.slice(2);
-const stillsArg = args.includes("--stills") ? args[args.indexOf("--stills") + 1] : null;
+const arg = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
+const stillsArg = arg("--stills");
+const pagePath = arg("--page") ? join(process.cwd(), arg("--page")) : join(here, "index.html");
+const [W, H] = (arg("--size") || "1920x1080").split("x").map(Number);
+const outPath = arg("--out") ? join(process.cwd(), arg("--out")) : join(here, "modalis-pitch.mp4");
+const stillsDir = join(dirname(outPath), "stills");
 
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
-await page.goto(`file://${join(here, "index.html")}?render`);
+const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+await page.goto(`file://${pagePath}?render`);
 await page.evaluate(() => document.fonts.ready);
 const duration = await page.evaluate(() => window.DURATION);
 
 if (stillsArg) {
-  mkdirSync(join(here, "stills"), { recursive: true });
+  mkdirSync(stillsDir, { recursive: true });
   for (const s of stillsArg.split(",").map(Number)) {
     await page.evaluate((t) => window.render(t), s);
-    await page.screenshot({ path: join(here, "stills", `t${String(s).padStart(5, "0")}.png`) });
+    await page.screenshot({ path: join(stillsDir, `t${String(s).padStart(5, "0")}.png`) });
   }
   console.log("stills written");
 } else {
-  const out = join(here, "modalis-pitch.mp4");
+  const out = outPath;
   const ff = spawn("ffmpeg", [
     "-y", "-loglevel", "error",
     "-f", "image2pipe", "-framerate", String(FPS), "-c:v", "mjpeg", "-i", "-",

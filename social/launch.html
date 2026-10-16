@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Modalis — launch</title>
+<!--
+  The X launch clip: 25s, 1080x1080, silent (X autoplays muted).
+  Techniques from the awesome-ai-motion catalogue, each chosen for what the scene has to say:
+    Particle Scatter & Assemble  scattered savings resolve into the mark — saving blind becomes a plan
+    Light Sweep                  the mark is "switched on"
+    Kinetic Type Sweep           the goals people save for, fast, one per beat
+    Giant Mask Reveal            the word "limits" as a window onto moving colour, then pulled back
+    Count-up + frame draw        four limits, then the boundary that holds them
+  Every frame is render(t); render with:
+    node pitch/render.mjs --page social/launch.html --size 1080x1080 --out social/out/modalis-launch.mp4
+-->
+<style>
+@font-face { font-family: "Inter Tight"; src: url(../pitch/fonts/inter-tight.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Instrument Serif"; src: url(../pitch/fonts/instrument-serif-italic.woff2) format("woff2"); font-style: italic; }
+@font-face { font-family: "Geist"; src: url(../pitch/fonts/geist.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Geist Mono"; src: url(../pitch/fonts/geist-mono.woff2) format("woff2"); font-weight: 100 900; }
+:root { --ink:#f7f7f8; --soft:#a9a9b2; --muted:#6f6f78; --line:#26262b; --canvas:#0a0a0c; --surface:#141416; --lime:#c8f250; --violet:#a99bff; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:1080px; height:1080px; overflow:hidden; background:var(--canvas); }
+body { position:relative; color:var(--ink); font-family:"Geist",sans-serif; -webkit-font-smoothing:antialiased; }
+.dots { position:absolute; inset:-40px; background-image:radial-gradient(rgb(255 255 255 / .10) 1.2px, transparent 1.6px); background-size:30px 30px;
+  -webkit-mask-image:radial-gradient(ellipse 75% 75% at 50% 50%, #000 30%, transparent 100%); mask-image:radial-gradient(ellipse 75% 75% at 50% 50%, #000 30%, transparent 100%); }
+.glow { position:absolute; border-radius:50%; filter:blur(110px); }
+.vignette { position:absolute; inset:0; background:radial-gradient(ellipse 80% 80% at 50% 50%, transparent 55%, rgb(0 0 0 / .6) 100%); pointer-events:none; }
+.grain { position:absolute; inset:-100px; opacity:.07; mix-blend-mode:overlay; pointer-events:none; }
+.black { position:absolute; inset:0; background:#000; pointer-events:none; }
+section { position:absolute; inset:0; }
+.display { font-family:"Inter Tight",sans-serif; font-weight:600; letter-spacing:-.045em; line-height:.96; }
+em { font-family:"Instrument Serif",serif; font-style:italic; font-weight:400; letter-spacing:-.01em; color:var(--lime); }
+.center { position:absolute; left:0; right:0; text-align:center; }
+.w { display:inline-block; }
+.label { font:500 18px/1 "Geist Mono",monospace; letter-spacing:.18em; text-transform:uppercase; color:var(--lime); }
+.card { position:absolute; width:400px; height:210px; border-radius:28px; background:var(--surface); border:1px solid #222227; padding:28px; }
+.card .n { font:600 84px/1 "Inter Tight"; letter-spacing:-.05em; color:var(--lime); font-variant-numeric:tabular-nums; }
+.card .t { margin-top:20px; font:600 28px/1 "Inter Tight"; letter-spacing:-.02em; }
+.frame { position:absolute; border:2px solid var(--lime); border-radius:42px; }
+.block { position:absolute; top:690px; width:70px; height:70px; border-radius:16px; border:1px solid #2c2c32; background:var(--surface); display:flex; align-items:center; justify-content:center; }
+.block.hit { background:var(--lime); border-color:var(--lime); }
+.hud { position:absolute; left:60px; right:60px; top:56px; display:flex; justify-content:space-between; align-items:center; font:500 16px/1 "Geist Mono"; letter-spacing:.14em; text-transform:uppercase; color:var(--soft); }
+.hud .brand { display:flex; align-items:center; gap:12px; color:var(--ink); }
+.progress { position:absolute; left:60px; right:60px; bottom:56px; height:2px; background:var(--line); }
+.progress i { position:absolute; left:0; top:0; bottom:0; background:var(--lime); }
+</style>
+</head>
+<body>
+<div class="dots" id="dots"></div>
+<div class="glow" id="g1" style="width:760px;height:760px;background:rgb(200 242 80 / .15)"></div>
+<div class="glow" id="g2" style="width:700px;height:700px;background:rgb(131 110 249 / .18)"></div>
+
+<!-- 1. particles assemble into the mark (0 – 5.6) -->
+<canvas id="particles" width="1080" height="1080" style="position:absolute;inset:0"></canvas>
+<section class="a" data-in="-10" data-out="5.3" data-fx="fadeScale">
+  <svg id="mark" style="position:absolute;left:360px;top:250px" width="360" height="360" viewBox="0 0 32 32" fill="none">
+    <defs>
+      <linearGradient id="sweep" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="32" y2="32">
+        <stop id="s0" offset="0" stop-color="#fff" stop-opacity="0"/>
+        <stop id="s1" offset="0.1" stop-color="#fff" stop-opacity="1"/>
+        <stop id="s2" offset="0.2" stop-color="#fff" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <g id="markSolid" opacity="0">
+      <rect x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4" stroke="#f7f7f8" stroke-width="1.6"/>
+      <path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="#c8f250" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="markSweep" opacity="0">
+      <rect x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4" stroke="url(#sweep)" stroke-width="1.8"/>
+      <path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="url(#sweep)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </svg>
+  <h1 class="display center" style="top:660px;font-size:150px" data-split="0.05" data-in="3.4" data-fx="up">Modalis</h1>
+</section>
+
+<!-- 2. kinetic sweep: what people save for (5.6 – 9.6) -->
+<section class="a" data-in="5.5" data-out="9.4" data-fx="fade">
+  <p class="center a" style="top:330px;font:500 40px/1 'Geist';color:var(--soft)" data-in="5.7" data-fx="up">Everyone is saving for</p>
+  <div class="center a" style="top:430px;font:italic 400 196px/1 'Instrument Serif';color:var(--lime)" data-in="6.0" data-out="6.85" data-fx="sweep" data-dur=".55">a home.</div>
+  <div class="center a" style="top:430px;font:italic 400 176px/1 'Instrument Serif';color:var(--lime)" data-in="6.95" data-out="7.8" data-fx="sweep" data-dur=".55">school fees.</div>
+  <div class="center a" style="top:430px;font:italic 400 168px/1 'Instrument Serif';color:var(--lime)" data-in="7.9" data-out="8.75" data-fx="sweep" data-dur=".55">a safety net.</div>
+  <div class="center a" style="top:430px;font:italic 400 196px/1 'Instrument Serif';color:var(--lime)" data-in="8.85" data-out="9.4" data-fx="sweep" data-dur=".55">later.</div>
+  <p class="center a" style="top:690px;font:500 34px/1.3 'Geist';color:var(--muted)" data-in="7.2" data-out="9.2" data-fx="up">Most of us are doing it blind.</p>
+</section>
+
+<!-- 3. giant mask reveal: "your limits" (9.6 – 12.8) -->
+<section class="a" data-in="9.5" data-out="12.6" data-fx="fade">
+  <p class="center a" style="top:300px;font:500 40px/1 'Geist';color:var(--soft)" data-in="10.3" data-fx="up">Set a goal. Then set</p>
+  <h1 id="giant" class="display center" style="top:400px;font-size:230px;line-height:1.05;
+      background:linear-gradient(110deg,#c8f250 0%,#e9ffb0 25%,#a99bff 50%,#c8f250 75%,#e9ffb0 100%);background-size:300% 100%;
+      -webkit-background-clip:text;background-clip:text;color:transparent">your<br>limits.</h1>
+</section>
+
+<!-- 4. the four limits, then the boundary that holds them (12.8 – 16.4) -->
+<section class="a" data-in="12.7" data-out="16.2" data-fx="fade">
+  <h2 class="display center a" style="top:180px;font-size:76px" data-split="0.06" data-in="12.9" data-fx="up">Four rules. <em>Yours.</em></h2>
+  <div class="card a" style="left:128px;top:320px" data-in="13.3" data-fx="up"><div class="n" data-count="15" data-from="13.4">0%</div><div class="t">Maximum loss</div></div>
+  <div class="card a" style="left:552px;top:320px" data-in="13.5" data-fx="up"><div class="n" data-count="30" data-from="13.6">0%</div><div class="t">Kept available</div></div>
+  <div class="card a" style="left:128px;top:554px" data-in="13.7" data-fx="up"><div class="n" data-count="40" data-from="13.8">0%</div><div class="t">Largest holding</div></div>
+  <div class="card a" style="left:552px;top:554px" data-in="13.9" data-fx="up"><div class="n" data-count="5" data-from="14.0">0%</div><div class="t">Rebalancing point</div></div>
+  <div class="frame a" style="left:104px;top:296px;width:872px;height:492px" data-in="14.8" data-fx="frame" data-dur="1.0"></div>
+  <p class="center a" style="top:840px;font:italic 400 44px/1 'Instrument Serif';color:var(--soft)" data-in="15.2" data-fx="up">Modalis can't step outside them.</p>
+</section>
+
+<!-- 5. enforced on Monad (16.4 – 19.2) -->
+<section class="a" data-in="16.3" data-out="19.0" data-fx="fade">
+  <svg class="center a" style="left:490px;right:auto;top:220px" width="100" height="100" viewBox="0 0 40 40" data-in="16.5" data-fx="scale"><path fill="#836EF9" fill-rule="evenodd" d="M20 2c-5.2 0-18 12.8-18 18s12.8 18 18 18 18-12.8 18-18S25.2 2 20 2Zm-2.8 28.3c-2.2-.6-8.1-6.5-8.7-8.7-.6-2.2 1.6-10.3 3.2-11.9 1.6-1.6 9.7-3.8 11.9-3.2 2.2.6 8.1 6.5 8.7 8.7.6 2.2-1.6 10.3-3.2 11.9-1.6 1.6-9.7 3.8-11.9 3.2Z"/></svg>
+  <h1 class="display center a" style="top:370px;font-size:104px" data-split="0.07" data-in="16.7" data-fx="up">Enforced on <em style="color:var(--violet)">Monad.</em></h1>
+  <p class="center a" style="top:510px;font:400 34px/1.35 'Geist';color:var(--soft)" data-in="17.3" data-fx="up">Every plan, checked on every block.</p>
+  <div id="blocks" class="a" data-in="17.0" data-fx="fade" style="position:absolute;inset:0"></div>
+</section>
+
+<!-- 6. suggests / decide (19.2 – 21.6) -->
+<section class="a" data-in="19.1" data-out="21.4" data-fx="fade">
+  <h1 class="display center a" style="top:330px;font-size:132px" data-split="0.08" data-in="19.3" data-fx="up">Modalis <em>suggests.</em></h1>
+  <h1 class="display center a" style="top:480px;font-size:132px" data-split="0.08" data-in="20.1" data-fx="up">You <em>decide.</em></h1>
+</section>
+
+<!-- 7. end card (21.6 – 25) -->
+<section class="a" data-in="21.5" data-fx="fade">
+  <svg class="a" style="position:absolute;left:450px;top:200px" width="180" height="180" viewBox="0 0 32 32" fill="none" data-in="21.6" data-fx="scale">
+    <rect x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4" stroke="#f7f7f8" stroke-width="1.6" id="eFrame"/>
+    <path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="#c8f250" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="eStair"/>
+  </svg>
+  <h1 class="display center a" style="top:430px;font-size:140px" data-split="0" data-in="22.2" data-fx="up">Modalis</h1>
+  <p class="center a" style="top:600px;font:600 54px/1 'Inter Tight';letter-spacing:-.035em" data-split="0.06" data-in="22.7" data-fx="up">A clear plan for <em>every goal.</em></p>
+  <div class="center a" style="top:760px;display:flex;justify-content:center" data-in="23.3" data-fx="up">
+    <span style="display:inline-flex;align-items:center;gap:12px;padding:16px 26px;border-radius:99px;background:var(--lime);color:#111;font:600 24px/1 'Geist'">
+      <span style="width:8px;height:8px;border-radius:50%;background:#111"></span>Now on Monad testnet</span>
+  </div>
+  <p class="center a" style="top:860px;font:500 22px/1 'Geist Mono';letter-spacing:.12em;text-transform:uppercase;color:var(--soft)" data-in="23.6" data-fx="up">modalis-six.vercel.app</p>
+</section>
+
+<div class="hud a" data-in="5.6" data-out="21.4" data-fx="fade">
+  <span class="brand"><svg width="24" height="24" viewBox="0 0 32 32" fill="none"><rect x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4" stroke="currentColor" stroke-width="2"/><path d="M9 21.4H14.2V16H19.4V10.6H23" stroke="#c8f250" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Modalis</span>
+  <span>Built on Monad</span>
+</div>
+<div class="progress a" data-in="5.6" data-out="21.4" data-fx="fade"><i id="prog"></i></div>
+
+<div class="vignette"></div>
+<div class="grain" id="grain"></div>
+<div class="black" id="black"></div>
+
+<svg width="0" height="0" style="position:absolute"><rect id="sampleFrame" x="2.9" y="2.9" width="26.2" height="26.2" rx="8.4"/><path id="sampleStair" d="M9 21.4H14.2V16H19.4V10.6H23"/></svg>
+
+<script>
+const DURATION = 25;
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const expo = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
+const inOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+let seed = 11;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+
+// ---- word splitting (keeps <em>)
+document.querySelectorAll("[data-split]").forEach((el) => {
+  const stagger = parseFloat(el.dataset.split), base = parseFloat(el.dataset.in);
+  let i = 0;
+  const walk = (node) => [...node.childNodes].forEach((c) => {
+    if (c.nodeType === 3) {
+      const frag = document.createDocumentFragment();
+      c.textContent.split(/(\s+)/).forEach((part) => {
+        if (!part) return;
+        if (/^\s+$/.test(part)) return frag.appendChild(document.createTextNode(part));
+        const s = document.createElement("span");
+        s.className = "w a"; s.textContent = part;
+        s.dataset.in = (base + i++ * stagger).toFixed(3); s.dataset.fx = el.dataset.fx; s.dataset.dur = "0.8";
+        frag.appendChild(s);
+      });
+      c.replaceWith(frag);
+    } else if (c.nodeType === 1) walk(c);
+  });
+  walk(el);
+  el.dataset.in = "-10"; el.dataset.fx = "fade"; el.classList.add("a");
+});
+
+const animated = [...document.querySelectorAll(".a")].map((el) => ({
+  el, tin: parseFloat(el.dataset.in ?? "-10"),
+  tout: el.dataset.out !== undefined ? parseFloat(el.dataset.out) : null,
+  fx: el.dataset.fx || "up", dur: parseFloat(el.dataset.dur || "0.8"),
+}));
+
+// ---- particles: start scattered, land on points along the mark
+const ctx = document.getElementById("particles").getContext("2d");
+const S = 360 / 32, OX = 360, OY = 250;
+const parts = [];
+const sample = (el, n, color) => {
+  const L = el.getTotalLength();
+  for (let i = 0; i < n; i++) {
+    const p = el.getPointAtLength((i / n) * L);
+    const ang = rnd() * Math.PI * 2, rad = 260 + rnd() * 420;
+    parts.push({
+      tx: OX + p.x * S, ty: OY + p.y * S,
+      sx: 540 + Math.cos(ang) * rad, sy: 540 + Math.sin(ang) * rad,
+      ph: rnd() * 6.28, delay: rnd() * 0.7, r0: 1.4 + rnd() * 3, color,
+    });
+  }
+};
+sample(document.getElementById("sampleFrame"), 150, "247,247,248");
+sample(document.getElementById("sampleStair"), 70, "200,242,80");
+
+function drawParticles(t) {
+  ctx.clearRect(0, 0, 1080, 1080);
+  const vis = 1 - clamp((t - 2.6) / 0.5);
+  if (vis <= 0) return;
+  for (const p of parts) {
+    const k = inOut(clamp((t - 0.5 - p.delay) / 1.5));
+    const drift = (1 - k) * 18;
+    const x = p.sx + (p.tx - p.sx) * k + Math.sin(t * 1.3 + p.ph) * drift;
+    const y = p.sy + (p.ty - p.sy) * k + Math.cos(t * 1.1 + p.ph) * drift;
+    const r = p.r0 + (2.6 - p.r0) * k;
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(${p.color},${clamp(t / 0.6) * vis * (0.5 + 0.5 * k)})`;
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ---- path drawing for the end card
+const prep = (el) => { el.dataset.len = el.getTotalLength(); };
+["eFrame", "eStair"].forEach((id) => prep(document.getElementById(id)));
+const draw = (el, p) => {
+  if (p >= 0.999) { el.style.strokeDasharray = "none"; return; }
+  el.style.strokeDasharray = el.dataset.len;
+  el.style.strokeDashoffset = (1 - clamp(p)) * parseFloat(el.dataset.len);
+};
+
+// ---- grain
+(() => {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const x = c.getContext("2d"), img = x.createImageData(256, 256);
+  for (let i = 0; i < img.data.length; i += 4) { const v = rnd() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  document.getElementById("grain").style.backgroundImage = `url(${c.toDataURL()})`;
+})();
+
+// ---- block ticker
+const blocksEl = document.getElementById("blocks");
+for (let i = 0; i < 16; i++) {
+  const b = document.createElement("div");
+  b.className = "block";
+  b.innerHTML = '<svg width="26" height="26" viewBox="0 0 20 20" fill="none"><path d="M5 10.5l3.2 3.2L15 7" stroke="#111" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  blocksEl.appendChild(b);
+}
+
+function render(t) {
+  for (const a of animated) {
+    const pi = expo(clamp((t - a.tin) / a.dur));
+    const po = a.tout === null ? 0 : inOut(clamp((t - a.tout) / 0.45));
+    const op = pi * (1 - po), s = a.el.style;
+    s.opacity = op; s.visibility = op <= 0.001 ? "hidden" : "visible";
+    switch (a.fx) {
+      case "up": s.transform = `translateY(${(1 - pi) * 60 - po * 30}px)`; s.filter = `blur(${(1 - pi) * 14 + po * 8}px)`; break;
+      case "scale": s.transform = `scale(${0.85 + 0.15 * pi})`; s.filter = `blur(${(1 - pi) * 16}px)`; break;
+      case "fadeScale": s.transform = `scale(${1 - po * 0.12})`; s.filter = `blur(${po * 14}px)`; break;
+      case "sweep": // enters fast from the right, leaves fast to the left, smeared while moving
+        s.transform = `translateX(${(1 - pi) * 260 - po * 260}px) skewX(${(1 - pi) * -14 + po * 14}deg)`;
+        s.filter = `blur(${(1 - pi) * 18 + po * 18}px)`; break;
+      case "frame":
+        s.clipPath = `inset(0 ${(1 - pi) * 100}% 0 0 round 42px)`;
+        s.boxShadow = `0 0 ${60 * pi}px rgb(200 242 80 / ${0.25 * pi})`; break;
+    }
+  }
+
+  drawParticles(t);
+  // particles hand over to the crisp mark, then a light sweep switches it on
+  document.getElementById("markSolid").setAttribute("opacity", clamp((t - 2.4) / 0.5));
+  const sw = clamp((t - 2.9) / 0.9);
+  document.getElementById("markSweep").setAttribute("opacity", sw > 0 && sw < 1 ? 1 : 0);
+  const c = -0.2 + sw * 1.4;
+  document.getElementById("s0").setAttribute("offset", Math.max(0, c - 0.12));
+  document.getElementById("s1").setAttribute("offset", Math.max(0, c));
+  document.getElementById("s2").setAttribute("offset", Math.max(0, c + 0.12));
+  document.getElementById("mark").style.filter = `drop-shadow(0 0 ${30 + 40 * Math.sin(sw * Math.PI)}px rgb(200 242 80 / ${0.15 + 0.35 * Math.sin(sw * Math.PI)}))`;
+
+  // giant mask reveal: the word arrives huge, inside its own moving colour, then settles
+  const g = document.getElementById("giant");
+  const gi = expo(clamp((t - 9.7) / 1.3));
+  g.style.transform = `scale(${2.6 - 1.6 * gi})`;
+  g.style.opacity = clamp((t - 9.6) / 0.3);
+  g.style.backgroundPosition = `${(t - 9.6) * 40}% 50%`;
+  g.style.filter = `blur(${(1 - gi) * 6}px)`;
+
+  document.querySelectorAll("[data-count]").forEach((el) => {
+    const p = inOut(clamp((t - parseFloat(el.dataset.from)) / 1.0));
+    el.textContent = `${Math.round(p * parseFloat(el.dataset.count))}%`;
+  });
+
+  if (t > 16.8 && t < 19.4) {
+    const kids = blocksEl.children, gap = 86, speed = gap / 0.4, shift = ((t - 16.8) * speed) % gap;
+    for (let i = 0; i < kids.length; i++) {
+      const x = -40 + i * gap - shift;
+      kids[i].style.left = `${x}px`;
+      kids[i].className = "block" + (x < 820 ? " hit" : "");
+      kids[i].style.opacity = x < 40 ? clamp((x + 40) / 80) : x > 960 ? clamp(1 - (x - 960) / 120) : 1;
+    }
+  }
+
+  draw(document.getElementById("eFrame"), inOut(clamp((t - 21.6) / 0.9)));
+  draw(document.getElementById("eStair"), inOut(clamp((t - 22.0) / 0.9)));
+
+  const g1 = document.getElementById("g1"), g2 = document.getElementById("g2");
+  g1.style.transform = `translate(${160 + Math.sin(t * 0.4) * 160}px, ${60 + Math.cos(t * 0.33) * 120}px)`;
+  g2.style.transform = `translate(${420 + Math.cos(t * 0.3) * 150}px, ${420 + Math.sin(t * 0.37) * 120}px)`;
+  g2.style.opacity = 0.35 + 0.65 * clamp((t - 16) / 1) * (1 - clamp((t - 19.2) / 1));
+  document.getElementById("dots").style.transform = `translateY(${-(t * 8) % 30}px)`;
+  const f = Math.floor(t * 30);
+  document.getElementById("grain").style.backgroundPosition = `${(f * 73) % 256}px ${(f * 151) % 256}px`;
+  document.getElementById("prog").style.width = `${clamp((t - 5.6) / 15.8) * 100}%`;
+  document.getElementById("black").style.opacity = Math.max(1 - clamp(t / 0.4), clamp((t - 24.3) / 0.7));
+}
+
+window.render = render;
+window.DURATION = DURATION;
+if (!new URLSearchParams(location.search).has("render")) {
+  const start = performance.now();
+  const loop = () => { render(((performance.now() - start) / 1000) % DURATION); requestAnimationFrame(loop); };
+  document.fonts.ready.then(loop);
+} else render(0);
+</script>
+</body>
+</html>
