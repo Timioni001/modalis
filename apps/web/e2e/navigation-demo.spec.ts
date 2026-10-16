@@ -58,7 +58,7 @@ test("demo works without signing, keyboard tabs update sample projections", asyn
   expect(writes).toEqual([]);
 });
 
-test("mobile header and dock collapse, trap focus and clear the legal links", async ({
+test("mobile tab bar reaches every page, traps focus in More and clears the legal links", async ({
   page,
   request,
 }) => {
@@ -68,11 +68,18 @@ test("mobile header and dock collapse, trap focus and clear the legal links", as
     await page.setViewportSize({ width, height: 844 });
     const header = page.getByTestId("app-header");
     await expect(
-      header.getByRole("button", { name: "Menu", exact: true }),
+      header.getByRole("link", { name: "Add money", exact: true }),
     ).toBeVisible();
-    await header.getByRole("button", { name: "Menu", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Menu", exact: true });
+    const dock = page.getByTestId("app-dock");
+    for (const name of ["Home", "Money", "Plan", "Activity"])
+      await expect(dock.getByRole("link", { name, exact: true })).toBeVisible();
+    const more = dock.getByRole("button", { name: "More", exact: true });
+    await more.click();
+    const dialog = page.getByRole("dialog", { name: "More", exact: true });
     await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("link", { name: "Payments", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
     if (!status.poweredBy?.savedData)
       await expect(
         dialog.getByRole("link", { name: "Goals", exact: true }),
@@ -83,19 +90,10 @@ test("mobile header and dock collapse, trap focus and clear the legal links", as
     ).toBe(true);
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
-    await expect(
-      header.getByRole("button", { name: "Menu", exact: true }),
-    ).toBeFocused();
-    await header.getByRole("button", { name: "Menu", exact: true }).click();
-    await page.mouse.click(1, 600);
+    await expect(more).toBeFocused();
+    await more.click();
+    await page.mouse.click(1, 10);
     await expect(dialog).not.toBeVisible();
-    const dock = page.getByTestId("app-dock");
-    await expect(dock.getByRole("button")).toHaveCount(1);
-    await dock.getByRole("button").click();
-    const pages = page.getByRole("dialog", { name: "Go to", exact: true });
-    await expect(pages).toBeVisible();
-    await pages.getByRole("link", { name: "Payments", exact: true }).click();
-    await expect(pages).not.toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -119,12 +117,20 @@ test("mobile header and dock collapse, trap focus and clear the legal links", as
     );
     expect(headerControls[0].right).toBeLessThanOrEqual(headerControls[1].left);
   }
-  await page.getByTestId("app-dock").getByRole("button").click();
   await page
-    .getByRole("dialog", { name: "Go to" })
+    .getByTestId("app-dock")
     .getByRole("link", { name: "Activity", exact: true })
     .click();
   await expect(page).toHaveURL(/\/app\/activity$/);
+  await page
+    .getByTestId("app-dock")
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "More" })
+    .getByRole("link", { name: "Take money out", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/app\/withdraw$/);
   await expect(page.getByRole("dialog")).not.toBeVisible();
 });
 

@@ -9,11 +9,14 @@ export function NavigationSheet({
   title,
   trigger,
   bottom = false,
+  triggerClassName,
   children,
 }: {
   title: string;
   trigger: ReactNode;
   bottom?: boolean;
+  /** Replaces the default trigger styling, e.g. for a tab inside a tab bar. */
+  triggerClassName?: string;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -25,9 +28,10 @@ export function NavigationSheet({
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger
         className={
-          bottom
+          triggerClassName ??
+          (bottom
             ? "inline-flex min-h-12 max-w-full items-center gap-3 rounded-full bg-panel px-5 text-sm font-semibold text-panel-ink shadow-[var(--shadow-float)] transition-transform active:scale-[0.98]"
-            : "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-sunken px-3.5 text-sm font-semibold text-ink transition-colors hover:bg-line"
+            : "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full bg-sunken px-3.5 text-sm font-semibold text-ink transition-colors hover:bg-line")
         }
       >
         {trigger}

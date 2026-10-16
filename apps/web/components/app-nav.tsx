@@ -18,28 +18,58 @@ type Tab = {
   icon: (p: IconProps) => React.ReactElement;
 };
 
+type Group = { title: string; tabs: Tab[] };
+
+/** The four places people go most. On a phone these are the tab bar; everything else is "More". */
 const TABS: Tab[] = [
-  { href: "/app", label: "Overview", icon: OverviewIcon },
+  { href: "/app", label: "Home", icon: OverviewIcon },
   { href: "/app/money", label: "Money", icon: MoneyIcon },
   { href: "/app/plan", label: "Plan", icon: PlanIcon },
-  { href: "/app/payments", label: "Payments", icon: MoneyIcon },
   { href: "/app/activity", label: "Activity", icon: ActivityIcon },
 ];
 
-const MORE: Tab[] = [
-  { href: "/app/profile", label: "Profile", icon: ProfileIcon },
-  { href: "/app/notifications", label: "Notifications", icon: ActivityIcon },
-  { href: "/app/goals", label: "Goals", icon: GoalsIcon },
-  { href: "/app/circles", label: "Savings circles", icon: CirclesIcon },
-  { href: "/app/scenarios", label: "What if", icon: WhatIfIcon },
-  { href: "/app/ask", label: "Ask Modalis", icon: AskIcon },
-  { href: "/app/tour", label: "2-minute tour", icon: TourIcon },
+/** Everything else, in the same groups on desktop and phone so a page is always in one place. */
+const GROUPS: Group[] = [
+  {
+    title: "Move money",
+    tabs: [
+      { href: "/app/add-money", label: "Add money", icon: PlusCircleIcon },
+      { href: "/app/withdraw", label: "Take money out", icon: WithdrawIcon },
+      { href: "/app/payments", label: "Payments", icon: SendIcon },
+      { href: "/app/gift", label: "Send to a goal", icon: GiftIcon },
+    ],
+  },
+  {
+    title: "Plan ahead",
+    tabs: [
+      { href: "/app/goals", label: "Goals", icon: GoalsIcon },
+      { href: "/app/circles", label: "Savings circles", icon: CirclesIcon },
+      { href: "/app/scenarios", label: "What if", icon: WhatIfIcon },
+    ],
+  },
+  {
+    title: "Help",
+    tabs: [
+      { href: "/app/ask", label: "Ask Modalis", icon: AskIcon },
+      { href: "/app/tour", label: "2-minute tour", icon: TourIcon },
+    ],
+  },
+  {
+    title: "Account",
+    tabs: [
+      { href: "/app/profile", label: "Profile", icon: ProfileIcon },
+      { href: "/app/notifications", label: "Notifications", icon: BellIcon },
+      { href: "/app/settings", label: "Settings", icon: SettingsIcon },
+    ],
+  },
 ];
 
 export function AppNav() {
   const pathname = usePathname() ?? "/app";
   const isActive = (href: string) =>
-    href === "/app" ? pathname === "/app" : pathname.startsWith(href);
+    href === "/app"
+      ? pathname === "/app"
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   const [status, setStatus] = useState<SystemStatus | null>(null);
   useEffect(() => {
@@ -49,22 +79,20 @@ export function AppNav() {
       .catch(() => {});
     return () => controller.abort();
   }, []);
-  const more = MORE.filter((tab) =>
+  // Pages whose backing service is off are hidden rather than shown as dead ends.
+  const shown = (tab: Tab) =>
     ["/app/goals", "/app/notifications"].includes(tab.href)
-      ? status?.poweredBy?.savedData
+      ? Boolean(status?.poweredBy?.savedData)
       : tab.href === "/app/circles"
-        ? status?.technical?.contracts.savingsCircle
-        : true,
+        ? Boolean(status?.technical?.contracts.savingsCircle)
+        : true;
+  const groups = GROUPS.map((group) => ({
+    ...group,
+    tabs: group.tabs.filter(shown),
+  })).filter((group) => group.tabs.length > 0);
+  const inMore = groups.some((group) =>
+    group.tabs.some((tab) => isActive(tab.href)),
   );
-  const current = [
-    ...TABS,
-    ...MORE,
-    { href: "/app/settings", label: "Settings", icon: SettingsIcon },
-  ].find((tab) => isActive(tab.href)) ?? {
-    href: pathname,
-    label: "Your money",
-    icon: MoneyIcon,
-  };
 
   return (
     <>
@@ -74,7 +102,7 @@ export function AppNav() {
           <Link
             href="/app"
             className="flex min-h-[44px] items-center px-2 text-ink"
-            aria-label="Modalis"
+            aria-label="Modalis home"
           >
             <ModalisLogo size={24} className="max-[359px]:[&>span]:hidden" />
           </Link>
@@ -92,117 +120,151 @@ export function AppNav() {
           Add money
         </Link>
 
-        <nav className="mt-6 space-y-1" aria-label="Your money">
-          {TABS.map((tab) => (
-            <SideLink key={tab.href} tab={tab} active={isActive(tab.href)} />
-          ))}
+        <nav className="mt-5" aria-label="App">
+          <ul className="space-y-0.5">
+            {TABS.map((tab) => (
+              <li key={tab.href}>
+                <SideLink tab={tab} active={isActive(tab.href)} />
+              </li>
+            ))}
+          </ul>
+          {groups
+            .map((group) => ({
+              ...group,
+              // The sidebar already has an Add money button and a bell.
+              tabs: group.tabs.filter(
+                (tab) =>
+                  !["/app/add-money", "/app/notifications"].includes(tab.href),
+              ),
+            }))
+            .map((group) => (
+              <NavGroup
+                key={group.title}
+                group={group}
+                isActive={isActive}
+                className="mt-5"
+              />
+            ))}
         </nav>
 
-        <div className="eyebrow mt-7 px-3 text-ink-muted">Understand</div>
-        <nav className="mt-2 space-y-1" aria-label="Understand your plan">
-          {more.map((tab) => (
-            <SideLink key={tab.href} tab={tab} active={isActive(tab.href)} />
-          ))}
-        </nav>
-
-        <div className="mt-auto space-y-1">
-          <SideLink
-            tab={{
-              href: "/app/settings",
-              label: "Settings",
-              icon: SettingsIcon,
-            }}
-            active={pathname.startsWith("/app/settings")}
-          />
-          <div className="px-1 pt-2">
-            <WalletButton signIn />
-          </div>
+        <div className="mt-auto px-1 pt-4">
+          <WalletButton signIn />
         </div>
       </aside>
 
+      {/* ---------------------------------------------------------- phone top bar */}
       <header
         className="relative z-40 shrink-0 px-4 pt-4 pb-2 lg:hidden"
         data-testid="app-header"
       >
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 rounded-full bg-surface/95 px-4 py-2 shadow-[var(--shadow-card)] backdrop-blur-xl">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 rounded-full bg-surface/95 py-1.5 pr-1.5 pl-4 shadow-[var(--shadow-card)] backdrop-blur-xl">
           <Link
             href="/app"
             className="flex min-h-11 min-w-0 items-center text-ink"
-            aria-label="Modalis"
+            aria-label="Modalis home"
           >
-            <ModalisLogo size={24} />
+            <ModalisLogo size={24} className="max-[359px]:[&>span]:hidden" />
           </Link>
-          <NavigationSheet
-            title="Menu"
-            trigger={
-              <>
-                <MenuIcon />
-                <span>Menu</span>
-              </>
-            }
-          >
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-sunken p-3">
-              <span className="text-xs font-medium text-ink-muted">
-                Testnet demo · no real money
-              </span>
-              <ThemeToggle />
-              <WalletButton signIn />
-            </div>
-            <nav aria-label="More pages" className="space-y-1">
-              {more.map((tab) => (
-                <SideLink
-                  key={tab.href}
-                  tab={tab}
-                  active={isActive(tab.href)}
-                />
-              ))}
-              <SideLink
-                tab={{
-                  href: "/app/settings",
-                  label: "Settings",
-                  icon: SettingsIcon,
-                }}
-                active={isActive("/app/settings")}
-              />
-            </nav>
-          </NavigationSheet>
+          <div className="flex items-center gap-1">
+            <NotificationBell />
+            <Link
+              href="/app/add-money"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-accent-ink"
+            >
+              <PlusIcon />
+              Add money
+            </Link>
+          </div>
         </div>
       </header>
 
-      <div
+      {/* ---------------------------------------------------------- phone tab bar */}
+      <nav
         data-testid="app-dock"
-        className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(14px,env(safe-area-inset-bottom))] lg:hidden"
+        aria-label="App"
+        className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden"
       >
-        <NavigationSheet
-          title="Go to"
-          bottom
-          trigger={
-            <>
-              <current.icon active />
-              <span className="min-w-0 truncate">{current.label}</span>
-              <ChevronIcon />
-            </>
-          }
-        >
-          <nav aria-label="Your money" className="space-y-1">
-            {TABS.map((tab) => (
-              <SideLink key={tab.href} tab={tab} active={isActive(tab.href)} />
-            ))}
-            <SideLink
-              tab={{ href: "/app/ask", label: "Ask Modalis", icon: AskIcon }}
-              active={isActive("/app/ask")}
-            />
-          </nav>
-          <Link
-            href="/app/add-money"
-            className="mt-5 flex min-h-12 items-center justify-center gap-2 rounded-full bg-accent text-sm font-semibold text-accent-ink"
-          >
-            <PlusIcon />
-            Add money
-          </Link>
-        </NavigationSheet>
-      </div>
+        <ul className="mx-auto grid max-w-md grid-cols-5 gap-1 rounded-[24px] bg-surface/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl">
+          {TABS.map((tab) => {
+            const active = isActive(tab.href);
+            return (
+              <li key={tab.href}>
+                <Link
+                  href={tab.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`${DOCK_ITEM} ${active ? "bg-panel text-panel-ink" : "text-ink-soft hover:bg-sunken hover:text-ink"}`}
+                >
+                  <tab.icon active={active} />
+                  {tab.label}
+                </Link>
+              </li>
+            );
+          })}
+          <li>
+            <NavigationSheet
+              title="More"
+              bottom
+              triggerClassName={`${DOCK_ITEM} w-full ${inMore ? "bg-panel text-panel-ink" : "text-ink-soft hover:bg-sunken hover:text-ink"}`}
+              trigger={
+                <>
+                  <MoreIcon />
+                  More
+                </>
+              }
+            >
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-sunken p-3">
+                <span className="text-xs font-medium text-ink-muted">
+                  Testnet demo · no real money
+                </span>
+                <div className="flex items-center gap-1">
+                  <ThemeToggle />
+                  <WalletButton signIn />
+                </div>
+              </div>
+              <nav aria-label="More pages">
+                {groups.map((group) => (
+                  <NavGroup
+                    key={group.title}
+                    group={group}
+                    isActive={isActive}
+                    className="mt-4"
+                  />
+                ))}
+              </nav>
+            </NavigationSheet>
+          </li>
+        </ul>
+      </nav>
     </>
+  );
+}
+
+const DOCK_ITEM =
+  "flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[18px] px-1 text-[11.5px] font-semibold leading-none transition-colors";
+
+function NavGroup({
+  group,
+  isActive,
+  className = "",
+}: {
+  group: Group;
+  isActive: (href: string) => boolean;
+  className?: string;
+}) {
+  const id = `nav-${group.title.toLowerCase().replace(/\W+/g, "-")}`;
+  return (
+    <div className={className}>
+      <h2 id={id} className="eyebrow px-3 pb-1.5 text-ink-muted">
+        {group.title}
+      </h2>
+      <ul aria-labelledby={id} className="space-y-0.5">
+        {group.tabs.map((tab) => (
+          <li key={tab.href}>
+            <SideLink tab={tab} active={isActive(tab.href)} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -381,17 +443,58 @@ function PlusIcon() {
   );
 }
 
-function MenuIcon() {
+function MoreIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <path d="M4 7h12M4 13h12" {...stroke()} />
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <circle cx="4.5" cy="10" r="1.3" fill="currentColor" />
+      <circle cx="10" cy="10" r="1.3" fill="currentColor" />
+      <circle cx="15.5" cy="10" r="1.3" fill="currentColor" />
     </svg>
   );
 }
-function ChevronIcon() {
+
+function PlusCircleIcon({ active }: IconProps) {
   return (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden>
-      <path d="m5 12 5-5 5 5" {...stroke()} />
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <circle cx="10" cy="10" r="7" {...stroke(active)} />
+      <path d="M10 6.8v6.4M6.8 10h6.4" {...stroke(active)} />
+    </svg>
+  );
+}
+
+function WithdrawIcon({ active }: IconProps) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <path d="M10 3.5v9M6.5 9 10 12.5 13.5 9" {...stroke(active)} />
+      <path d="M4 16.5h12" {...stroke(active)} />
+    </svg>
+  );
+}
+
+function SendIcon({ active }: IconProps) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <path d="M3.5 10 16.5 3.5 13 16.5l-3-5z" {...stroke(active)} />
+      <path d="m10 11.5 6.5-8" {...stroke(active)} />
+    </svg>
+  );
+}
+
+function GiftIcon({ active }: IconProps) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <rect x="3" y="7.5" width="14" height="9" rx="1.6" {...stroke(active)} />
+      <path d="M10 7.5v9M3 11h14" {...stroke(active)} />
+      <path d="M10 7.5C8.5 4 5.5 4.5 6.5 6.5 7 7.4 10 7.5 10 7.5Zm0 0c1.5-3.5 4.5-3 3.5-1-.5.9-3.5 1-3.5 1Z" {...stroke(active)} />
+    </svg>
+  );
+}
+
+function BellIcon({ active }: IconProps) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+      <path d="M5 13.5V9a5 5 0 0 1 10 0v4.5l1.2 1.5H3.8z" {...stroke(active)} />
+      <path d="M8.3 17h3.4" {...stroke(active)} />
     </svg>
   );
 }
