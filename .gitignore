@@ -33,3 +33,5 @@ apps/web/.screenshots/
 # The pitch render writes here while it runs; the finished file is added with git add -f.
 pitch/modalis-pitch.mp4
 pitch/stills/
+social/out/modalis-launch.mp4
+social/out/stills/
