@@ -66,7 +66,7 @@ export function SiteChrome({ children }: { children: ReactNode }) {
         </div>
       ) : inApp ? (
         // Reserve real viewport space for the dock. Forms scroll above it, never behind it.
-        <div className="isolate flex h-dvh flex-col overflow-hidden bg-canvas pb-[calc(88px+env(safe-area-inset-bottom))] lg:h-auto lg:min-h-screen lg:overflow-visible lg:pb-0 lg:pl-[256px] print:h-auto print:overflow-visible print:pb-0 print:pl-0">
+        <div className="isolate flex h-dvh flex-col overflow-hidden bg-canvas pb-[calc(88px+env(safe-area-inset-bottom))] lg:h-auto lg:min-h-screen lg:overflow-visible lg:pb-0 lg:pl-[var(--sidebar-w)] lg:transition-[padding] lg:duration-300 print:h-auto print:overflow-visible print:pb-0 print:pl-0">
           <AmbientBackground />
           <AppNav />
           <main

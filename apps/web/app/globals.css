@@ -497,3 +497,26 @@ select.field {
     transform: none;
   }
 }
+
+/* Desktop sidebar width; the content column pads by the same amount. */
+:root {
+  --sidebar-w: 272px;
+}
+:root[data-sidebar="collapsed"] {
+  --sidebar-w: 104px;
+}
+
+.rail-tip {
+  transform-origin: var(--transform-origin);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+.rail-tip[data-starting-style],
+.rail-tip[data-ending-style] {
+  opacity: 0;
+  transform: translateX(-4px);
+}
+
+/* The palette's dialog already frames the field; a second ring around it is noise. */
+.palette-input:focus-visible {
+  outline: none;
+}

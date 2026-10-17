@@ -5,15 +5,13 @@
  *
  * The choice is stored in this browser only (it is a display preference, nothing more). New
  * visitors start in light mode; choosing "Match my device" keeps following the device if it
- * changes. `THEME_SCRIPT` runs before the first paint so an explicit dark choice never flashes
- * white.
+ * changes. `THEME_SCRIPT` in lib/first-paint runs before the first paint so an explicit dark
+ * choice never flashes white.
  */
 import { useCallback, useEffect, useState } from "react";
+import { THEME_KEY as KEY } from "@/lib/first-paint";
 
 export type ThemeChoice = "light" | "dark" | "system";
-const KEY = "modalis-theme";
-
-export const THEME_SCRIPT = `(function(){try{var c=localStorage.getItem("${KEY}");var d=c==="dark"||(c==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light";}catch(e){document.documentElement.dataset.theme="light";}})();`;
 
 function systemDark() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;

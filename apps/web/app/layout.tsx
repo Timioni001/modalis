@@ -6,7 +6,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { publicConfig } from "@/lib/public-config";
 import { SiteChrome } from "@/components/site-chrome";
-import { THEME_SCRIPT } from "@/components/theme-toggle";
+import { SIDEBAR_SCRIPT, THEME_SCRIPT } from "@/lib/first-paint";
 import { LOW_DATA_SCRIPT, ServiceWorker } from "@/components/device-prefs";
 
 /**
@@ -95,7 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${GeistSans.variable} ${GeistMono.variable} ${display.variable} ${serif.variable}`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT + SIDEBAR_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: LOW_DATA_SCRIPT }} />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
