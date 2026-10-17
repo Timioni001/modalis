@@ -6,5 +6,12 @@ create table if not exists public.waitlist_signups (
   source     text not null default 'landing',
   created_at timestamptz not null default now()
 );
+
+-- Keep this migration safe to rerun if the table was created from an earlier draft.
+alter table public.waitlist_signups
+  add column if not exists source text not null default 'landing';
+alter table public.waitlist_signups
+  add column if not exists created_at timestamptz not null default now();
+
 create unique index if not exists waitlist_signups_email_idx on public.waitlist_signups(email);
 alter table public.waitlist_signups enable row level security;

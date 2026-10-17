@@ -26,6 +26,55 @@ function isMissingWaitlistTable(error: unknown): boolean {
   );
 }
 
+function errorDetails(error: unknown): { code: string; text: string } {
+  if (!error || typeof error !== "object") return { code: "", text: "" };
+  const candidate = error as { code?: unknown; message?: unknown; details?: unknown };
+  const code = typeof candidate.code === "string" ? candidate.code.toUpperCase() : "";
+  const text = [candidate.code, candidate.message, candidate.details]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+  return { code, text };
+}
+
+function waitlistStorageError(error: unknown): DomainError {
+  const { code, text } = errorDetails(error);
+  if (
+    code === "PGRST204" ||
+    code === "42703" ||
+    code === "42P10" ||
+    text.includes("schema cache") ||
+    text.includes("column") ||
+    text.includes("on conflict")
+  ) {
+    return new DomainError(
+      "waitlist_unavailable",
+      "The early-access list schema is incomplete. Re-run the waitlist migration in the Supabase project used by this deployment.",
+      503,
+    );
+  }
+  if (
+    code === "401" ||
+    code === "42501" ||
+    code === "PGRST301" ||
+    text.includes("permission denied") ||
+    text.includes("row-level security") ||
+    text.includes("not authorized") ||
+    text.includes("invalid api key")
+  ) {
+    return new DomainError(
+      "waitlist_unavailable",
+      "The early-access list is not writable on this deployment. Check its Production Supabase service-role key.",
+      503,
+    );
+  }
+  return new DomainError(
+    "waitlist_unavailable",
+    "The early-access list is temporarily unavailable. Please try again shortly.",
+    503,
+  );
+}
+
 /** Public early-access signup. It stores only a validated email through the server role. */
 export async function POST(request: Request): Promise<Response> {
   return route(async () => {
@@ -54,7 +103,7 @@ export async function POST(request: Request): Promise<Response> {
           503,
         );
       }
-      throw error;
+      throw waitlistStorageError(error);
     }
     return jsonResponse({ joined: true });
   });
