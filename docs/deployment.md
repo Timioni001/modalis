@@ -135,6 +135,13 @@ The public early-access form uses `supabase/migrations/0005_waitlist.sql`. If th
 unique email index; the browser never receives access to the table. No Vercel redeploy is required
 after the migration. Keep `SUPABASE_SERVICE_ROLE_KEY` server-only.
 
+If you do not want the waitlist to depend on Supabase, use Resend Contacts instead. In Vercel's
+**Production** environment variables, set `WAITLIST_PROVIDER=resend` and add a server-only
+`RESEND_API_KEY` from Resend. The route then adds the address through
+`https://api.resend.com/contacts` and treats duplicate addresses as successful, so no Supabase
+waitlist table is needed. Redeploy after changing environment variables. Supabase is still used
+for signed-in goals and history.
+
 The risk monitor now runs an adjustment on its own only for people who chose "Do it for me" in
 Settings, and only once that choice has passed its 24-hour wait. Its operator switch alone is no
 longer enough.

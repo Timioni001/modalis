@@ -94,7 +94,7 @@ Envio Cloud deploys from GitHub rather than from your laptop
 ([docs](https://docs.envio.dev/docs/HyperIndex/hosted-service-deployment)).
 
 1. Sign in at <https://envio.dev> with GitHub.
-2. Add an indexer and point it at your repository, branch `claude/awesome-gates-h1pxk0`, root
+2. Add an indexer and point it at your repository, branch `main`, root
    directory `integrations/envio`.
 3. It builds from `config.hosted.yaml` and `schema.graphql`, and gives you a GraphQL endpoint.
 4. Put that endpoint in Vercel:
@@ -111,6 +111,11 @@ pnpm envio:dev
 ```
 
 An API key on the endpoint is a paid feature. For a hackathon the open endpoint is fine.
+
+Envio Cloud may send an inactivity warning and pause an indexer that receives no requests. This
+does not stop Modalis: remove `ENVIO_GRAPHQL_URL` from Vercel if you do not want the hosted
+indexer, and Activity and `/stats` will read the chain or the application database instead. If you
+keep Envio, deploy it from `main` so it follows the production branch.
 
 ---
 
